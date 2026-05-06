@@ -1,6 +1,7 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import dynamic from 'next/dynamic';
+import { vapi } from '@/lib/vapi';
 
 const CallButton = dynamic(() => import('@/components/CallButton'), {
   ssr: false,
@@ -9,6 +10,18 @@ const CallButton = dynamic(() => import('@/components/CallButton'), {
 
 export default function Home() {
   const [scenario, setScenario] = useState("You are my secret side chick, and I'm calling you after work.");
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    if (!vapi) return;
+
+    vapi.on('remote-video-track-added', (track: MediaStreamTrack) => {
+      if (videoRef.current) {
+        const stream = new MediaStream([track]);
+        videoRef.current.srcObject = stream;
+      }
+    });
+  }, []);
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-black text-white p-6 md:p-24">
@@ -27,6 +40,16 @@ export default function Home() {
         </div>
 
         <CallButton scenario={scenario} />
+
+        <div className="relative w-full max-w-2xl mx-auto aspect-video bg-black rounded-xl overflow-hidden border-2 border-yellow-500/20 shadow-2xl mt-6">
+          <video
+            ref={videoRef}
+            autoPlay
+            playsInline
+            className="w-full h-full object-cover"
+            poster="/alyra-placeholder.png"
+          />
+        </div>
         
         <div className="mt-8 pt-6 border-t border-gray-800 w-full text-center">
           <p className="text-[10px] text-gray-600 uppercase tracking-widest">Discreet Billing: AA Technical Services</p>
