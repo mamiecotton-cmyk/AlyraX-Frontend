@@ -15,7 +15,7 @@ export default function Home() {
   useEffect(() => {
     if (!vapi) return;
 
-    vapi.on('remote-video-track-added', (track: MediaStreamTrack) => {
+    vapi.on('video', (track: MediaStreamTrack) => {
       if (videoRef.current) {
         const stream = new MediaStream([track]);
         videoRef.current.srcObject = stream;
