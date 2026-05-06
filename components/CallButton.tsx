@@ -13,11 +13,11 @@ export default function CallButton({ scenario }: { scenario: string }) {
         process.env.NEXT_PUBLIC_VAPI_ASSISTANT_ID,
         {
           variableValues: { scenario },
-          // The URL uses your ENDPOINT ID
-          serverUrl: "https://api.runpod.ai/v2/1wsijhcq54l8pb/runsync",
-          // The Headers use your API KEY
-          headers: {
-            "Authorization": "Bearer rpa_JTSI6HZI6H93L8CX1PVFMMCHM6OPOQPDWG8Y4YIK1evgcf"
+          server: {
+            url: "https://api.runpod.ai/v2/1wsijhcq54l8pb/runsync",
+            headers: {
+              "Authorization": "Bearer rpa_JTSI6HZI6H93L8CX1PVFMMCHM6OPOQPDWG8Y4YIK1evgcf"
+            }
           }
         }
       );
