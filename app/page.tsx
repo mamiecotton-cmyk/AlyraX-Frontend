@@ -47,7 +47,7 @@ export default function Home() {
             autoPlay
             playsInline
             className="w-full h-full object-cover"
-            poster="/Alyra-poster.png"
+            poster="/alyra-poster.png"
           />
         </div>
         
