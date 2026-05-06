@@ -7,20 +7,21 @@ export default function CallButton({ scenario }: { scenario: string }) {
 
   const startSecretCall = async () => {
     setCalling(true);
+    const assistantId = process.env.NEXT_PUBLIC_VAPI_ASSISTANT_ID;
+    if (!vapi) {
+      console.error('Call failed: VAPI not initialized (missing NEXT_PUBLIC_VAPI_PUBLIC_KEY)');
+      setCalling(false);
+      return;
+    }
+    if (!assistantId) {
+      console.error('Call failed: missing NEXT_PUBLIC_VAPI_ASSISTANT_ID');
+      setCalling(false);
+      return;
+    }
     try {
-      // First arg: assistant ID, second arg: overrides
-      await vapi?.start(
-        process.env.NEXT_PUBLIC_VAPI_ASSISTANT_ID,
-        {
-          variableValues: { scenario },
-          server: {
-            url: "https://api.runpod.ai/v2/1wsijhcq54l8pb/runsync",
-            headers: {
-              "Authorization": "Bearer rpa_JTSI6HZI6H93L8CX1PVFMMCHM6OPOQPDWG8Y4YIK1evgcf"
-            }
-          }
-        }
-      );
+      await vapi.start(assistantId, {
+        variableValues: { scenario },
+      });
     } catch (err) {
       console.error('Call failed:', err);
       setCalling(false);
