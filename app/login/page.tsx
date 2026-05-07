@@ -126,7 +126,7 @@ export default function LoginPage() {
               >
                 <input
                   type="password"
-                  required={mode !== 'magic'}
+                  required
                   placeholder="Password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
