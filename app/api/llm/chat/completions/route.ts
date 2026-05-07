@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
     if (!openrouterResponse.ok) {
       const error = await openrouterResponse.text();
       console.error('OpenRouter error:', error);
-      return NextResponse.json({ error: 'OpenRouter request failed' }, { status: 500 });
+      return NextResponse.json({ error: 'OpenRouter request failed', detail: error }, { status: 500 });
     }
 
     const data = await openrouterResponse.json();
