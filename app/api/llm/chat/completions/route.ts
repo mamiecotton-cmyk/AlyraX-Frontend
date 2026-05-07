@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+export const maxDuration = 60;
+
 export async function POST(req: NextRequest) {
   try {
-    // Get the OpenAI-format request from Vapi
     const vapiBody = await req.json();
 
-    // Wrap it in RunPod's expected format
     const runpodPayload = {
       input: {
         messages: vapiBody.messages || [],
@@ -15,7 +15,6 @@ export async function POST(req: NextRequest) {
       }
     };
 
-    // Send to RunPod
     const runpodResponse = await fetch(
       `https://api.runpod.ai/v2/${process.env.RUNPOD_ENDPOINT_ID}/runsync`,
       {
@@ -35,11 +34,8 @@ export async function POST(req: NextRequest) {
     }
 
     const runpodData = await runpodResponse.json();
-
-    // Extract the output from RunPod's response wrapper
     const output = runpodData.output;
 
-    // Return OpenAI-compatible response to Vapi
     return NextResponse.json(output);
 
   } catch (error) {
