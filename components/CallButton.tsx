@@ -13,7 +13,7 @@ export default function CallButton({ scenario }: { scenario: string }) {
     });
 
     return () => {
-      vapi.removeAllListeners();
+      vapi?.removeAllListeners();
     };
   }, []);
 
