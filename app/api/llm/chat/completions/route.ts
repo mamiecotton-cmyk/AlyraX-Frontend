@@ -9,7 +9,6 @@ export async function POST(req: NextRequest) {
     const vapiBody = await req.json();
     const incomingMessages = vapiBody.messages || [];
 
-    // Inject AlyraX's system prompt at the start
     const messages = [
       { role: 'system', content: SYSTEM_PROMPT },
       ...incomingMessages.filter((m: { role: string }) => m.role !== 'system')
@@ -36,8 +35,12 @@ export async function POST(req: NextRequest) {
 
     if (!openrouterResponse.ok) {
       const error = await openrouterResponse.text();
-      console.error('OpenRouter error:', error);
-      return NextResponse.json({ error: 'OpenRouter request failed', detail: error }, { status: 500 });
+      console.error('OpenRouter error:', openrouterResponse.status, error);
+      return NextResponse.json({ 
+        error: 'OpenRouter request failed',
+        status: openrouterResponse.status,
+        details: error
+      }, { status: 500 });
     }
 
     const data = await openrouterResponse.json();
