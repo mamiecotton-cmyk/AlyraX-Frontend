@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
           'X-Title': 'AlyraX',
         },
         body: JSON.stringify({
-          model: 'cognitivecomputations/dolphin-mistral-24b-venice-edition',
+          model: 'cognitivecomputations/dolphin-mistral-24b-venice-edition:free',
           messages: messages,
           temperature: 0.8,
           max_tokens: 200,
