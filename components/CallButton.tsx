@@ -20,10 +20,15 @@ export default function CallButton({ scenario }: { scenario: string }) {
     }
     try {
       await vapi.start(assistantId, {
-        variableValues: { scenario },
+        variableValues: {
+          scenario,
+          videoEnabled: true,
+        },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ...({ assistant: { videoCodec: "h264", model: { provider: "custom-llm", url: "https://api.runpod.ai/v2/1wsijhcq54l8pb/runsync" } } } as any),
       });
     } catch (err) {
-      console.error('Call failed:', err);
+      console.error("The Mouth failed to open:", err);
       setCalling(false);
     }
   };
