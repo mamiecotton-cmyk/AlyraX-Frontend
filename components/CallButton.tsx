@@ -19,14 +19,8 @@ export default function CallButton({ scenario }: { scenario: string }) {
       return;
     }
     try {
-      await vapi.start(assistantId, {
-        variableValues: {
-          scenario,
-          videoEnabled: true,
-        },
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        ...({ assistant: { videoCodec: "h264", model: { provider: "custom-llm", url: "https://api.runpod.ai/v2/1wsijhcq54l8pb/runsync" } } } as any),
-      });
+      await vapi.start(assistantId);
+      console.log("Mouth is open and calling the Brain...");
     } catch (err) {
       console.error("The Mouth failed to open:", err);
       setCalling(false);
