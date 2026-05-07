@@ -10,14 +10,18 @@ export default function AgeGate() {
 
   useEffect(() => {
     const isVerified = localStorage.getItem('alyra_age_verified');
-    if (!isVerified) setIsVisible(true);
-  }, []);
+    if (isVerified) {
+      router.push('/login');
+    } else {
+      setIsVisible(true);
+    }
+  }, [router]);
 
   const handleVerify = () => {
     localStorage.setItem('alyra_age_verified', 'true');
     document.cookie = 'alyra_age_verified=true; path=/; max-age=31536000; SameSite=Strict';
-    setIsVisible(false);
-    router.push('/login');
+    // Use hard navigation to ensure the cookie is sent with the next request
+    window.location.href = '/login';
   };
 
   return (
