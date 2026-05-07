@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 
 export const maxDuration = 60;
 
@@ -29,25 +29,27 @@ export async function POST(req: NextRequest) {
           messages: messages,
           temperature: 0.8,
           max_tokens: 200,
+          stream: true,
         }),
       }
     );
 
-    if (!openrouterResponse.ok) {
+    if (!openrouterResponse.ok || !openrouterResponse.body) {
       const error = await openrouterResponse.text();
       console.error('OpenRouter error:', openrouterResponse.status, error);
-      return NextResponse.json({ 
-        error: 'OpenRouter request failed',
-        status: openrouterResponse.status,
-        details: error
-      }, { status: 500 });
+      return new Response(JSON.stringify({ error, status: openrouterResponse.status }), { status: 500 });
     }
 
-    const data = await openrouterResponse.json();
-    return NextResponse.json(data);
+    return new Response(openrouterResponse.body, {
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+      },
+    });
 
   } catch (error) {
     console.error('Bridge error:', error);
-    return NextResponse.json({ error: 'Bridge failed' }, { status: 500 });
+    return new Response(JSON.stringify({ error: 'Bridge failed' }), { status: 500 });
   }
 }
