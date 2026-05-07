@@ -1,21 +1,9 @@
 'use client';
 import { vapi } from '@/lib/vapi';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 
 export default function CallButton({ scenario }: { scenario: string }) {
   const [calling, setCalling] = useState(false);
-
-  useEffect(() => {
-    if (!vapi) return;
-
-    vapi.on('call-start', () => {
-      console.log('Call has started');
-    });
-
-    return () => {
-      vapi?.removeAllListeners();
-    };
-  }, []);
 
   const startSecretCall = async () => {
     setCalling(true);

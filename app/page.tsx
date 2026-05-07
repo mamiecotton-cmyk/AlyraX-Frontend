@@ -15,12 +15,20 @@ export default function Home() {
   useEffect(() => {
     if (!vapi) return;
 
+    vapi.on('call-start', () => {
+      console.log('Call has started');
+    });
+
     vapi.on('video', (track: MediaStreamTrack) => {
       if (videoRef.current) {
         const stream = new MediaStream([track]);
         videoRef.current.srcObject = stream;
       }
     });
+
+    return () => {
+      vapi?.removeAllListeners();
+    };
   }, []);
 
   return (
