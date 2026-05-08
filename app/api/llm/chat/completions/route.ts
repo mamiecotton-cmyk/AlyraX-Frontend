@@ -24,8 +24,11 @@ export async function POST(req: NextRequest) {
           .eq('user_id', user.id)
           .single();
 
-        if (companion?.personas?.system_prompt) {
-          systemPrompt = companion.personas.system_prompt;
+        const persona = Array.isArray(companion?.personas)
+          ? companion.personas[0]
+          : companion?.personas;
+        if (persona?.system_prompt) {
+          systemPrompt = persona.system_prompt;
         }
       }
     } catch {
