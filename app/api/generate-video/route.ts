@@ -32,28 +32,46 @@ Based on what the user requested, generate exactly 6 sequential video prompts
 describing what the woman in the video does. 
 
 Rules:
-- Keep her in roughly the same position throughout — no standing up or walking
+- Keep her in roughly the same position throughout
 - Each prompt escalates naturally from the previous
 - Prompts describe subtle, realistic webcam-style movements
 - Keep lighting consistent: soft bedroom/intimate lighting
-- Always start with "woman" 
+- Always start with "woman"
 - Each prompt is one sentence, max 20 words
 - Be explicit based on what was requested
 - Return ONLY a JSON array of 6 strings, nothing else
 
 Example format:
-["prompt 1", "prompt 2", "prompt 3", "prompt 4", "prompt 5", "prompt 6"]`
+["prompt 1", "prompt 2", "prompt 3", "prompt 4", "prompt 5", "prompt 6"]`,
         },
         ...recentHistory,
         {
           role: 'user',
-          content: `User request: "${userMessage}". Generate 6 escalating video prompts.`
-        }
+          content: `User request: "${userMessage}". Generate 6 escalating video prompts.`,
+        },
       ],
     }),
   });
 
   const data = await response.json();
+
+  // Log for debugging
+  console.log('OpenRouter response status:', response.status);
+  console.log('OpenRouter data:', JSON.stringify(data).slice(0, 500));
+
+  if (!response.ok || !data.choices || !data.choices[0]) {
+    console.error('OpenRouter failed:', data);
+    // Return fallback prompts
+    return [
+      "woman looking at camera with a seductive smile, soft bedroom lighting",
+      "woman slowly reaching toward camera, eyes locked on viewer",
+      "woman arching back slightly, biting her lip softly",
+      "woman leaning closer to camera, breathing slowly and deeply",
+      "woman running hands slowly down her body, eyes on camera",
+      "woman looking intensely at camera, flush with excitement",
+    ];
+  }
+
   const content = data.choices[0].message.content.trim();
 
   try {
@@ -61,9 +79,8 @@ Example format:
     if (Array.isArray(prompts) && prompts.length === 6) {
       return prompts;
     }
-    throw new Error('Invalid prompts format');
+    throw new Error('Invalid format');
   } catch {
-    // Fallback prompts if parsing fails
     return [
       "woman looking at camera with a seductive smile, soft bedroom lighting",
       "woman slowly reaching toward camera, eyes locked on viewer",
