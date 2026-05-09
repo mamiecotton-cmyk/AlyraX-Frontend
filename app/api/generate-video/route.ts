@@ -22,7 +22,7 @@ async function generateVideoPrompts(
       'X-Title': 'AlyraX',
     },
     body: JSON.stringify({
-      model: 'mistralai/mistral-7b-instruct',
+      model: 'mistralai/mistral-small-2503',
       max_tokens: 500,
       messages: [
         {
