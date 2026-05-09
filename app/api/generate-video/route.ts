@@ -157,7 +157,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Fetch companion image URL from Supabase
-    const supabase = createClient();
+    const supabase = await createClient();
     const { data: companion, error } = await supabase
       .from('companions')
       .select('image_url')
