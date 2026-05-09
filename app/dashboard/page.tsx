@@ -8,6 +8,7 @@ import { vapi } from '@/lib/vapi';
 const CallButton = dynamic(() => import('@/components/CallButton'), {
   ssr: false,
 });
+import LivePortraitVideo from '@/components/LivePortraitVideo';
 
 type Companion = {
   id: string;
@@ -33,7 +34,7 @@ export default function DashboardPage() {
   const [companion, setCompanion] = useState<Companion | null>(null);
   const [credits, setCredits] = useState<Credits | null>(null);
   const [status, setStatus] = useState('idle');
-  const [mode, setMode] = useState<'solo' | 'couples_spice' | 'couples_mediator'>('solo');
+  const [mode, setMode] = useState<'solo' | 'solo_video' | 'couples_spice' | 'couples_mediator'>('solo');
   const [loading, setLoading] = useState(true);
   const [showControls, setShowControls] = useState(false);
   const [calling, setCalling] = useState(false);
@@ -112,11 +113,19 @@ export default function DashboardPage() {
     >
       {/* Full screen companion image */}
       {companion?.image_url && (
-        <img
-          src={companion.image_url}
-          alt={companion.name}
-          className="absolute inset-0 w-full h-full object-contain"
-        />
+        mode === 'solo_video' && calling ? (
+          <LivePortraitVideo
+            companionImageUrl={companion.image_url || ''}
+            isCallActive={calling}
+            vapiInstance={vapi}
+          />
+        ) : (
+          <img
+            src={companion.image_url}
+            alt={companion.name}
+            className="absolute inset-0 w-full h-full object-contain"
+          />
+        )
       )}
 
       {/* Subtle status pulse when on call */}
@@ -160,6 +169,7 @@ export default function DashboardPage() {
           <div className="flex gap-2">
             {[
               { key: 'solo', label: 'Solo' },
+              { key: 'solo_video', label: '📹 Video' },
               { key: 'couples_spice', label: 'Spice 🔥' },
               { key: 'couples_mediator', label: 'Mediate 🕊️' },
             ].map(m => (
