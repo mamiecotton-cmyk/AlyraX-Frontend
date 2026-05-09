@@ -18,8 +18,11 @@ export async function POST(req: NextRequest) {
     const prompt = `${qualityTags}, ${composition}, ${description}`;
 
     // Submit job async
+    const imageEndpointId = process.env.RUNPOD_IMAGE_ENDPOINT_ID;
+    console.log('Using RUNPOD_IMAGE_ENDPOINT_ID:', imageEndpointId);
+
     const runpodResponse = await fetch(
-      `https://api.runpod.ai/v2/${process.env.RUNPOD_IMAGE_ENDPOINT_ID}/run`,
+      `https://api.runpod.ai/v2/${imageEndpointId}/run`,
       {
         method: 'POST',
         headers: {
@@ -57,7 +60,7 @@ export async function POST(req: NextRequest) {
       await new Promise(resolve => setTimeout(resolve, 5000));
 
       const statusResponse = await fetch(
-        `https://api.runpod.ai/v2/${process.env.RUNPOD_IMAGE_ENDPOINT_ID}/status/${jobId}`,
+      `https://api.runpod.ai/v2/${imageEndpointId}/status/${jobId}`,
         {
           headers: {
             'Authorization': `Bearer ${process.env.RUNPOD_API_KEY}`,
