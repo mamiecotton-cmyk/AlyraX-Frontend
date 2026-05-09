@@ -13,8 +13,8 @@ export default function CallButton({ scenario }: { scenario: string }) {
     vapi.on('call-start', onStart);
     vapi.on('call-end', onEnd);
     return () => {
-      vapi.off('call-start', onStart);
-      vapi.off('call-end', onEnd);
+      vapi?.off('call-start', onStart);
+      vapi?.off('call-end', onEnd);
     };
   }, []);
 
