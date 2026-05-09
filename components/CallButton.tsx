@@ -1,9 +1,22 @@
 'use client';
 import { vapi } from '@/lib/vapi';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 export default function CallButton({ scenario }: { scenario: string }) {
   const [calling, setCalling] = useState(false);
+  const [connected, setConnected] = useState(false);
+
+  useEffect(() => {
+    if (!vapi) return;
+    const onStart = () => { setCalling(false); setConnected(true); };
+    const onEnd = () => { setCalling(false); setConnected(false); };
+    vapi.on('call-start', onStart);
+    vapi.on('call-end', onEnd);
+    return () => {
+      vapi.off('call-start', onStart);
+      vapi.off('call-end', onEnd);
+    };
+  }, []);
 
   const startSecretCall = async () => {
     setCalling(true);
@@ -20,17 +33,32 @@ export default function CallButton({ scenario }: { scenario: string }) {
     }
     try {
       await vapi.start(assistantId);
-      console.log("Mouth is open and calling the Brain...");
     } catch (err) {
       console.error("The Mouth failed to open:", err);
       setCalling(false);
     }
   };
 
+  const endCall = () => {
+    vapi?.stop();
+  };
+
+  if (connected) {
+    return (
+      <button
+        onClick={endCall}
+        className="bg-zinc-800 border border-red-600 text-red-500 px-8 py-4 rounded-full font-bold hover:bg-red-600 hover:text-white transition"
+      >
+        End Chat
+      </button>
+    );
+  }
+
   return (
-    <button 
+    <button
       onClick={startSecretCall}
-      className="bg-red-600 text-white px-8 py-4 rounded-full font-bold hover:bg-red-700 transition"
+      disabled={calling}
+      className="bg-red-600 text-white px-8 py-4 rounded-full font-bold hover:bg-red-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
     >
       {calling ? "Connecting to AlyraX..." : "Start Secret Call"}
     </button>
