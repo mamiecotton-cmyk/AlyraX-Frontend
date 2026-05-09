@@ -323,9 +323,14 @@ export default function OnboardingPage() {
             </div>
 
             {generating && (
-              <p className="text-center text-gray-500 text-sm animate-pulse">
-                Bringing her to life... this takes about 30 seconds
-              </p>
+              <div className="text-center">
+                <p className="text-gray-400 text-sm animate-pulse mb-1">
+                  Bringing her to life...
+                </p>
+                <p className="text-gray-600 text-xs">
+                  First generation takes 1-2 minutes. Worth the wait.
+                </p>
+              </div>
             )}
           </div>
         )}
