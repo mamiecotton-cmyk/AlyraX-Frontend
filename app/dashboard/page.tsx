@@ -32,9 +32,11 @@ export default function DashboardPage() {
 
   const [companion, setCompanion] = useState<Companion | null>(null);
   const [credits, setCredits] = useState<Credits | null>(null);
-  const [status, setStatus] = useState('Idle');
+  const [status, setStatus] = useState('idle');
   const [mode, setMode] = useState<'solo' | 'couples_spice' | 'couples_mediator'>('solo');
   const [loading, setLoading] = useState(true);
+  const [showControls, setShowControls] = useState(false);
+  const [calling, setCalling] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -42,13 +44,21 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (!vapi) return;
-    vapi.on('call-start', () => setStatus('Connected'));
-    vapi.on('call-end', () => { setStatus('Idle'); loadData(); });
-    vapi.on('speech-start', () => setStatus('Speaking'));
-    vapi.on('speech-end', () => setStatus('Listening'));
-    vapi.on('error', () => setStatus('Error'));
+    vapi.on('call-start', () => { setStatus('connected'); setCalling(true); });
+    vapi.on('call-end', () => { setStatus('idle'); setCalling(false); loadData(); });
+    vapi.on('speech-start', () => setStatus('speaking'));
+    vapi.on('speech-end', () => setStatus('listening'));
+    vapi.on('error', () => { setStatus('idle'); setCalling(false); });
     return () => { vapi?.removeAllListeners(); };
   }, []);
+
+  // Auto-hide controls after 3 seconds
+  useEffect(() => {
+    if (showControls) {
+      const timer = setTimeout(() => setShowControls(false), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [showControls]);
 
   const loadData = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -73,11 +83,6 @@ export default function DashboardPage() {
     setLoading(false);
   };
 
-  const handleSignOut = async () => {
-    await supabase.auth.signOut();
-    router.push('/login');
-  };
-
   const formatCredits = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -91,94 +96,96 @@ export default function DashboardPage() {
     return 'Mediate';
   };
 
-  const getStatusColor = () => {
-    if (status === 'Connected' || status === 'Speaking') return 'text-red-400';
-    if (status === 'Listening') return 'text-yellow-400';
-    return 'text-gray-600';
-  };
-
   if (loading) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-black">
-        <p className="text-gray-700 animate-pulse text-xs tracking-widest uppercase">Loading...</p>
+        <p className="text-gray-700 animate-pulse text-xs tracking-widest uppercase">...</p>
       </main>
     );
   }
 
   return (
-    <main className="flex min-h-screen flex-col bg-black text-white">
+    <main
+      className="relative w-full bg-black overflow-hidden cursor-pointer"
+      style={{ height: '100dvh' }}
+      onClick={() => setShowControls(prev => !prev)}
+    >
+      {/* Full screen companion image */}
+      {companion?.image_url && (
+        <img
+          src={companion.image_url}
+          alt={companion.name}
+          className="absolute inset-0 w-full h-full object-contain"
+        />
+      )}
 
-      {/* Hero Image — video call style */}
-      <div className="relative w-full bg-black flex items-center justify-center" style={{ height: '70vh' }}>
-        {companion?.image_url && (
-          <img
-            src={companion.image_url}
-            alt={companion.name}
-            className="h-full w-auto object-contain"
-          />
-        )}
+      {/* Subtle status pulse when on call */}
+      {calling && (
+        <div className="absolute top-4 right-4 w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+      )}
 
+      {/* Controls overlay — appears on tap/click, auto-hides */}
+      <div
+        className={`absolute inset-0 flex flex-col justify-between transition-opacity duration-500 ${
+          showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'
+        }`}
+        style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.85) 0%, transparent 40%, rgba(0,0,0,0.4) 100%)' }}
+      >
         {/* Top bar */}
-        <div className="absolute top-0 left-0 right-0 flex justify-between items-start p-4"
-          style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.6), transparent)' }}>
+        <div className="flex justify-between items-center p-5">
           <button
-            onClick={() => router.push('/credits')}
+            onClick={(e) => { e.stopPropagation(); router.push('/credits'); }}
             className="text-xs text-gray-400 hover:text-white transition"
           >
-            {credits ? formatCredits(credits.balance_seconds) : '0s'} left
+            {credits ? formatCredits(credits.balance_seconds) : '0s'}
           </button>
           <button
-            onClick={handleSignOut}
-            className="text-xs text-gray-600 hover:text-gray-400 transition"
+            onClick={(e) => { e.stopPropagation(); supabase.auth.signOut().then(() => router.push('/login')); }}
+            className="text-xs text-gray-500 hover:text-white transition"
           >
             ✕
           </button>
         </div>
 
-        {/* Name + tagline */}
-        <div className="absolute bottom-0 left-0 right-0 p-6"
-          style={{ background: 'linear-gradient(to top, rgba(0,0,0,1), transparent)' }}>
-          <h1 className="text-3xl font-bold tracking-tight">{companion?.name}</h1>
-          <p className="text-red-400 italic text-sm mt-0.5">{companion?.personas?.tagline}</p>
+        {/* Bottom controls */}
+        <div className="flex flex-col items-center gap-4 p-6">
+
+          {/* Name + tagline */}
+          <div className="text-center">
+            <p className="text-white font-semibold tracking-wide">{companion?.name}</p>
+            <p className="text-red-400 text-xs italic">{companion?.personas?.tagline}</p>
+          </div>
+
+          {/* Mode selector */}
+          <div className="flex gap-2">
+            {[
+              { key: 'solo', label: 'Solo' },
+              { key: 'couples_spice', label: 'Spice 🔥' },
+              { key: 'couples_mediator', label: 'Mediate 🕊️' },
+            ].map(m => (
+              <button
+                key={m.key}
+                onClick={(e) => { e.stopPropagation(); setMode(m.key as typeof mode); }}
+                className={`px-4 py-1.5 rounded-full text-xs font-bold transition border ${
+                  mode === m.key
+                    ? 'border-red-500 text-red-400 bg-red-950/30'
+                    : 'border-gray-700 text-gray-500'
+                }`}
+              >
+                {m.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Call button */}
+          <div onClick={(e) => e.stopPropagation()}>
+            <CallButton scenario={`Mode: ${getModeLabel()}`} />
+          </div>
+
+          <p className="text-xs text-gray-700 uppercase tracking-widest pb-2">
+            Discreet Billing: AA Technical Services
+          </p>
         </div>
-      </div>
-
-      {/* Bottom controls */}
-      <div className="flex flex-col items-center px-6 pt-6 pb-10 gap-6">
-
-        {/* Mode selector */}
-        <div className="flex gap-2 w-full max-w-sm">
-          {[
-            { key: 'solo', label: 'Solo' },
-            { key: 'couples_spice', label: 'Spice 🔥' },
-            { key: 'couples_mediator', label: 'Mediate 🕊️' },
-          ].map(m => (
-            <button
-              key={m.key}
-              onClick={() => setMode(m.key as typeof mode)}
-              className={`flex-1 py-2 rounded-full text-xs font-bold transition border ${
-                mode === m.key
-                  ? 'border-red-500 text-red-400 bg-red-950/20'
-                  : 'border-gray-800 text-gray-600 hover:border-gray-600'
-              }`}
-            >
-              {m.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Call button */}
-        <CallButton scenario={`Mode: ${getModeLabel()}`} />
-
-        {/* Status */}
-        <p className={`text-xs uppercase tracking-widest ${getStatusColor()}`}>
-          {status}
-        </p>
-
-        {/* Discreet billing */}
-        <p className="text-xs text-gray-800 uppercase tracking-widest mt-auto">
-          Discreet Billing: AA Technical Services
-        </p>
       </div>
     </main>
   );
