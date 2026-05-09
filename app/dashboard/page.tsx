@@ -108,13 +108,13 @@ export default function DashboardPage() {
   return (
     <main className="flex min-h-screen flex-col bg-black text-white">
 
-      {/* Hero Image */}
-      <div className="relative w-full" style={{ height: '65vh' }}>
+      {/* Hero Image — video call style */}
+      <div className="relative w-full bg-black flex items-center justify-center" style={{ height: '70vh' }}>
         {companion?.image_url && (
           <img
             src={companion.image_url}
             alt={companion.name}
-            className="w-full h-full object-cover object-top"
+            className="h-full w-auto object-contain"
           />
         )}
 
