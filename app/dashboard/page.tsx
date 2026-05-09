@@ -24,6 +24,12 @@ type Companion = {
 
 type Credits = { balance_seconds: number };
 type Mode = 'solo' | 'solo_video' | 'couples_spice' | 'couples_mediator';
+type TranscriptMessage = {
+  type?: string;
+  role?: string;
+  transcript?: string;
+  transcriptType?: string;
+};
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -45,8 +51,86 @@ export default function DashboardPage() {
   const conversationHistoryRef = useRef<{ role: string; content: string }[]>([]);
   const nextVideoUrlRef = useRef<string | null>(null);
   const lastUserMessageRef = useRef<string>('');
+  const isGeneratingRef = useRef(false);
+  const currentVideoUrlRef = useRef<string | null>(null);
+  const lastVideoRequestRef = useRef<{ key: string; at: number } | null>(null);
+
+  async function loadData() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { router.push('/login'); return; }
+    setUserId(user.id);
+
+    const { data: companionData } = await supabase
+      .from('companions')
+      .select('*, personas(name, tagline, system_prompt, voice_id)')
+      .eq('user_id', user.id)
+      .single();
+
+    if (!companionData) { router.push('/onboarding'); return; }
+    setCompanion(companionData);
+
+    const { data: creditsData } = await supabase
+      .from('credits')
+      .select('balance_seconds')
+      .eq('user_id', user.id)
+      .single();
+
+    setCredits(creditsData);
+    setLoading(false);
+  }
+
+  async function generateVideo(userMessage: string) {
+    const requestKey = userMessage.trim().toLowerCase().replace(/\s+/g, ' ');
+    const recentRequest = lastVideoRequestRef.current;
+    const isDuplicate =
+      recentRequest?.key === requestKey && Date.now() - recentRequest.at < 120000;
+
+    if (!userId || !companion || isGeneratingRef.current || isDuplicate) return;
+
+    isGeneratingRef.current = true;
+    lastVideoRequestRef.current = { key: requestKey, at: Date.now() };
+    setIsGenerating(true);
+
+    try {
+      const response = await fetch('/api/generate-video', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId,
+          userMessage,
+          conversationHistory: conversationHistoryRef.current.slice(-4),
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        console.error('Video generation failed:', data);
+        return;
+      }
+
+      if (data.video_url) {
+        // If nothing playing, play now
+        if (!currentVideoUrlRef.current) {
+          setCurrentVideoUrl(data.video_url);
+        } else {
+          // Buffer as next video
+          nextVideoUrlRef.current = data.video_url;
+        }
+      }
+    } catch (error) {
+      console.error('Video generation error:', error);
+    } finally {
+      isGeneratingRef.current = false;
+      setIsGenerating(false);
+    }
+  }
 
   useEffect(() => { loadData(); }, []);
+
+  useEffect(() => {
+    currentVideoUrlRef.current = currentVideoUrl;
+  }, [currentVideoUrl]);
 
   useEffect(() => {
     if (!vapi) return;
@@ -70,9 +154,13 @@ export default function DashboardPage() {
     vapi.on('error', () => { setStatus('idle'); setCalling(false); });
 
     // Listen for transcripts to capture conversation
-    vapi.on('message', (message: any) => {
+    vapi.on('message', (message: TranscriptMessage) => {
       if (message.type === 'transcript' && message.role === 'user' && message.transcript) {
-        const userMessage = message.transcript;
+        if (message.transcriptType && message.transcriptType !== 'final') return;
+
+        const userMessage = message.transcript.trim();
+        if (!userMessage) return;
+
         lastUserMessageRef.current = userMessage;
 
         conversationHistoryRef.current.push({
@@ -105,71 +193,10 @@ export default function DashboardPage() {
     }
   }, [showControls]);
 
-  const loadData = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { router.push('/login'); return; }
-    setUserId(user.id);
-
-    const { data: companionData } = await supabase
-      .from('companions')
-      .select('*, personas(name, tagline, system_prompt, voice_id)')
-      .eq('user_id', user.id)
-      .single();
-
-    if (!companionData) { router.push('/onboarding'); return; }
-    setCompanion(companionData);
-
-    const { data: creditsData } = await supabase
-      .from('credits')
-      .select('balance_seconds')
-      .eq('user_id', user.id)
-      .single();
-
-    setCredits(creditsData);
-    setLoading(false);
-  };
-
-  const generateVideo = async (userMessage: string) => {
-    if (!userId || !companion || isGenerating) return;
-    setIsGenerating(true);
-
-    try {
-      const response = await fetch('/api/generate-video', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId,
-          userMessage,
-          conversationHistory: conversationHistoryRef.current.slice(-4),
-        }),
-      });
-
-      const data = await response.json();
-
-      if (data.video_url) {
-        // If nothing playing, play now
-        if (!currentVideoUrl) {
-          setCurrentVideoUrl(data.video_url);
-        } else {
-          // Buffer as next video
-          nextVideoUrlRef.current = data.video_url;
-        }
-      }
-    } catch (error) {
-      console.error('Video generation error:', error);
-    } finally {
-      setIsGenerating(false);
-    }
-  };
-
   const handleVideoEnd = () => {
     if (nextVideoUrlRef.current) {
       setCurrentVideoUrl(nextVideoUrlRef.current);
       nextVideoUrlRef.current = null;
-      // Pre-generate next if we have a recent message
-      if (lastUserMessageRef.current && mode === 'solo_video' && calling) {
-        generateVideo(lastUserMessageRef.current);
-      }
     } else {
       setCurrentVideoUrl(null);
     }

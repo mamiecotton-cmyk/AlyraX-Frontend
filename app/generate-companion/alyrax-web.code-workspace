@@ -1,0 +1,13 @@
+{
+    "folders": [
+        {
+            "path": "../../../alyrax-gpu-bridge"
+        },
+        {
+            "path": "../.."
+        },
+        {
+            "path": "../../../alyrax-flux-bridge"
+        }
+    ]
+}
