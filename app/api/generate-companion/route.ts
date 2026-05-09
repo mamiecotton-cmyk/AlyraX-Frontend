@@ -66,7 +66,16 @@ export async function POST(req: NextRequest) {
       );
 
       const statusData = await statusResponse.json();
-      console.log(`Job ${jobId} status:`, statusData.status);
+      console.log(`Job ${jobId} full status response:`, JSON.stringify(statusData));
+
+      // Continue polling while job is queued or running
+      if (
+        statusData.status === 'IN_QUEUE' ||
+        statusData.status === 'IN_PROGRESS'
+      ) {
+        attempts++;
+        continue;
+      }
 
       if (statusData.status === 'COMPLETED') {
         const imageBase64 = statusData.output?.image;
@@ -108,10 +117,12 @@ export async function POST(req: NextRequest) {
       }
 
       if (statusData.status === 'FAILED') {
-        console.error('Job failed:', statusData.error);
-        return NextResponse.json({ error: 'Generation failed' }, { status: 500 });
+        console.error('Job failed — full response:', JSON.stringify(statusData));
+        return NextResponse.json({ error: 'Generation failed', detail: statusData.error ?? statusData }, { status: 500 });
       }
 
+      // Unknown status — log and keep polling
+      console.warn(`Unexpected status: ${statusData.status}`, JSON.stringify(statusData));
       attempts++;
     }
 
