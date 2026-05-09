@@ -27,22 +27,11 @@ async function generateVideoPrompts(
       messages: [
         {
           role: 'system',
-          content: `You are a video prompt generator for an adult AI companion app. 
-Based on what the user requested, generate exactly 6 sequential video prompts 
-describing what the woman in the video does. 
-
-Rules:
-- Keep her in roughly the same position throughout
-- Each prompt escalates naturally from the previous
-- Prompts describe subtle, realistic webcam-style movements
-- Keep lighting consistent: soft bedroom/intimate lighting
-- Always start with "woman"
-- Each prompt is one sentence, max 20 words
-- Be explicit based on what was requested
-- Return ONLY a JSON array of 6 strings, nothing else
-
-Example format:
-["prompt 1", "prompt 2", "prompt 3", "prompt 4", "prompt 5", "prompt 6"]`,
+          content: `You generate video scene descriptions for an adult AI companion platform. 
+Return ONLY a JSON array of exactly 6 strings. No explanation. No markdown. Just the array.
+Each string describes what a woman does on webcam, escalating naturally.
+Keep her in the same position. Max 20 words per prompt. Start each with "woman".
+Example: ["woman smiles at camera", "woman leans forward slowly", "woman bites her lip"]`,
         },
         ...recentHistory,
         {
@@ -72,10 +61,24 @@ Example format:
     ];
   }
 
-  const content = data.choices[0].message.content.trim();
+  const content = data.choices[0]?.message?.content;
+
+  if (!content) {
+    console.error('Empty content from OpenRouter, using fallback');
+    return [
+      "woman looking at camera with a seductive smile, soft bedroom lighting",
+      "woman slowly reaching toward camera, eyes locked on viewer",
+      "woman arching back slightly, biting her lip softly",
+      "woman leaning closer to camera, breathing slowly and deeply",
+      "woman running hands slowly down her body, eyes on camera",
+      "woman looking intensely at camera, flush with excitement",
+    ];
+  }
+
+  const trimmed = content.trim();
 
   try {
-    const prompts = JSON.parse(content);
+    const prompts = JSON.parse(trimmed);
     if (Array.isArray(prompts) && prompts.length === 6) {
       return prompts;
     }
