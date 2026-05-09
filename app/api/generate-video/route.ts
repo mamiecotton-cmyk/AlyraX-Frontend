@@ -48,23 +48,10 @@ Example: ["woman smiles at camera", "woman leans forward slowly", "woman bites h
   console.log('OpenRouter response status:', response.status);
   console.log('OpenRouter data:', JSON.stringify(data).slice(0, 500));
 
-  if (!response.ok || !data.choices || !data.choices[0]) {
-    console.error('OpenRouter failed:', data);
-    // Return fallback prompts
-    return [
-      "woman looking at camera with a seductive smile, soft bedroom lighting",
-      "woman slowly reaching toward camera, eyes locked on viewer",
-      "woman arching back slightly, biting her lip softly",
-      "woman leaning closer to camera, breathing slowly and deeply",
-      "woman running hands slowly down her body, eyes on camera",
-      "woman looking intensely at camera, flush with excitement",
-    ];
-  }
+  const content = data.choices?.[0]?.message?.content;
 
-  const content = data.choices[0]?.message?.content;
-
-  if (!content) {
-    console.error('Empty content from OpenRouter, using fallback');
+  if (!response.ok || !content) {
+    console.error('OpenRouter failed or empty content:', data);
     return [
       "woman looking at camera with a seductive smile, soft bedroom lighting",
       "woman slowly reaching toward camera, eyes locked on viewer",
