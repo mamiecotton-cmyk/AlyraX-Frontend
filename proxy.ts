@@ -8,7 +8,7 @@ export async function proxy(request: NextRequest) {
   // --- Age gate check ---
   // Skip the gate only for /verify itself and static/api routes
   const ageVerified = request.cookies.get('alyra_age_verified')
-  const ageGateExempt = ['/verify', '/auth', '/_next', '/favicon.ico']
+  const ageGateExempt = ['/verify', '/auth', '/_next', '/favicon.ico', '/api/']
   const isExempt = ageGateExempt.some((p) => pathname.startsWith(p))
 
   if (!ageVerified && !isExempt) {
