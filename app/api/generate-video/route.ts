@@ -7,6 +7,31 @@ const ATLAS_API_KEY = process.env.ATLAS_CLOUD_API_KEY;
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 const ATLAS_MODEL = 'atlascloud/wan-2.2-turbo-spicy/infinite-image-to-video';
 
+type AtlasPredictionResponse = {
+  status?: string;
+  output?: string | { url?: string };
+  outputs?: string[];
+  error?: string;
+  data?: {
+    status?: string;
+    output?: string | { url?: string };
+    outputs?: string[];
+    url?: string;
+    error?: string;
+  };
+};
+
+function getAtlasOutputUrl(response: AtlasPredictionResponse): string | null {
+  const output = response.data?.outputs?.[0]
+    || response.outputs?.[0]
+    || response.data?.url
+    || response.data?.output
+    || response.output;
+
+  if (typeof output === 'string') return output;
+  return output?.url || null;
+}
+
 async function generateVideoPrompts(
   userMessage: string,
   conversationHistory: { role: string; content: string }[]
@@ -134,16 +159,17 @@ async function generateAtlasVideo(
       }
     );
 
-    const statusData = await statusResponse.json();
+    const statusData = await statusResponse.json() as AtlasPredictionResponse;
+    const status = (statusData.data?.status || statusData.status || '').toLowerCase();
 
-    if (statusData.status === 'succeeded' || statusData.status === 'completed') {
-      const videoUrl = statusData.output?.url || statusData.data?.url || statusData.output;
+    if (status === 'succeeded' || status === 'completed') {
+      const videoUrl = getAtlasOutputUrl(statusData);
       if (videoUrl) return videoUrl;
       throw new Error('No video URL in completed response');
     }
 
-    if (statusData.status === 'failed') {
-      throw new Error(`Atlas Cloud generation failed: ${statusData.error}`);
+    if (status === 'failed') {
+      throw new Error(`Atlas Cloud generation failed: ${statusData.data?.error || statusData.error || 'Unknown error'}`);
     }
 
     attempts++;
