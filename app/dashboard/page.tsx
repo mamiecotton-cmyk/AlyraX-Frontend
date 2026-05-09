@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createClient } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
@@ -8,7 +8,6 @@ import { vapi } from '@/lib/vapi';
 const CallButton = dynamic(() => import('@/components/CallButton'), {
   ssr: false,
 });
-import LivePortraitVideo from '@/components/LivePortraitVideo';
 
 type Companion = {
   id: string;
@@ -23,9 +22,8 @@ type Companion = {
   };
 };
 
-type Credits = {
-  balance_seconds: number;
-};
+type Credits = { balance_seconds: number };
+type Mode = 'solo' | 'solo_video' | 'couples_spice' | 'couples_mediator';
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -34,26 +32,72 @@ export default function DashboardPage() {
   const [companion, setCompanion] = useState<Companion | null>(null);
   const [credits, setCredits] = useState<Credits | null>(null);
   const [status, setStatus] = useState('idle');
-  const [mode, setMode] = useState<'solo' | 'solo_video' | 'couples_spice' | 'couples_mediator'>('solo');
+  const [mode, setMode] = useState<Mode>('solo');
   const [loading, setLoading] = useState(true);
   const [showControls, setShowControls] = useState(false);
   const [calling, setCalling] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadData();
-  }, []);
+  // Video state
+  const [currentVideoUrl, setCurrentVideoUrl] = useState<string | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const conversationHistoryRef = useRef<{ role: string; content: string }[]>([]);
+  const nextVideoUrlRef = useRef<string | null>(null);
+  const lastUserMessageRef = useRef<string>('');
+
+  useEffect(() => { loadData(); }, []);
 
   useEffect(() => {
     if (!vapi) return;
-    vapi.on('call-start', () => { setStatus('connected'); setCalling(true); });
-    vapi.on('call-end', () => { setStatus('idle'); setCalling(false); loadData(); });
+
+    vapi.on('call-start', () => {
+      setStatus('connected');
+      setCalling(true);
+    });
+
+    vapi.on('call-end', () => {
+      setStatus('idle');
+      setCalling(false);
+      setCurrentVideoUrl(null);
+      nextVideoUrlRef.current = null;
+      conversationHistoryRef.current = [];
+      loadData();
+    });
+
     vapi.on('speech-start', () => setStatus('speaking'));
     vapi.on('speech-end', () => setStatus('listening'));
     vapi.on('error', () => { setStatus('idle'); setCalling(false); });
-    return () => { vapi?.removeAllListeners(); };
-  }, []);
 
-  // Auto-hide controls after 3 seconds
+    // Listen for transcripts to capture conversation
+    vapi.on('message', (message: any) => {
+      if (message.type === 'transcript' && message.role === 'user' && message.transcript) {
+        const userMessage = message.transcript;
+        lastUserMessageRef.current = userMessage;
+
+        conversationHistoryRef.current.push({
+          role: 'user',
+          content: userMessage,
+        });
+
+        // Trigger video generation if in video mode
+        if (mode === 'solo_video' && calling && !isGenerating) {
+          generateVideo(userMessage);
+        }
+      }
+
+      if (message.type === 'transcript' && message.role === 'assistant' && message.transcript) {
+        conversationHistoryRef.current.push({
+          role: 'assistant',
+          content: message.transcript,
+        });
+      }
+    });
+
+    return () => { vapi?.removeAllListeners(); };
+  }, [mode, calling, isGenerating]);
+
+  // Auto-hide controls
   useEffect(() => {
     if (showControls) {
       const timer = setTimeout(() => setShowControls(false), 3000);
@@ -64,6 +108,7 @@ export default function DashboardPage() {
   const loadData = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { router.push('/login'); return; }
+    setUserId(user.id);
 
     const { data: companionData } = await supabase
       .from('companions')
@@ -84,6 +129,52 @@ export default function DashboardPage() {
     setLoading(false);
   };
 
+  const generateVideo = async (userMessage: string) => {
+    if (!userId || !companion || isGenerating) return;
+    setIsGenerating(true);
+
+    try {
+      const response = await fetch('/api/generate-video', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId,
+          userMessage,
+          conversationHistory: conversationHistoryRef.current.slice(-4),
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.video_url) {
+        // If nothing playing, play now
+        if (!currentVideoUrl) {
+          setCurrentVideoUrl(data.video_url);
+        } else {
+          // Buffer as next video
+          nextVideoUrlRef.current = data.video_url;
+        }
+      }
+    } catch (error) {
+      console.error('Video generation error:', error);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleVideoEnd = () => {
+    if (nextVideoUrlRef.current) {
+      setCurrentVideoUrl(nextVideoUrlRef.current);
+      nextVideoUrlRef.current = null;
+      // Pre-generate next if we have a recent message
+      if (lastUserMessageRef.current && mode === 'solo_video' && calling) {
+        generateVideo(lastUserMessageRef.current);
+      }
+    } else {
+      setCurrentVideoUrl(null);
+    }
+  };
+
   const formatCredits = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -93,6 +184,7 @@ export default function DashboardPage() {
 
   const getModeLabel = () => {
     if (mode === 'solo') return 'Solo';
+    if (mode === 'solo_video') return 'Video';
     if (mode === 'couples_spice') return 'Spice';
     return 'Mediate';
   };
@@ -111,29 +203,42 @@ export default function DashboardPage() {
       style={{ height: '100dvh' }}
       onClick={() => setShowControls(prev => !prev)}
     >
-      {/* Full screen companion image */}
+      {/* Still image — base layer always visible */}
       {companion?.image_url && (
-        mode === 'solo_video' && calling ? (
-          <LivePortraitVideo
-            companionImageUrl={companion.image_url || ''}
-            isCallActive={calling}
-            vapiInstance={vapi}
-          />
-        ) : (
-          <img
-            src={companion.image_url}
-            alt={companion.name}
-            className="absolute inset-0 w-full h-full object-contain"
-          />
-        )
+        <img
+          src={companion.image_url}
+          alt={companion.name}
+          className="absolute inset-0 w-full h-full object-contain"
+        />
       )}
 
-      {/* Subtle status pulse when on call */}
+      {/* Video layer — plays over still image when active */}
+      {mode === 'solo_video' && currentVideoUrl && (
+        <video
+          ref={videoRef}
+          src={currentVideoUrl}
+          className="absolute inset-0 w-full h-full object-contain"
+          autoPlay
+          playsInline
+          onEnded={handleVideoEnd}
+        />
+      )}
+
+      {/* Generating indicator */}
+      {mode === 'solo_video' && isGenerating && !currentVideoUrl && (
+        <div className="absolute bottom-32 left-0 right-0 flex justify-center">
+          <p className="text-xs text-red-400 italic animate-pulse">
+            give me a second baby...
+          </p>
+        </div>
+      )}
+
+      {/* Red pulse when on call */}
       {calling && (
         <div className="absolute top-4 right-4 w-2 h-2 rounded-full bg-red-500 animate-pulse" />
       )}
 
-      {/* Controls overlay — appears on tap/click, auto-hides */}
+      {/* Controls overlay */}
       <div
         className={`absolute inset-0 flex flex-col justify-between transition-opacity duration-500 ${
           showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'
@@ -158,8 +263,6 @@ export default function DashboardPage() {
 
         {/* Bottom controls */}
         <div className="flex flex-col items-center gap-4 p-6">
-
-          {/* Name + tagline */}
           <div className="text-center">
             <p className="text-white font-semibold tracking-wide">{companion?.name}</p>
             <p className="text-red-400 text-xs italic">{companion?.personas?.tagline}</p>
@@ -168,14 +271,12 @@ export default function DashboardPage() {
           {/* Mode selector */}
           <div className="flex gap-2">
             {[
-              { key: 'solo', label: 'Solo' },
-              { key: 'solo_video', label: '📹 Video' },
-              { key: 'couples_spice', label: 'Spice 🔥' },
-              { key: 'couples_mediator', label: 'Mediate 🕊️' },
+              { key: 'solo', label: 'Voice $1.99' },
+              { key: 'solo_video', label: '📹 Video $3.99' },
             ].map(m => (
               <button
                 key={m.key}
-                onClick={(e) => { e.stopPropagation(); setMode(m.key as typeof mode); }}
+                onClick={(e) => { e.stopPropagation(); setMode(m.key as Mode); }}
                 className={`px-4 py-1.5 rounded-full text-xs font-bold transition border ${
                   mode === m.key
                     ? 'border-red-500 text-red-400 bg-red-950/30'
@@ -187,7 +288,6 @@ export default function DashboardPage() {
             ))}
           </div>
 
-          {/* Call button */}
           <div onClick={(e) => e.stopPropagation()}>
             <CallButton scenario={`Mode: ${getModeLabel()}`} />
           </div>
