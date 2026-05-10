@@ -26,6 +26,10 @@ type VideoScenePlan = {
   narration: string;
 };
 
+type CompanionPersona = {
+  name?: string | null;
+};
+
 function getAtlasOutputUrl(response: AtlasPredictionResponse): string | null {
   const output = response.data?.outputs?.[0]
     || response.outputs?.[0]
@@ -37,8 +41,32 @@ function getAtlasOutputUrl(response: AtlasPredictionResponse): string | null {
   return output?.url || null;
 }
 
-function buildFallbackScenePlan(userMessage: string): VideoScenePlan {
+function getPersonaNarrationStyle(personaName?: string | null) {
+  const normalizedName = personaName?.toLowerCase() || '';
+
+  if (normalizedName.includes('dominant')) {
+    return 'Narration voice: calm, commanding, possessive, and in control. Make the user feel instructed to watch.';
+  }
+
+  if (normalizedName.includes('submissive')) {
+    return 'Narration voice: eager, breathless, warm, devoted, and pleased to be watched.';
+  }
+
+  if (normalizedName.includes('classic') || normalizedName.includes('alyrax')) {
+    return 'Narration voice: sultry, confident, sophisticated, and teasing.';
+  }
+
+  return 'Narration voice: preserve the selected persona tone and emotional style.';
+}
+
+function buildFallbackScenePlan(userMessage: string, personaName?: string | null): VideoScenePlan {
   const request = userMessage.trim().replace(/\s+/g, ' ').slice(0, 220);
+  const normalizedName = personaName?.toLowerCase() || '';
+  const narration = normalizedName.includes('dominant')
+    ? `Stay right there. I'll make you watch every slow step of exactly what you asked for.`
+    : normalizedName.includes('submissive')
+      ? `I'm getting it ready for you, slow and teasing, exactly how you wanted to see me.`
+      : `Keep your eyes on me. I'm making this slow, teasing, and exactly the way you asked.`;
 
   return {
     prompts: [
@@ -49,13 +77,13 @@ function buildFallbackScenePlan(userMessage: string): VideoScenePlan {
       'same adult woman removes the requested clothing almost completely, pausing with a teasing smile and natural movement',
       'same adult woman has the requested clothing completely removed, holding a confident seductive pose, smooth continuous finish',
     ],
-    narration: "Keep your eyes on me. I'm making it exactly the way you asked.",
+    narration,
   };
 }
 
-function extractScenePlan(content: string, userMessage: string): VideoScenePlan {
+function extractScenePlan(content: string, userMessage: string, personaName?: string | null): VideoScenePlan {
   const jsonMatch = content.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) return buildFallbackScenePlan(userMessage);
+  if (!jsonMatch) return buildFallbackScenePlan(userMessage, personaName);
 
   try {
     const scenePlan = JSON.parse(jsonMatch[0]);
@@ -70,7 +98,7 @@ function extractScenePlan(content: string, userMessage: string): VideoScenePlan 
       if (prompts.length === 6 && prompts.every((prompt: string) => prompt.toLowerCase().includes('same adult woman'))) {
         return {
           prompts,
-          narration: refineNarration(scenePlan.narration, userMessage),
+          narration: refineNarration(scenePlan.narration, userMessage, personaName),
         };
       }
     }
@@ -79,23 +107,23 @@ function extractScenePlan(content: string, userMessage: string): VideoScenePlan 
       typeof scenePlan?.prompt === 'string'
       && typeof scenePlan?.narration === 'string'
     ) {
-      const fallback = buildFallbackScenePlan(userMessage);
+      const fallback = buildFallbackScenePlan(userMessage, personaName);
       return {
         prompts: [
           scenePlan.prompt,
           ...fallback.prompts.slice(1),
         ],
-        narration: refineNarration(scenePlan.narration, userMessage),
+        narration: refineNarration(scenePlan.narration, userMessage, personaName),
       };
     }
   } catch {
     // Fall through to request-aware fallback.
   }
 
-  return buildFallbackScenePlan(userMessage);
+  return buildFallbackScenePlan(userMessage, personaName);
 }
 
-function refineNarration(narration: string, userMessage: string) {
+function refineNarration(narration: string, userMessage: string, personaName?: string | null) {
   const cleaned = narration.trim();
   const wordCount = cleaned.split(/\s+/).filter(Boolean).length;
   const genericLines = [
@@ -109,12 +137,13 @@ function refineNarration(narration: string, userMessage: string) {
   }
 
   const request = userMessage.trim().replace(/\s+/g, ' ');
-  return `Keep watching. I'm making this slow, teasing, and exactly what you asked for: ${request}`;
+  return buildFallbackScenePlan(request, personaName).narration;
 }
 
 async function generateVideoScenePlan(
   userMessage: string,
-  conversationHistory: { role: string; content: string }[]
+  conversationHistory: { role: string; content: string }[],
+  personaName?: string | null
 ): Promise<VideoScenePlan> {
   const recentHistory = conversationHistory.slice(-4);
 
@@ -156,9 +185,11 @@ Prompt rules:
 - Max 26 words per prompt
 
 Narration rules:
-- One sentence, max 22 words
-- Spoken by the companion while the video plays
-- Match the user's requested scene
+- One or two short sentences, max 34 words total
+- Spoken by the companion while the video generates, before the video is ready
+- Summarize the six-stage visual plan in a sexy way without listing numbers
+- Match the user's requested scene and selected persona voice
+- ${getPersonaNarrationStyle(personaName)}
 - Spicy, intimate, cinematic, not technical`,
           },
           ...recentHistory,
@@ -180,13 +211,13 @@ Narration rules:
 
     if (!response.ok || !content) {
       console.error('OpenRouter failed or empty content:', data);
-      return buildFallbackScenePlan(userMessage);
+      return buildFallbackScenePlan(userMessage, personaName);
     }
 
-    return extractScenePlan(content.trim(), userMessage);
+    return extractScenePlan(content.trim(), userMessage, personaName);
   } catch (error) {
     console.error('OpenRouter scene plan exception:', error);
-    return buildFallbackScenePlan(userMessage);
+    return buildFallbackScenePlan(userMessage, personaName);
   }
 }
 
@@ -264,7 +295,7 @@ export async function POST(req: NextRequest) {
     const activeCompanionId = companionId || user?.user_metadata?.active_companion_id;
     let companionQuery = supabase
       .from('companions')
-      .select('image_url')
+      .select('image_url, personas(name)')
       .eq('user_id', userId);
 
     if (activeCompanionId) {
@@ -282,7 +313,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const scenePlan = await generateVideoScenePlan(userMessage, conversationHistory || []);
+    const persona = Array.isArray(companion.personas)
+      ? companion.personas[0]
+      : companion.personas as CompanionPersona | null;
+    const scenePlan = await generateVideoScenePlan(userMessage, conversationHistory || [], persona?.name);
     console.log('Video scene plan ready:', {
       promptCount: scenePlan.prompts.length,
       promptPreview: scenePlan.prompts[0]?.slice(0, 220),

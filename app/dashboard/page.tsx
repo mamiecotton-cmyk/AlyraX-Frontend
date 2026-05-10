@@ -171,20 +171,21 @@ export default function DashboardPage() {
       }
 
       if (data.prediction_id) {
+        if (data.narration && vapi) {
+          vapi.say(data.narration, false, false, false);
+        }
+
         console.log('Polling video prediction:', data.prediction_id);
         const videoUrl = await pollVideoResult(data.prediction_id);
         console.log('Video prediction ready:', videoUrl);
 
         // If nothing playing, play now
         if (!currentVideoUrlRef.current) {
-          if (data.narration && vapi) {
-            vapi.say(data.narration, false, false, false);
-          }
           setCurrentVideoUrl(videoUrl);
         } else {
           // Buffer as next video
           nextVideoUrlRef.current = videoUrl;
-          nextVideoNarrationRef.current = data.narration || null;
+          nextVideoNarrationRef.current = null;
         }
       }
     } catch (error) {
