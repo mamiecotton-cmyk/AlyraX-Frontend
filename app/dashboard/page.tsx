@@ -5,9 +5,7 @@ import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { vapi } from '@/lib/vapi';
 
-const CallButton = dynamic(() => import('@/components/CallButton'), {
-  ssr: false,
-});
+const CallButton = dynamic(() => import('@/components/CallButton'), { ssr: false });
 
 type Companion = {
   id: string;
@@ -24,16 +22,22 @@ type Companion = {
 
 type Credits = { balance_seconds: number };
 type Mode = 'solo' | 'solo_video' | 'couples_spice' | 'couples_mediator';
-type PersonaOption = {
-  name: string;
-  tagline: string;
-};
+type PersonaOption = { name: string; tagline: string; };
 type TranscriptMessage = {
   type?: string;
   role?: string;
   transcript?: string;
   transcriptType?: string;
 };
+
+type QueuedVideo = {
+  url: string;
+  onStart: string;
+  onMid: string;
+};
+
+const MAX_QUEUE = 2;
+const MID_POINT_MS = 15000;
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -50,52 +54,61 @@ export default function DashboardPage() {
   const [companions, setCompanions] = useState<Companion[]>([]);
   const [personas, setPersonas] = useState<PersonaOption[]>([]);
   const [selectedPersonaIndex, setSelectedPersonaIndex] = useState(0);
-
-  // Video state
   const [currentVideoUrl, setCurrentVideoUrl] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+
   const videoRef = useRef<HTMLVideoElement>(null);
   const conversationHistoryRef = useRef<{ role: string; content: string }[]>([]);
-  const nextVideoUrlRef = useRef<string | null>(null);
-  const nextVideoNarrationRef = useRef<string | null>(null);
+  const videoQueueRef = useRef<QueuedVideo[]>([]);
   const lastUserMessageRef = useRef<string>('');
   const isGeneratingRef = useRef(false);
   const currentVideoUrlRef = useRef<string | null>(null);
-  const lastVideoRequestRef = useRef<{ key: string; at: number } | null>(null);
-  const lastFrameUrlRef = useRef<string | null>(null); // FIX 3: last frame of previous clip
+  const lastFrameUrlRef = useRef<string | null>(null);
+  const clipNumberRef = useRef(0);
+  const midPointTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const currentOnMidRef = useRef<string>('');
   const modeRef = useRef<Mode>('solo');
   const callingRef = useRef(false);
   const userIdRef = useRef<string | null>(null);
   const companionRef = useRef<Companion | null>(null);
+  const isLoopingRef = useRef(false);
 
-  // Keep refs in sync with state
   useEffect(() => { modeRef.current = mode; }, [mode]);
   useEffect(() => { callingRef.current = calling; }, [calling]);
   useEffect(() => { userIdRef.current = userId; }, [userId]);
   useEffect(() => { companionRef.current = companion; }, [companion]);
+  useEffect(() => { currentVideoUrlRef.current = currentVideoUrl; }, [currentVideoUrl]);
 
-  async function pollVideoResult(predictionId: string) {
+  function buildSceneIntent(): string {
+    const history = conversationHistoryRef.current.slice(-8);
+    const metaPhrases = [
+      'where is', "don't see", 'next video', 'are you there',
+      'still there', 'hello', 'you there', "i can't see", 'not working',
+      'i am', 'yes', 'yeah', 'ok', 'okay',
+    ];
+    const meaningful = history
+      .filter(m => m.role === 'user')
+      .map(m => m.content.trim())
+      .filter(m => m.length > 5 && !metaPhrases.some(p => m.toLowerCase().includes(p)))
+      .slice(-3)
+      .join('. ');
+
+    return meaningful || lastUserMessageRef.current || 'continue the scene';
+  }
+
+  async function pollVideoResult(predictionId: string): Promise<string> {
     const maxAttempts = 120;
-
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
       await new Promise(resolve => setTimeout(resolve, 5000));
-
       const response = await fetch('/api/generate-video/status', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ predictionId }),
       });
       const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Video status failed');
-      }
-
-      if (data.video_url) {
-        return data.video_url as string;
-      }
+      if (!response.ok) throw new Error(data.error || 'Video status failed');
+      if (data.video_url) return data.video_url as string;
     }
-
     throw new Error('Video generation timed out');
   }
 
@@ -138,10 +151,8 @@ export default function DashboardPage() {
     setLoading(false);
   }
 
-  // FIX 3: Extract last frame from video element and upload to Supabase
   async function extractLastFrame(): Promise<string | null> {
     if (!videoRef.current || !userIdRef.current) return null;
-
     try {
       const video = videoRef.current;
       const canvas = document.createElement('canvas');
@@ -154,14 +165,10 @@ export default function DashboardPage() {
       return new Promise((resolve) => {
         canvas.toBlob(async (blob) => {
           if (!blob) { resolve(null); return; }
-
           const fileName = `${userIdRef.current}/frame-${Date.now()}.jpg`;
           const { data, error } = await supabase.storage
             .from('companions')
-            .upload(fileName, blob, {
-              contentType: 'image/jpeg',
-              upsert: true,
-            });
+            .upload(fileName, blob, { contentType: 'image/jpeg', upsert: true });
 
           if (error) { console.error('Frame upload error:', error); resolve(null); return; }
 
@@ -169,7 +176,7 @@ export default function DashboardPage() {
             .from('companions')
             .getPublicUrl(data.path);
 
-          console.log('Frame extracted and uploaded:', urlData.publicUrl);
+          console.log('Frame extracted:', urlData.publicUrl);
           resolve(urlData.publicUrl);
         }, 'image/jpeg', 0.92);
       });
@@ -179,44 +186,40 @@ export default function DashboardPage() {
     }
   }
 
-  function buildSceneIntent(): string {
-    const history = conversationHistoryRef.current.slice(-8);
-    const metaPhrases = [
-      'where is', "don't see", 'next video', 'are you there',
-      'still there', 'hello', 'you there', "i can't see", 'not working'
-    ];
-    const meaningful = history
-      .filter(m => m.role === 'user')
-      .map(m => m.content.trim())
-      .filter(m => !metaPhrases.some(p => m.toLowerCase().includes(p)))
-      .slice(-3)
-      .join('. ');
-
-    return meaningful || lastUserMessageRef.current;
+  function clearMidTimer() {
+    if (midPointTimerRef.current) {
+      clearTimeout(midPointTimerRef.current);
+      midPointTimerRef.current = null;
+    }
   }
 
-  async function generateVideo(userMessage: string, frameUrl?: string | null) {
+  function startMidTimer() {
+    clearMidTimer();
+    if (!currentOnMidRef.current) return;
+    midPointTimerRef.current = setTimeout(() => {
+      if (vapi && currentOnMidRef.current) {
+        vapi.say(currentOnMidRef.current, false, false, false);
+      }
+    }, MID_POINT_MS);
+  }
+
+  async function generateVideo(sceneIntent: string, frameUrl?: string | null) {
     const currentUserId = userIdRef.current;
     const currentCompanion = companionRef.current;
 
-    const requestKey = userMessage.trim().toLowerCase().replace(/\s+/g, ' ');
-    const recentRequest = lastVideoRequestRef.current;
-    const isDuplicate =
-      recentRequest?.key === requestKey && Date.now() - recentRequest.at < 120000;
-
-    if (!currentUserId || !currentCompanion || isGeneratingRef.current || isDuplicate) {
-      console.log('Skipping video generation:', {
-        hasUserId: Boolean(currentUserId),
-        hasCompanion: Boolean(currentCompanion),
+    // Block if already generating or queue is full
+    if (!currentUserId || !currentCompanion || isGeneratingRef.current || videoQueueRef.current.length >= MAX_QUEUE) {
+      console.log('Skipping generation:', {
         isGenerating: isGeneratingRef.current,
-        isDuplicate,
+        queueLength: videoQueueRef.current.length,
       });
       return;
     }
 
     isGeneratingRef.current = true;
-    lastVideoRequestRef.current = { key: requestKey, at: Date.now() };
     setIsGenerating(true);
+
+    const nextClipNumber = clipNumberRef.current + 1;
 
     try {
       const response = await fetch('/api/generate-video', {
@@ -225,31 +228,37 @@ export default function DashboardPage() {
         body: JSON.stringify({
           userId: currentUserId,
           companionId: currentCompanion.id,
-          userMessage,
-          frameUrl: frameUrl ?? lastFrameUrlRef.current, // FIX 3: pass last frame
+          userMessage: sceneIntent,
+          frameUrl: frameUrl ?? lastFrameUrlRef.current,
+          clipNumber: nextClipNumber,
           conversationHistory: conversationHistoryRef.current.slice(-4),
         }),
       });
 
       const data = await response.json();
-
-      if (!response.ok) {
-        console.error('Video generation failed:', data);
-        return;
-      }
+      if (!response.ok) { console.error('Video generation failed:', data); return; }
 
       if (data.prediction_id) {
-        if (data.narration && vapi) {
-          vapi.say(data.narration, false, false, false);
-        }
-
         const videoUrl = await pollVideoResult(data.prediction_id);
+        clipNumberRef.current = nextClipNumber;
 
+        const queued: QueuedVideo = {
+          url: videoUrl,
+          onStart: data.onStart || '',
+          onMid: data.onMid || '',
+        };
+
+        // If nothing playing, play immediately
         if (!currentVideoUrlRef.current) {
-          setCurrentVideoUrl(videoUrl);
+          playVideo(queued);
         } else {
-          nextVideoUrlRef.current = videoUrl;
-          nextVideoNarrationRef.current = null;
+          videoQueueRef.current.push(queued);
+          console.log('Video queued. Queue length:', videoQueueRef.current.length);
+          // If video was looping, switch now
+          if (isLoopingRef.current && videoRef.current) {
+            isLoopingRef.current = false;
+            playVideo(queued);
+          }
         }
       }
     } catch (error) {
@@ -260,11 +269,84 @@ export default function DashboardPage() {
     }
   }
 
-  useEffect(() => { loadData(); }, []);
+  function playVideo(queued: QueuedVideo) {
+    clearMidTimer();
+    currentOnMidRef.current = queued.onMid;
+    isLoopingRef.current = false;
+    setCurrentVideoUrl(queued.url);
+  }
 
-  useEffect(() => {
-    currentVideoUrlRef.current = currentVideoUrl;
-  }, [currentVideoUrl]);
+  function resetVideoState() {
+    setCurrentVideoUrl(null);
+    videoQueueRef.current = [];
+    lastFrameUrlRef.current = null;
+    clipNumberRef.current = 0;
+    isLoopingRef.current = false;
+    clearMidTimer();
+    currentOnMidRef.current = '';
+  }
+
+  const handleVideoPlay = () => {
+    // Speak onStart line
+    const onStart = videoQueueRef.current[0]?.onStart || currentOnMidRef.current;
+    if (vapi && onStart) {
+      vapi.say(onStart, true, false, false);
+    }
+    // Start mid timer
+    startMidTimer();
+    // Pre-generate next clip immediately
+    if (modeRef.current === 'solo_video' && callingRef.current && !isGeneratingRef.current && videoQueueRef.current.length < MAX_QUEUE) {
+      generateVideo(buildSceneIntent());
+    }
+  };
+
+  const handleVideoEnded = async () => {
+    clearMidTimer();
+
+    // Extract last frame for continuity
+    const lastFrame = await extractLastFrame();
+    if (lastFrame) lastFrameUrlRef.current = lastFrame;
+
+    const next = videoQueueRef.current.shift();
+
+    if (next) {
+      // Next clip ready — play instantly
+      isLoopingRef.current = false;
+      playVideo(next);
+    } else {
+      // Nothing ready — loop from halfway
+      if (videoRef.current && currentVideoUrlRef.current) {
+        isLoopingRef.current = true;
+        const video = videoRef.current;
+        video.currentTime = video.duration * 0.5;
+        video.play().catch(console.error);
+        console.log('Looping from halfway while waiting for next clip');
+      }
+    }
+
+    // Always try to generate more if queue has room
+    if (modeRef.current === 'solo_video' && callingRef.current && !isGeneratingRef.current && videoQueueRef.current.length < MAX_QUEUE) {
+      generateVideo(buildSceneIntent(), lastFrame);
+    }
+  };
+
+  // When looping video ends, check queue again
+  const handleLoopEnded = async () => {
+    if (!isLoopingRef.current) return;
+    const next = videoQueueRef.current.shift();
+    if (next) {
+      isLoopingRef.current = false;
+      playVideo(next);
+    } else {
+      // Keep looping
+      if (videoRef.current) {
+        videoRef.current.currentTime = videoRef.current.duration * 0.5;
+        videoRef.current.play().catch(console.error);
+      }
+    }
+  };
+
+  useEffect(() => { loadData(); }, []);
 
   useEffect(() => {
     if (!vapi) return;
@@ -279,11 +361,7 @@ export default function DashboardPage() {
       setStatus('idle');
       setCalling(false);
       callingRef.current = false;
-      setCurrentVideoUrl(null);
-      nextVideoUrlRef.current = null;
-      nextVideoNarrationRef.current = null;
-      lastFrameUrlRef.current = null; // reset frame on call end
-      conversationHistoryRef.current = [];
+      resetVideoState();
       loadData();
     });
 
@@ -294,29 +372,24 @@ export default function DashboardPage() {
     vapi.on('message', (message: TranscriptMessage) => {
       if (message.type === 'transcript' && message.role === 'user' && message.transcript) {
         if (message.transcriptType && message.transcriptType !== 'final') return;
-
         const userMessage = message.transcript.trim();
-        if (!userMessage) return;
+        if (!userMessage || userMessage.length < 3) return;
 
         lastUserMessageRef.current = userMessage;
         conversationHistoryRef.current.push({ role: 'user', content: userMessage });
 
-        // Use refs so we always have current values — fixes stale closure bug
-        if (modeRef.current === 'solo_video' && callingRef.current && !isGeneratingRef.current) {
+        if (modeRef.current === 'solo_video' && callingRef.current && !isGeneratingRef.current && videoQueueRef.current.length < MAX_QUEUE) {
           generateVideo(buildSceneIntent());
         }
       }
 
       if (message.type === 'transcript' && message.role === 'assistant' && message.transcript) {
-        conversationHistoryRef.current.push({
-          role: 'assistant',
-          content: message.transcript,
-        });
+        conversationHistoryRef.current.push({ role: 'assistant', content: message.transcript });
       }
     });
 
     return () => { vapi?.removeAllListeners(); };
-  }, []); // FIX 2: empty deps — uses refs instead of stale state
+  }, []);
 
   useEffect(() => {
     if (showControls) {
@@ -324,31 +397,6 @@ export default function DashboardPage() {
       return () => clearTimeout(timer);
     }
   }, [showControls]);
-
-  // FIX 2 + FIX 3: Extract frame, then continuously generate next video
-  const handleVideoEnd = async () => {
-    // Extract last frame before switching video
-    const lastFrame = await extractLastFrame();
-    if (lastFrame) {
-      lastFrameUrlRef.current = lastFrame;
-    }
-
-    if (nextVideoUrlRef.current) {
-      if (nextVideoNarrationRef.current && vapi) {
-        vapi.say(nextVideoNarrationRef.current, false, false, false);
-      }
-      setCurrentVideoUrl(nextVideoUrlRef.current);
-      nextVideoUrlRef.current = null;
-      nextVideoNarrationRef.current = null;
-    } else {
-      setCurrentVideoUrl(null);
-    }
-
-    // FIX 2: Always keep generating while in video mode on an active call
-    if (modeRef.current === 'solo_video' && callingRef.current && lastUserMessageRef.current && !isGeneratingRef.current) {
-      generateVideo(buildSceneIntent(), lastFrame);
-    }
-  };
 
   const formatCredits = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -360,7 +408,6 @@ export default function DashboardPage() {
   const getModeLabel = () => {
     if (mode === 'solo') return 'Solo';
     if (mode === 'solo_video') return 'Video';
-    if (mode === 'couples_spice') return 'Spice';
     return 'Mediate';
   };
 
@@ -381,19 +428,13 @@ export default function DashboardPage() {
       body: JSON.stringify({ companionId: companion?.id, personaIndex: index }),
     });
 
-    if (!response.ok) {
-      setSelectedPersonaIndex(previousIndex);
-      loadData();
-    }
+    if (!response.ok) { setSelectedPersonaIndex(previousIndex); loadData(); }
   };
 
   const updateActiveCompanion = async (nextCompanion: Companion) => {
     setCompanion(nextCompanion);
     companionRef.current = nextCompanion;
-    setCurrentVideoUrl(null);
-    nextVideoUrlRef.current = null;
-    nextVideoNarrationRef.current = null;
-    lastFrameUrlRef.current = null;
+    resetVideoState();
     const currentPersonaIndex = personas.findIndex(p => p.name === nextCompanion.personas?.name);
     setSelectedPersonaIndex(currentPersonaIndex >= 0 ? currentPersonaIndex : 0);
 
@@ -420,6 +461,7 @@ export default function DashboardPage() {
       style={{ height: '100dvh' }}
       onClick={() => setShowControls(prev => !prev)}
     >
+      {/* Still image base layer */}
       {companion?.image_url && (
         <img
           src={companion.image_url}
@@ -428,6 +470,7 @@ export default function DashboardPage() {
         />
       )}
 
+      {/* Video layer */}
       {mode === 'solo_video' && currentVideoUrl && (
         <video
           ref={videoRef}
@@ -435,20 +478,12 @@ export default function DashboardPage() {
           className="absolute inset-0 w-full h-full object-contain"
           autoPlay
           playsInline
-          onPlay={() => {
-            if (vapi) {
-              vapi.say(
-                "I'm ready for you baby. Watch me.",
-                true, // interrupt any current speech
-                false,
-                false
-              );
-            }
-          }}
-          onEnded={handleVideoEnd}
+          onPlay={handleVideoPlay}
+          onEnded={isLoopingRef.current ? handleLoopEnded : handleVideoEnded}
         />
       )}
 
+      {/* Generating indicator — only when no video playing */}
       {mode === 'solo_video' && isGenerating && !currentVideoUrl && (
         <div className="absolute bottom-32 left-0 right-0 flex justify-center">
           <p className="text-xs text-red-400 italic animate-pulse">
@@ -457,10 +492,12 @@ export default function DashboardPage() {
         </div>
       )}
 
+      {/* Red pulse */}
       {calling && (
         <div className="absolute top-4 right-4 w-2 h-2 rounded-full bg-red-500 animate-pulse" />
       )}
 
+      {/* Controls overlay */}
       <div
         className={`absolute inset-0 flex flex-col justify-between transition-opacity duration-500 ${
           showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'

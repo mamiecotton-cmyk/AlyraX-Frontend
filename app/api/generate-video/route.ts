@@ -23,7 +23,8 @@ type AtlasPredictionResponse = {
 
 type VideoScenePlan = {
   prompts: string[];
-  narration: string;
+  onStart: string;
+  onMid: string;
 };
 
 type CompanionPersona = {
@@ -36,119 +37,98 @@ function getAtlasOutputUrl(response: AtlasPredictionResponse): string | null {
     || response.data?.url
     || response.data?.output
     || response.output;
-
   if (typeof output === 'string') return output;
   return output?.url || null;
 }
 
-function getPersonaNarrationStyle(personaName?: string | null) {
-  const normalizedName = personaName?.toLowerCase() || '';
-
-  if (normalizedName.includes('dominant')) {
-    return 'Narration voice: calm, commanding, possessive, and in control. Make the user feel instructed to watch.';
-  }
-  if (normalizedName.includes('submissive')) {
-    return 'Narration voice: eager, breathless, warm, devoted, and pleased to be watched.';
-  }
-  if (normalizedName.includes('classic') || normalizedName.includes('alyrax')) {
-    return 'Narration voice: sultry, confident, sophisticated, and teasing.';
-  }
-  return 'Narration voice: preserve the selected persona tone and emotional style.';
+function getPersonaVoice(personaName?: string | null) {
+  const n = personaName?.toLowerCase() || '';
+  if (n.includes('dominant')) return 'Voice: commanding, possessive. She tells him what he is seeing.';
+  if (n.includes('submissive')) return 'Voice: breathless, eager, devoted. She describes how much she loves being watched.';
+  return 'Voice: sultry, confident, dirty. She narrates like she owns the room.';
 }
 
-function buildFallbackScenePlan(userMessage: string, personaName?: string | null, isUndressed?: boolean): VideoScenePlan {
-  const request = userMessage.trim().replace(/\s+/g, ' ').slice(0, 220);
-  const normalizedName = personaName?.toLowerCase() || '';
-  const narration = normalizedName.includes('dominant')
-    ? `Stay right there. I'll make you watch every slow step of exactly what you asked for.`
-    : normalizedName.includes('submissive')
-      ? `I'm getting it ready for you, slow and teasing, exactly how you wanted to see me.`
-      : `Keep your eyes on me. I'm making this slow, teasing, and exactly the way you asked.`;
+function getEscalationStage(clipNumber: number): string {
+  if (clipNumber <= 2) return 'She is undressing — removing clothing slowly, teasing, revealing her body piece by piece. By the end of these clips she should be fully nude.';
+  if (clipNumber <= 4) return 'She is fully nude and touching herself — spreading her legs, showing her pussy, fingering herself, playing with her nipples.';
+  return 'She is in full explicit play — fingering herself hard, rubbing her clit fast, moaning, building toward orgasm. Maximum intensity.';
+}
 
+function buildFallbackScenePlan(
+  userMessage: string,
+  personaName?: string | null,
+  clipNumber?: number,
+  isUndressed?: boolean,
+): VideoScenePlan {
+  const stage = getEscalationStage(clipNumber || 1);
   const prefix = isUndressed
-    ? 'same adult woman already undressed from the source image'
+    ? 'same adult woman already nude from previous clip'
     : 'same adult woman in the source image';
 
   return {
     prompts: [
-      `${prefix} holds seductive eye contact, acknowledging the request: "${request}", same camera and pose`,
-      `${prefix} slowly reaches toward camera, eyes locked on viewer, breathing deepens`,
-      `${prefix} arches back slightly, biting her lip softly, intimate expression`,
-      `${prefix} leaning closer to camera, breathing slowly and deeply`,
-      `${prefix} runs hands slowly down her body, eyes on camera`,
-      `${prefix} holds a confident seductive pose, intense eye contact, smooth continuous motion`,
+      `${prefix} slowly removes clothing, revealing her body, seductive eye contact`,
+      `${prefix} slides clothing off her shoulders, arching her back, biting her lip`,
+      `${prefix} clothing falling away, hands tracing down her bare body`,
+      `${prefix} fully exposed, spreading her legs slowly, fingers moving toward her pussy`,
+      `${prefix} touching herself, eyes on camera, fingers circling her clit`,
+      `${prefix} fingering herself slowly, head back, mouth open, intense pleasure`,
     ],
-    narration,
+    onStart: 'Stripping for you baby. Watch every inch.',
+    onMid: 'You see how wet I am? All for you.',
   };
 }
 
-function extractScenePlan(content: string, userMessage: string, personaName?: string | null, isUndressed?: boolean): VideoScenePlan {
+function extractScenePlan(
+  content: string,
+  userMessage: string,
+  personaName?: string | null,
+  clipNumber?: number,
+  isUndressed?: boolean,
+): VideoScenePlan {
   const jsonMatch = content.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) return buildFallbackScenePlan(userMessage, personaName, isUndressed);
+  if (!jsonMatch) return buildFallbackScenePlan(userMessage, personaName, clipNumber, isUndressed);
 
   try {
-    const scenePlan = JSON.parse(jsonMatch[0]);
-    if (
-      Array.isArray(scenePlan?.prompts)
-      && typeof scenePlan?.narration === 'string'
-    ) {
-      const prompts = scenePlan.prompts
-        .filter((prompt: unknown) => typeof prompt === 'string')
-        .slice(0, 6);
+    const parsed = JSON.parse(jsonMatch[0]);
 
-      // FIX 1: Loosened validation — just requires "same" and "woman"
-      if (
-        prompts.length === 6 &&
-        prompts.every((prompt: string) =>
-          prompt.toLowerCase().includes('same') &&
-          prompt.toLowerCase().includes('woman')
-        )
-      ) {
-        return {
-          prompts,
-          narration: refineNarration(scenePlan.narration, userMessage, personaName),
-        };
-      }
-    }
+    const prompts = Array.isArray(parsed?.prompts)
+      ? parsed.prompts.filter((p: unknown) => typeof p === 'string').slice(0, 6)
+      : [];
 
-    if (
-      typeof scenePlan?.prompt === 'string'
-      && typeof scenePlan?.narration === 'string'
-    ) {
-      const fallback = buildFallbackScenePlan(userMessage, personaName, isUndressed);
-      return {
-        prompts: [scenePlan.prompt, ...fallback.prompts.slice(1)],
-        narration: refineNarration(scenePlan.narration, userMessage, personaName),
-      };
-    }
+    const valid = prompts.length === 6 &&
+      prompts.every((p: string) =>
+        p.toLowerCase().includes('same') && p.toLowerCase().includes('woman')
+      );
+
+    if (!valid) return buildFallbackScenePlan(userMessage, personaName, clipNumber, isUndressed);
+
+    const onStart = typeof parsed?.onStart === 'string' && parsed.onStart.trim().split(' ').length <= 15
+      ? parsed.onStart.trim()
+      : buildFallbackScenePlan(userMessage, personaName, clipNumber, isUndressed).onStart;
+
+    const onMid = typeof parsed?.onMid === 'string' && parsed.onMid.trim().split(' ').length <= 15
+      ? parsed.onMid.trim()
+      : buildFallbackScenePlan(userMessage, personaName, clipNumber, isUndressed).onMid;
+
+    return { prompts, onStart, onMid };
   } catch {
-    // fall through
+    return buildFallbackScenePlan(userMessage, personaName, clipNumber, isUndressed);
   }
-
-  return buildFallbackScenePlan(userMessage, personaName, isUndressed);
-}
-
-function refineNarration(narration: string, userMessage: string, personaName?: string | null) {
-  const cleaned = narration.trim();
-  const wordCount = cleaned.split(/\s+/).filter(Boolean).length;
-  const genericLines = ['like what you see?', 'enjoy the show.', 'watch this.'];
-
-  if (wordCount >= 5 && !genericLines.includes(cleaned.toLowerCase())) {
-    return cleaned;
-  }
-
-  return buildFallbackScenePlan(userMessage, personaName).narration;
 }
 
 async function generateVideoScenePlan(
   userMessage: string,
   conversationHistory: { role: string; content: string }[],
   personaName?: string | null,
+  clipNumber?: number,
   isUndressed?: boolean,
 ): Promise<VideoScenePlan> {
   const recentHistory = conversationHistory.slice(-4);
+  const clip = clipNumber || 1;
+  const stage = getEscalationStage(clip);
   const undressedContext = isUndressed
-    ? 'IMPORTANT: The woman is already fully undressed from the previous clip. All 6 prompts must keep her in that undressed state and continue the scene from there. Do NOT re-dress her or start from scratch.'
+    ? 'IMPORTANT: She is already fully nude from the previous clip. Keep her nude throughout all 6 prompts. Do NOT re-dress her.'
     : '';
 
   try {
@@ -162,46 +142,45 @@ async function generateVideoScenePlan(
       },
       body: JSON.stringify({
         model: 'sao10k/l3-euryale-70b',
-        max_tokens: 600,
-        temperature: 0.35,
+        max_tokens: 700,
+        temperature: 0.4,
         messages: [
           {
             role: 'system',
-            content: `You generate six image-to-video motion prompts and one short spoken narration line for an adult, spicy AI companion platform.
-The user wants sensual, flirtatious, seductive motion that progresses clearly through the requested visual action.
+            content: `You generate six image-to-video motion prompts and two short dirty talk lines for an adult AI companion platform.
+
+ESCALATION STAGE (clip ${clip}): ${stage}
 ${undressedContext}
+${userMessage ? `USER REQUEST: "${userMessage}" — honor this if it conflicts with the stage.` : 'No specific user request — follow the escalation stage.'}
 
-Return ONLY valid JSON with this exact shape:
-{"prompts":["prompt 1","prompt 2","prompt 3","prompt 4","prompt 5","prompt 6"],"narration":"one short line to speak while the video plays"}
+Return ONLY valid JSON:
+{
+  "prompts": ["prompt 1","prompt 2","prompt 3","prompt 4","prompt 5","prompt 6"],
+  "onStart": "one dirty line spoken when video starts playing",
+  "onMid": "one dirty line spoken 15 seconds into the video"
+}
 
-Prompt rules:
-- Write exactly 6 prompt strings
-- Every prompt starts with "same adult woman in the source image" (or "same adult woman already undressed" if continuing undressed)
-- Infer the user's fantasy and make it happen through natural, seductive motion
-- Keep the source image as truth: same woman, camera, room, lighting, and starting pose
-- Build a six-step progression, each prompt advancing the action
-- Include smooth natural motion and same camera continuity in each prompt
-- If the user explicitly asks for clothing removal, show gradual clothing removal across all 6 prompts
-- For explicit clothing-removal requests, prompt 1 begins the tease, prompts 2-5 progressively remove, prompt 6 has clothing completely removed
-- If continuing undressed, keep her undressed throughout all 6 prompts and escalate intimacy
-- Avoid sudden transitions like standing up, walking, or changing location
-- Max 26 words per prompt
+PROMPT RULES:
+- Exactly 6 strings
+- Every prompt starts with "same adult woman in the source image" (or "same adult woman already nude" if continuing nude)
+- NEVER invent or name specific clothing items — describe only motion and body parts
+- For undressing: "sliding clothing off", "fabric falling away", never "blouse" or "skirt"
+- Build a clear 6-step progression through the escalation stage
+- Each prompt max 26 words
+- Smooth natural webcam motion only — no standing up, walking, changing location
 
-Narration rules:
-- Exactly 2-3 short, punchy sentences. Max 45 words total. No rambling.
-- Dirty talk only — she is narrating what she is physically doing right now
-- Be explicit and specific to what was requested. If they asked for stripping, she describes removing clothing. If touching herself, she describes that in detail.
-- First person, present tense, breathless delivery
-- No filler phrases like "give me a second" or "just a moment" or "hold on"
-- She speaks like she is already doing it, not like she is about to
-- ${getPersonaNarrationStyle(personaName)}
-- Example for stripping: "Sliding my top off my shoulders, letting it fall. Unclasping my bra now, feeling your eyes on me."
-- Example for touching: "Fingers on my clit, slow circles. God you make me so wet just watching."`,
+DIRTY TALK RULES:
+- onStart: spoken when video begins. Max 12 words. Present tense. Explicit. What she is doing right now.
+- onMid: spoken at 15 seconds. Max 12 words. Present tense. Explicit. Continuing the scene.
+- First person only. No filler. No promises. Pure action.
+- ${getPersonaVoice(personaName)}
+- Example onStart: "Sliding everything off for you. Watch me."
+- Example onMid: "You see how wet I am? All yours."`,
           },
           ...recentHistory,
           {
             role: 'user',
-            content: `User request: "${userMessage}". Generate six progressive motion prompts and one narration line.`,
+            content: `Generate clip ${clip} of the scene.`,
           },
         ],
       }),
@@ -209,33 +188,27 @@ Narration rules:
 
     const data = await response.json();
     console.log('OpenRouter response status:', response.status);
-    console.log('OpenRouter data:', JSON.stringify(data).slice(0, 500));
+    console.log('OpenRouter data:', JSON.stringify(data).slice(0, 600));
 
     const content = data.choices?.[0]?.message?.content;
-
     if (!response.ok || !content) {
-      console.error('OpenRouter failed or empty content:', data);
-      return buildFallbackScenePlan(userMessage, personaName, isUndressed);
+      console.error('OpenRouter failed:', data);
+      return buildFallbackScenePlan(userMessage, personaName, clipNumber, isUndressed);
     }
 
-    return extractScenePlan(content.trim(), userMessage, personaName, isUndressed);
+    return extractScenePlan(content.trim(), userMessage, personaName, clipNumber, isUndressed);
   } catch (error) {
     console.error('OpenRouter scene plan exception:', error);
-    return buildFallbackScenePlan(userMessage, personaName, isUndressed);
+    return buildFallbackScenePlan(userMessage, personaName, clipNumber, isUndressed);
   }
 }
 
-async function submitAtlasVideo(
-  imageUrl: string,
-  prompts: string[]
-): Promise<string> {
+async function submitAtlasVideo(imageUrl: string, prompts: string[]): Promise<string> {
   console.log('Atlas submit starting:', {
     model: ATLAS_MODEL,
-    imageHost: (() => {
-      try { return new URL(imageUrl).host; } catch { return 'invalid-url'; }
-    })(),
+    imageHost: (() => { try { return new URL(imageUrl).host; } catch { return 'invalid-url'; } })(),
     promptCount: prompts.length,
-    promptPreview: prompts[0]?.slice(0, 220),
+    promptPreview: prompts[0]?.slice(0, 100),
   });
 
   const submitResponse = await fetch(
@@ -266,31 +239,32 @@ async function submitAtlasVideo(
   const submitData = await submitResponse.json();
   console.log('Atlas submit response:', JSON.stringify(submitData).slice(0, 500));
   const predictionId = submitData.data?.id || submitData.id;
-
-  if (!predictionId) {
-    throw new Error('No prediction ID returned');
-  }
-
+  if (!predictionId) throw new Error('No prediction ID returned');
   return predictionId;
 }
 
 export async function POST(req: NextRequest) {
   try {
-    const { userId, companionId, userMessage, conversationHistory, frameUrl } = await req.json();
+    const {
+      userId,
+      companionId,
+      userMessage,
+      conversationHistory,
+      frameUrl,
+      clipNumber,
+    } = await req.json();
 
     console.log('Video generation request received:', {
       hasUserId: Boolean(userId),
       companionId: companionId || null,
       userMessage,
       hasFrameUrl: Boolean(frameUrl),
+      clipNumber: clipNumber || 1,
       historyCount: Array.isArray(conversationHistory) ? conversationHistory.length : 0,
     });
 
     if (!userId || !userMessage) {
-      return NextResponse.json(
-        { error: 'Missing userId or userMessage' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Missing userId or userMessage' }, { status: 400 });
     }
 
     const supabase = await createClient();
@@ -309,31 +283,31 @@ export async function POST(req: NextRequest) {
     const { data: companion, error } = await companionQuery.limit(1).maybeSingle();
 
     if (error || !companion?.image_url) {
-      return NextResponse.json(
-        { error: 'Companion image not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Companion image not found' }, { status: 404 });
     }
 
-    // FIX 3: Use frameUrl if provided (last frame of previous clip), otherwise use original
     const imageUrl = frameUrl || companion.image_url;
-    const isUndressed = Boolean(frameUrl); // if we have a frame, she may be undressed
+    const isUndressed = Boolean(frameUrl);
+    const clip = clipNumber || 1;
 
     const persona = Array.isArray(companion.personas)
       ? companion.personas[0]
       : companion.personas as CompanionPersona | null;
 
     const scenePlan = await generateVideoScenePlan(
-      userMessage,
+      userMessage || '',
       conversationHistory || [],
       persona?.name,
+      clip,
       isUndressed,
     );
 
     console.log('Video scene plan ready:', {
       promptCount: scenePlan.prompts.length,
-      promptPreview: scenePlan.prompts[0]?.slice(0, 220),
-      narration: scenePlan.narration,
+      promptPreview: scenePlan.prompts[0]?.slice(0, 100),
+      onStart: scenePlan.onStart,
+      onMid: scenePlan.onMid,
+      clipNumber: clip,
       usingFrameUrl: Boolean(frameUrl),
     });
 
@@ -343,15 +317,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       prediction_id: predictionId,
-      prompts: scenePlan.prompts,
-      narration: scenePlan.narration,
+      onStart: scenePlan.onStart,
+      onMid: scenePlan.onMid,
     });
 
   } catch (error) {
     console.error('Video generation error:', error);
-    return NextResponse.json(
-      { error: 'Video generation failed' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Video generation failed' }, { status: 500 });
   }
 }
