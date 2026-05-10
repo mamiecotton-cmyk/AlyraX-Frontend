@@ -315,7 +315,8 @@ export async function POST(req: NextRequest) {
     console.log('Video scene plan ready:', {
       promptCount: scenePlan.prompts.length,
       promptPreview: scenePlan.prompts[0]?.slice(0, 100),
-      onStart: scenePlan.onStart,
+      onWait1: scenePlan.onWait1,
+      onWait2: scenePlan.onWait2,
       onMid: scenePlan.onMid,
       clipNumber: clip,
       usingFrameUrl: Boolean(frameUrl),
