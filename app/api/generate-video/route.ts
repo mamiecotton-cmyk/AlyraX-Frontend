@@ -55,6 +55,21 @@ function getEscalationStage(clipNumber: number): string {
   return 'She is in full explicit play — fingering herself hard, rubbing her clit fast, moaning, building toward orgasm. Maximum intensity.';
 }
 
+function getImageReference(isContinuation?: boolean): string {
+  return isContinuation
+    ? 'Reference the generated frame from the last clip'
+    : 'Reference the starting image';
+}
+
+function getClipMotionDirective(clipNumber: number): string {
+  if (clipNumber <= 1) return 'begin the requested action, moving slowly from the pose in the reference image';
+  if (clipNumber === 2) return 'continue from the generated frame, make the action clearly progress, do not reset the pose';
+  if (clipNumber === 3) return 'continue from the generated frame with more advanced motion and a changed body position';
+  if (clipNumber === 4) return 'continue from the generated frame with close, deliberate hand and hip motion';
+  if (clipNumber === 5) return 'continue from the generated frame with faster, more intense motion';
+  return 'continue from the generated frame, sustain the climax of the requested scene without restarting';
+}
+
 function buildFallbackScenePlan(
   userMessage?: string,
   personaName?: string | null,
@@ -62,18 +77,17 @@ function buildFallbackScenePlan(
   isUndressed?: boolean,
 ): VideoScenePlan {
   const stage = getEscalationStage(clipNumber || 1);
-  const prefix = isUndressed
-    ? 'same adult woman already nude from previous clip'
-    : 'same adult woman in the source image';
+  const reference = getImageReference(isUndressed);
+  const motion = getClipMotionDirective(clipNumber || 1);
 
   return {
     prompts: [
-      `${prefix} slowly removes clothing, revealing her body, seductive eye contact`,
-      `${prefix} slides clothing off her shoulders, arching her back, biting her lip`,
-      `${prefix} clothing falling away, hands tracing down her bare body`,
-      `${prefix} fully exposed, spreading her legs slowly, fingers moving toward her pussy`,
-      `${prefix} touching herself, eyes on camera, fingers circling her clit`,
-      `${prefix} fingering herself slowly, head back, mouth open, intense pleasure`,
+      `${reference}; ${stage}; ${motion}; smooth continuous motion, no reset, natural eye contact`,
+      `${reference}; continue the prior pose, deepen the motion, hands move deliberately, body position changes`,
+      `${reference}; progress the action further, hips and shoulders shift naturally, continuous camera-facing movement`,
+      `${reference}; maintain continuity from the frame, slower teasing motion, visible progression from prompt 3`,
+      `${reference}; continue without cuts or looping, more confident motion, natural breathing and expression`,
+      `${reference}; complete this clip's progression, hold the new end pose for the next continuation frame`,
     ],
     onWait1: 'Getting naked for you right now baby. Sliding everything off nice and slow, letting you see every inch of me.',
     onWait2: 'Almost ready for you. Running my hands down my bare skin, thinking about your eyes on me.',
@@ -94,15 +108,28 @@ function extractScenePlan(
   try {
     const parsed = JSON.parse(jsonMatch[0]);
 
+    const expectedReference = getImageReference(isUndressed);
+    const forbiddenReferencePattern = /\b(same adult woman|same woman|source image)\b/i;
+    const forbiddenReferenceReplacePattern = /\b(same adult woman|same woman|source image)\b/gi;
     const prompts = Array.isArray(parsed.prompts)
-      ? parsed.prompts.filter((p: unknown) => typeof p === 'string').slice(0, 6)
+      ? parsed.prompts
+          .filter((p: unknown) => typeof p === 'string')
+          .slice(0, 6)
+          .map((p: string) => {
+            const cleaned = p
+              .replace(forbiddenReferenceReplacePattern, expectedReference)
+              .replace(/^reference (the starting image|the generated frame from the last clip);?\s*/i, '')
+              .trim();
+            return `${expectedReference}; ${cleaned}`;
+          })
       : buildFallbackScenePlan(userMessage, personaName, clipNumber, isUndressed).prompts;
 
     const valid =
       Array.isArray(prompts) &&
       prompts.length === 6 &&
       prompts.every((p: string) =>
-        p.toLowerCase().includes('same') && p.toLowerCase().includes('woman')
+        p.toLowerCase().startsWith(expectedReference.toLowerCase()) &&
+        !forbiddenReferencePattern.test(p)
       );
 
     if (!valid) return buildFallbackScenePlan(userMessage, personaName, clipNumber, isUndressed);
@@ -137,9 +164,8 @@ async function generateVideoScenePlan(
   const recentHistory = conversationHistory.slice(-4);
   const clip = clipNumber || 1;
   const stage = getEscalationStage(clip);
-  const undressedContext = isUndressed
-    ? 'IMPORTANT: She is already fully nude from the previous clip. Keep her nude throughout all 6 prompts. Do NOT re-dress her.'
-    : '';
+  const reference = getImageReference(isUndressed);
+  const motionDirective = getClipMotionDirective(clip);
 
   try {
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
@@ -161,16 +187,19 @@ async function generateVideoScenePlan(
 
 USER WANTS: "${userMessage || 'continue the scene naturally'}"
 STAGE (clip ${clip}): ${stage}
+IMAGE REFERENCE WORDING: every prompt must begin with "${reference};"
+CONTINUITY DIRECTION: ${motionDirective}
 ${isUndressed ? 'She is already nude. Stay nude all 6 prompts.' : ''}
 
-HARD RULE — ZERO clothing words. Not fabric, sleeve, top, bottom, panties, bra, shirt, dress, underwear, outfit. Body parts only: skin, breasts, nipples, chest, hips, thighs, pussy, clit, fingers, hands, back, stomach.
+HARD RULE — do not write "same adult woman", "same woman", or "source image". Use only the required image reference wording above.
+HARD RULE — ZERO clothing words after the reference phrase. Not fabric, sleeve, top, bottom, panties, bra, shirt, dress, underwear, outfit. Body parts only: skin, breasts, nipples, chest, hips, thighs, pussy, clit, fingers, hands, back, stomach.
 
 CLIP ${clip} MUST END WITH: ${clip <= 1 ? 'breasts fully exposed' : clip === 2 ? 'completely nude' : 'nude and actively touching her pussy'}
 
 Return ONLY valid JSON:
 {"prompts":["p1","p2","p3","p4","p5","p6"],"onWait1":"2-3 explicit sentences max 50 words","onWait2":"2-3 explicit sentences max 50 words","onMid":"1 explicit sentence max 15 words"}
 
-Prompts: 6 strings, max 26 words each, describe body motion only, no clothing, no location changes. Make them specific to what the user asked for.
+Prompts: 6 strings, max 34 words each. Each prompt must progress from the previous prompt and must not repeat exact wording from earlier clips.
 Dirty talk: first person, present tense, explicit, match the user's request.
 ${getPersonaVoice(personaName)}`,
           },

@@ -57,6 +57,7 @@ export default function DashboardPage() {
   const [personas, setPersonas] = useState<PersonaOption[]>([]);
   const [selectedPersonaIndex, setSelectedPersonaIndex] = useState(0);
   const [currentVideoUrl, setCurrentVideoUrl] = useState<string | null>(null);
+  const [videoPlaybackKey, setVideoPlaybackKey] = useState(0);
   const [isGenerating, setIsGenerating] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -300,13 +301,12 @@ export default function DashboardPage() {
 
         if (!currentVideoUrlRef.current) {
           playVideo(queued);
+        } else if (isLoopingRef.current && videoRef.current) {
+          console.log('Video ready during tail loop. Playing continuation now.');
+          playVideo(queued);
         } else {
           videoQueueRef.current.push(queued);
           console.log('Video queued. Queue length:', videoQueueRef.current.length);
-          if (isLoopingRef.current && videoRef.current) {
-            isLoopingRef.current = false;
-            playVideo(queued);
-          }
         }
       }
     } catch (error) {
@@ -322,6 +322,7 @@ export default function DashboardPage() {
     clearMidTimer();
     currentOnMidRef.current = queued.onMid;
     isLoopingRef.current = false;
+    setVideoPlaybackKey((key) => key + 1);
     setCurrentVideoUrl(queued.url);
   }
 
@@ -525,6 +526,7 @@ export default function DashboardPage() {
       {mode === 'solo_video' && currentVideoUrl && (
         <video
           ref={videoRef}
+          key={videoPlaybackKey}
           src={currentVideoUrl}
           className="absolute inset-0 w-full h-full object-contain"
           autoPlay
