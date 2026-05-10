@@ -74,6 +74,8 @@ export default function DashboardPage() {
   const companionRef = useRef<Companion | null>(null);
   const isLoopingRef = useRef(false);
   const wait2TimerRef = useRef<NodeJS.Timeout | null>(null);
+  const callGenerationRef = useRef(0);
+  const prefetchForUrlRef = useRef<string | null>(null);
 
   useEffect(() => { modeRef.current = mode; }, [mode]);
   useEffect(() => { callingRef.current = calling; }, [calling]);
@@ -216,10 +218,20 @@ export default function DashboardPage() {
   async function generateVideo(sceneIntent: string, frameUrl?: string | null) {
     const currentUserId = userIdRef.current;
     const currentCompanion = companionRef.current;
+    const generationCallId = callGenerationRef.current;
 
     // Block if already generating or queue is full
-    if (!currentUserId || !currentCompanion || isGeneratingRef.current || videoQueueRef.current.length >= MAX_QUEUE) {
+    if (
+      !currentUserId
+      || !currentCompanion
+      || !callingRef.current
+      || modeRef.current !== 'solo_video'
+      || isGeneratingRef.current
+      || videoQueueRef.current.length >= MAX_QUEUE
+    ) {
       console.log('Skipping generation:', {
+        calling: callingRef.current,
+        mode: modeRef.current,
         isGenerating: isGeneratingRef.current,
         queueLength: videoQueueRef.current.length,
       });
@@ -247,6 +259,10 @@ export default function DashboardPage() {
 
       const data = await response.json();
       if (!response.ok) { console.error('Video generation failed:', data); return; }
+      if (generationCallId !== callGenerationRef.current || !callingRef.current || modeRef.current !== 'solo_video') {
+        console.log('Discarding stale video generation response');
+        return;
+      }
 
       if (data.prediction_id) {
         console.log('Clip number:', nextClipNumber);
@@ -268,6 +284,10 @@ export default function DashboardPage() {
 
         const videoUrl = await pollVideoResult(data.prediction_id);
         clipNumberRef.current = nextClipNumber;
+        if (generationCallId !== callGenerationRef.current || !callingRef.current || modeRef.current !== 'solo_video') {
+          console.log('Discarding stale video result after call ended or mode changed');
+          return;
+        }
 
         const queued: QueuedVideo = {
           url: videoUrl,
@@ -296,9 +316,11 @@ export default function DashboardPage() {
   }
 
   function playVideo(queued: QueuedVideo) {
+    if (!callingRef.current || modeRef.current !== 'solo_video') return;
     clearMidTimer();
     currentOnMidRef.current = queued.onMid;
     isLoopingRef.current = false;
+    prefetchForUrlRef.current = null;
     setCurrentVideoUrl(queued.url);
   }
 
@@ -308,9 +330,17 @@ export default function DashboardPage() {
     lastFrameUrlRef.current = null;
     clipNumberRef.current = 0;
     isLoopingRef.current = false;
+    prefetchForUrlRef.current = null;
     clearMidTimer();
     clearWait2Timer();
     currentOnMidRef.current = '';
+  }
+
+  function prefetchNextClip(frameUrl?: string | null) {
+    if (modeRef.current !== 'solo_video' || !callingRef.current || isGeneratingRef.current || videoQueueRef.current.length >= MAX_QUEUE) {
+      return;
+    }
+    generateVideo(buildSceneIntent(), frameUrl ?? lastFrameUrlRef.current);
   }
 
   const handleVideoPlay = () => {
@@ -321,8 +351,11 @@ export default function DashboardPage() {
       vapi.say('Watch me baby.', false, false);
     }
     startMidTimer();
-    if (modeRef.current === 'solo_video' && callingRef.current && !isGeneratingRef.current && videoQueueRef.current.length < MAX_QUEUE) {
-      generateVideo(buildSceneIntent());
+
+    const currentUrl = currentVideoUrlRef.current;
+    if (currentUrl && prefetchForUrlRef.current !== currentUrl) {
+      prefetchForUrlRef.current = currentUrl;
+      prefetchNextClip();
     }
   };
 
@@ -351,9 +384,7 @@ export default function DashboardPage() {
     }
 
     // Always try to generate more if queue has room
-    if (modeRef.current === 'solo_video' && callingRef.current && !isGeneratingRef.current && videoQueueRef.current.length < MAX_QUEUE) {
-      generateVideo(buildSceneIntent(), lastFrame);
-    }
+    prefetchNextClip(lastFrame);
   };
 
   // When looping video ends, check queue again
@@ -381,19 +412,27 @@ export default function DashboardPage() {
       setStatus('connected');
       setCalling(true);
       callingRef.current = true;
+      callGenerationRef.current += 1;
     });
 
     vapi.on('call-end', () => {
       setStatus('idle');
       setCalling(false);
       callingRef.current = false;
+      callGenerationRef.current += 1;
       resetVideoState();
       loadData();
     });
 
     vapi.on('speech-start', () => setStatus('speaking'));
     vapi.on('speech-end', () => setStatus('listening'));
-    vapi.on('error', () => { setStatus('idle'); setCalling(false); callingRef.current = false; });
+    vapi.on('error', () => {
+      setStatus('idle');
+      setCalling(false);
+      callingRef.current = false;
+      callGenerationRef.current += 1;
+      resetVideoState();
+    });
 
     vapi.on('message', (message: TranscriptMessage) => {
       if (message.type === 'transcript' && message.role === 'user' && message.transcript) {
@@ -404,9 +443,7 @@ export default function DashboardPage() {
         lastUserMessageRef.current = userMessage;
         conversationHistoryRef.current.push({ role: 'user', content: userMessage });
 
-        if (modeRef.current === 'solo_video' && callingRef.current && !isGeneratingRef.current && videoQueueRef.current.length < MAX_QUEUE) {
-          generateVideo(buildSceneIntent());
-        }
+        prefetchNextClip();
       }
 
       if (message.type === 'transcript' && message.role === 'assistant' && message.transcript) {
