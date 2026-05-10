@@ -59,7 +59,7 @@ function extractScenePlan(content: string, userMessage: string): VideoScenePlan 
     ) {
       return {
         prompt: scenePlan.prompt,
-        narration: scenePlan.narration,
+        narration: refineNarration(scenePlan.narration, userMessage),
       };
     }
   } catch {
@@ -67,6 +67,23 @@ function extractScenePlan(content: string, userMessage: string): VideoScenePlan 
   }
 
   return buildFallbackScenePlan(userMessage);
+}
+
+function refineNarration(narration: string, userMessage: string) {
+  const cleaned = narration.trim();
+  const wordCount = cleaned.split(/\s+/).filter(Boolean).length;
+  const genericLines = [
+    'like what you see?',
+    'enjoy the show.',
+    'watch this.',
+  ];
+
+  if (wordCount >= 5 && !genericLines.includes(cleaned.toLowerCase())) {
+    return cleaned;
+  }
+
+  const request = userMessage.trim().replace(/\s+/g, ' ');
+  return `Keep watching. I'm making this slow, teasing, and exactly what you asked for: ${request}`;
 }
 
 async function generateVideoScenePlan(
@@ -169,7 +186,7 @@ async function submitAtlasVideo(
       body: JSON.stringify({
         model: ATLAS_MODEL,
         image: imageUrl,
-        prompt,
+        prompt: [prompt],
         duration: 8,
         resolution: '480p',
         seed: -1,
