@@ -77,6 +77,7 @@ export default function DashboardPage() {
   const isLoopingRef = useRef(false);
   const wait2TimerRef = useRef<NodeJS.Timeout | null>(null);
   const callGenerationRef = useRef(0);
+  const waitNarrationClipRef = useRef<number | null>(null);
 
   useEffect(() => { modeRef.current = mode; }, [mode]);
   useEffect(() => { callingRef.current = calling; }, [calling]);
@@ -270,16 +271,19 @@ export default function DashboardPage() {
       if (data.prediction_id) {
         console.log('Clip number:', nextClipNumber);
 
-        // Fire onWait1 immediately
-        if (data.onWait1 && vapi) {
+        const shouldNarrateWait = waitNarrationClipRef.current !== nextClipNumber;
+        waitNarrationClipRef.current = nextClipNumber;
+
+        // Fire onWait1 once per requested clip, not on every retry/loop.
+        if (shouldNarrateWait && data.onWait1 && vapi) {
           vapi.say(data.onWait1, false, false);
         }
 
-        // Fire onWait2 at 20 seconds
+        // Fire onWait2 once if the clip is still not ready after 20 seconds.
         clearWait2Timer();
-        if (data.onWait2 && vapi) {
+        if (shouldNarrateWait && data.onWait2 && vapi) {
           wait2TimerRef.current = setTimeout(() => {
-            if (vapi && !currentVideoUrlRef.current) {
+            if (vapi && (!currentVideoUrlRef.current || isLoopingRef.current)) {
               vapi.say(data.onWait2, false, false);
             }
           }, 20000);
@@ -332,6 +336,7 @@ export default function DashboardPage() {
     lastFrameUrlRef.current = null;
     clipNumberRef.current = 0;
     isLoopingRef.current = false;
+    waitNarrationClipRef.current = null;
     clearMidTimer();
     clearWait2Timer();
     currentOnMidRef.current = '';
@@ -353,6 +358,10 @@ export default function DashboardPage() {
   }
 
   const handleVideoPlay = () => {
+    if (isLoopingRef.current) {
+      return;
+    }
+
     // Stop onWait2 if video ready early
     clearWait2Timer();
     // Snap into sync with video starting

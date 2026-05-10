@@ -6,6 +6,8 @@ export const maxDuration = 300;
 const ATLAS_API_KEY = process.env.ATLAS_CLOUD_API_KEY;
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 const ATLAS_MODEL = 'atlascloud/wan-2.2-turbo-spicy/infinite-image-to-video';
+const MAX_ATLAS_PROMPT_CHARS = 180;
+const ATLAS_NEGATIVE_GUARDRAIL = 'avoid: cuts, loops, resets, duplicate frames, flicker, warped hands, extra limbs';
 
 type AtlasPredictionResponse = {
   status?: string;
@@ -70,6 +72,26 @@ function getClipMotionDirective(clipNumber: number): string {
   return 'continue from the generated frame, sustain the climax of the requested scene without restarting';
 }
 
+function normalizeAtlasPrompt(prompt: string): string {
+  const compactPrompt = prompt.replace(/\s+/g, ' ').replace(/\s+;\s+/g, '; ').trim();
+  const withoutDuplicateGuardrail = compactPrompt
+    .replace(/\s*;?\s*avoid:\s*cuts, loops, resets, duplicate frames, flicker, warped hands, extra limbs/gi, '')
+    .trim();
+  const suffix = `; ${ATLAS_NEGATIVE_GUARDRAIL}`;
+
+  if (`${withoutDuplicateGuardrail}${suffix}`.length <= MAX_ATLAS_PROMPT_CHARS) {
+    return `${withoutDuplicateGuardrail}${suffix}`;
+  }
+
+  const availableChars = MAX_ATLAS_PROMPT_CHARS - suffix.length;
+  const trimmedPrompt = withoutDuplicateGuardrail
+    .slice(0, Math.max(availableChars, 0))
+    .replace(/[;,\s]+$/g, '')
+    .trim();
+
+  return `${trimmedPrompt}${suffix}`;
+}
+
 function buildFallbackScenePlan(
   userMessage?: string,
   personaName?: string | null,
@@ -82,12 +104,12 @@ function buildFallbackScenePlan(
 
   return {
     prompts: [
-      `${reference}; ${stage}; ${motion}; smooth continuous motion, no reset, natural eye contact`,
-      `${reference}; continue the prior pose, deepen the motion, hands move deliberately, body position changes`,
-      `${reference}; progress the action further, hips and shoulders shift naturally, continuous camera-facing movement`,
-      `${reference}; maintain continuity from the frame, slower teasing motion, visible progression from prompt 3`,
-      `${reference}; continue without cuts or looping, more confident motion, natural breathing and expression`,
-      `${reference}; complete this clip's progression, hold the new end pose for the next continuation frame`,
+      normalizeAtlasPrompt(`${reference}; ${stage}; ${motion}; smooth continuous motion, natural eye contact`),
+      normalizeAtlasPrompt(`${reference}; continue prior pose, deepen motion, hands move deliberately, body position changes`),
+      normalizeAtlasPrompt(`${reference}; progress action further, hips and shoulders shift naturally, camera-facing movement`),
+      normalizeAtlasPrompt(`${reference}; maintain continuity from frame, slower teasing motion, visible progression from prompt 3`),
+      normalizeAtlasPrompt(`${reference}; continue confidently, natural breathing and expression, changed pose`),
+      normalizeAtlasPrompt(`${reference}; complete this clip's progression, hold new end pose for next frame`),
     ],
     onWait1: 'Getting naked for you right now baby. Sliding everything off nice and slow, letting you see every inch of me.',
     onWait2: 'Almost ready for you. Running my hands down my bare skin, thinking about your eyes on me.',
@@ -120,7 +142,7 @@ function extractScenePlan(
               .replace(forbiddenReferenceReplacePattern, expectedReference)
               .replace(/^reference (the starting image|the generated frame from the last clip);?\s*/i, '')
               .trim();
-            return `${expectedReference}; ${cleaned}`;
+            return normalizeAtlasPrompt(`${expectedReference}; ${cleaned}`);
           })
       : buildFallbackScenePlan(userMessage, personaName, clipNumber, isUndressed).prompts;
 
@@ -129,6 +151,8 @@ function extractScenePlan(
       prompts.length === 6 &&
       prompts.every((p: string) =>
         p.toLowerCase().startsWith(expectedReference.toLowerCase()) &&
+        p.length <= MAX_ATLAS_PROMPT_CHARS &&
+        p.toLowerCase().includes('avoid:') &&
         !forbiddenReferencePattern.test(p)
       );
 
@@ -199,7 +223,7 @@ CLIP ${clip} MUST END WITH: ${clip <= 1 ? 'breasts fully exposed' : clip === 2 ?
 Return ONLY valid JSON:
 {"prompts":["p1","p2","p3","p4","p5","p6"],"onWait1":"2-3 explicit sentences max 50 words","onWait2":"2-3 explicit sentences max 50 words","onMid":"1 explicit sentence max 15 words"}
 
-Prompts: 6 strings, max 34 words each. Each prompt must progress from the previous prompt and must not repeat exact wording from earlier clips.
+Prompts: 6 strings, max 18 words each after the required reference phrase. Each prompt must progress from the previous prompt and must not repeat exact wording from earlier clips. Do not write negative/avoid/no-quality terms; the server appends those.
 Dirty talk: first person, present tense, explicit, match the user's request.
 ${getPersonaVoice(personaName)}`,
           },
@@ -230,11 +254,13 @@ ${getPersonaVoice(personaName)}`,
 }
 
 async function submitAtlasVideo(imageUrl: string, prompts: string[]): Promise<string> {
+  const atlasPrompts = prompts.map(normalizeAtlasPrompt);
   console.log('Atlas submit starting:', {
     model: ATLAS_MODEL,
     imageHost: (() => { try { return new URL(imageUrl).host; } catch { return 'invalid-url'; } })(),
-    promptCount: prompts.length,
-    promptPreview: prompts[0]?.slice(0, 100),
+    promptCount: atlasPrompts.length,
+    promptLengths: atlasPrompts.map((prompt) => prompt.length),
+    promptPreview: atlasPrompts[0]?.slice(0, 140),
   });
 
   const submitResponse = await fetch(
@@ -248,7 +274,7 @@ async function submitAtlasVideo(imageUrl: string, prompts: string[]): Promise<st
       body: JSON.stringify({
         model: ATLAS_MODEL,
         image: imageUrl,
-        prompt: prompts,
+        prompt: atlasPrompts,
         duration: 5,
         resolution: '480p',
         seed: -1,
