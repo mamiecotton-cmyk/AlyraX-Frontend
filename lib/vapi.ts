@@ -62,7 +62,8 @@ class DeepgramVoiceClient {
     await this.inputContext.resume();
 
     const socket = new WebSocket(
-      `wss://agent.deepgram.com/v1/agent/converse?token=${encodeURIComponent(tokenData.access_token)}`
+      'wss://agent.deepgram.com/v1/agent/converse',
+      ['bearer', tokenData.access_token]
     );
     socket.binaryType = 'arraybuffer';
     this.socket = socket;
@@ -189,7 +190,6 @@ class DeepgramVoiceClient {
             type: 'deepgram',
             model: 'flux-general-en',
             version: 'v2',
-            smart_format: true,
             eot_threshold: 0.75,
             eager_eot_threshold: 0.45,
           },
