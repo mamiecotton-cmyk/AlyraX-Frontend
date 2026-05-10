@@ -49,7 +49,8 @@ export async function POST(req: NextRequest) {
     const vapiBody = await req.json();
     const incomingMessages = vapiBody.messages || [];
     const requestedCompanionId =
-      vapiBody?.call?.assistantOverrides?.variableValues?.activeCompanionId
+      req.nextUrl.searchParams.get('companionId')
+      || vapiBody?.call?.assistantOverrides?.variableValues?.activeCompanionId
       || vapiBody?.assistantOverrides?.variableValues?.activeCompanionId
       || vapiBody?.variableValues?.activeCompanionId;
 
@@ -127,7 +128,7 @@ export async function POST(req: NextRequest) {
           'X-Title': 'AlyraX',
         },
         body: JSON.stringify({
-          model: 'sao10k/l3-euryale-70b',
+          model: process.env.OPENROUTER_MODEL || 'deepseek/deepseek-v4-flash',
           messages,
           temperature: 0.8,
           max_tokens: 200,

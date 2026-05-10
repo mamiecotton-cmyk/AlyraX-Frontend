@@ -27,19 +27,13 @@ export default function CallButton({
 
   const startSecretCall = async () => {
     setCalling(true);
-    const assistantId = process.env.NEXT_PUBLIC_VAPI_ASSISTANT_ID;
     if (!vapi) {
-      console.error('Call failed: VAPI not initialized (missing NEXT_PUBLIC_VAPI_PUBLIC_KEY)');
-      setCalling(false);
-      return;
-    }
-    if (!assistantId) {
-      console.error('Call failed: missing NEXT_PUBLIC_VAPI_ASSISTANT_ID');
+      console.error('Call failed: Deepgram voice client not initialized');
       setCalling(false);
       return;
     }
     try {
-      await vapi.start(assistantId, isVideoMode ? {
+      await vapi.start(undefined, isVideoMode ? {
         firstMessage: "Tell me what you want to see, baby. Give me the scene, and I'll make it worth the wait.",
         firstMessageMode: 'assistant-speaks-first',
         variableValues: { activeCompanionId: companionId },
