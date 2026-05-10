@@ -35,12 +35,14 @@ type QueuedVideo = {
   onWait1: string;
   onWait2: string;
   onMid: string;
+  readyLine: string;
 };
 
 const MAX_QUEUE = 2;
 const MID_POINT_MS = 15000;
 const LOOP_TAIL_SECONDS = 15;
 const WAIT_DIALOGUE_INTERVAL_MS = 12000;
+const READY_LINE_DELAY_MS = 2400;
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -78,6 +80,7 @@ export default function DashboardPage() {
   const isLoopingRef = useRef(false);
   const wait2TimerRef = useRef<NodeJS.Timeout | null>(null);
   const waitDialogueTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const readyLineTimerRef = useRef<NodeJS.Timeout | null>(null);
   const callGenerationRef = useRef(0);
   const waitNarrationClipRef = useRef<number | null>(null);
 
@@ -218,6 +221,13 @@ export default function DashboardPage() {
     }
   }
 
+  function clearReadyLineTimer() {
+    if (readyLineTimerRef.current) {
+      clearTimeout(readyLineTimerRef.current);
+      readyLineTimerRef.current = null;
+    }
+  }
+
   function getImmediateWaitLine(personaName?: string | null) {
     const name = personaName?.toLowerCase() || '';
     if (name.includes('dominant')) return 'Stay with me. I am setting up exactly what you asked to see.';
@@ -344,6 +354,7 @@ export default function DashboardPage() {
           onWait1: data.onWait1 || '',
           onWait2: data.onWait2 || '',
           onMid: data.onMid || '',
+          readyLine: data.readyLine || '',
         };
 
         if (!currentVideoUrlRef.current) {
@@ -368,7 +379,24 @@ export default function DashboardPage() {
   function playVideo(queued: QueuedVideo) {
     if (!callingRef.current || modeRef.current !== 'solo_video') return;
     clearMidTimer();
+    clearReadyLineTimer();
     currentOnMidRef.current = queued.onMid;
+
+    if (queued.readyLine && vapi) {
+      vapi.say(queued.readyLine, false, false);
+      if (currentVideoUrlRef.current && videoRef.current) {
+        isLoopingRef.current = true;
+        loopVideoTail();
+      }
+      readyLineTimerRef.current = setTimeout(() => {
+        if (!callingRef.current || modeRef.current !== 'solo_video') return;
+        isLoopingRef.current = false;
+        setVideoPlaybackKey((key) => key + 1);
+        setCurrentVideoUrl(queued.url);
+      }, READY_LINE_DELAY_MS);
+      return;
+    }
+
     isLoopingRef.current = false;
     setVideoPlaybackKey((key) => key + 1);
     setCurrentVideoUrl(queued.url);
@@ -384,6 +412,7 @@ export default function DashboardPage() {
     clearMidTimer();
     clearWait2Timer();
     clearWaitDialogueTimer();
+    clearReadyLineTimer();
     currentOnMidRef.current = '';
   }
 
@@ -407,18 +436,18 @@ export default function DashboardPage() {
       return;
     }
 
-    // Stop onWait2 if video ready early
     clearWait2Timer();
-    // Snap into sync with video starting
-    if (vapi) {
-      vapi.say('Watch me baby.', false, false);
-    }
     startMidTimer();
 
   };
 
   const handleVideoEnded = async () => {
     clearMidTimer();
+
+    if (readyLineTimerRef.current && isLoopingRef.current) {
+      loopVideoTail();
+      return;
+    }
 
     const next = videoQueueRef.current.shift();
     if (next) {

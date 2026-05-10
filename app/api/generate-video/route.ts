@@ -28,6 +28,7 @@ type VideoScenePlan = {
   onWait1: string;
   onWait2: string;
   onMid: string;
+  readyLine: string;
   waitLines: string[];
 };
 
@@ -73,6 +74,14 @@ function getClipMotionDirective(clipNumber: number): string {
   return 'continue from the generated frame, sustain the climax of the requested scene without restarting';
 }
 
+function getFallbackReadyLine(personaName?: string | null, isContinuation?: boolean) {
+  const name = personaName?.toLowerCase() || '';
+  const setup = isContinuation ? 'The next part is ready' : 'Your video is ready';
+  if (name.includes('dominant')) return `${setup}. Watch closely, because I am about to show you exactly where this goes.`;
+  if (name.includes('submissive')) return `${setup}. I made it flow from the last moment, just how you wanted.`;
+  return `${setup}. I kept it smooth and close to what you asked for.`;
+}
+
 function normalizeAtlasPrompt(prompt: string): string {
   const compactPrompt = prompt.replace(/\s+/g, ' ').replace(/\s+;\s+/g, '; ').trim();
   const withoutDuplicateGuardrail = compactPrompt
@@ -115,6 +124,7 @@ function buildFallbackScenePlan(
     onWait1: 'Getting naked for you right now baby. Sliding everything off nice and slow, letting you see every inch of me.',
     onWait2: 'Almost ready for you. Running my hands down my bare skin, thinking about your eyes on me.',
     onMid: 'You see how wet I am? All for you.',
+    readyLine: getFallbackReadyLine(personaName, isUndressed),
     waitLines: [
       'I heard exactly what you asked for. Stay with me while I make it worth watching.',
       'Tell me what you want me to do next while this one finishes.',
@@ -179,6 +189,10 @@ function extractScenePlan(
       ? parsed.onMid.trim()
       : fallback.onMid;
 
+    const readyLine = typeof parsed?.readyLine === 'string' && parsed.readyLine.trim().length > 0
+      ? parsed.readyLine.trim()
+      : fallback.readyLine;
+
     const waitLines = Array.isArray(parsed.waitLines)
       ? parsed.waitLines
           .filter((line: unknown) => typeof line === 'string' && line.trim().length > 0)
@@ -191,6 +205,7 @@ function extractScenePlan(
       onWait1,
       onWait2,
       onMid,
+      readyLine,
       waitLines: waitLines.length > 0 ? waitLines : fallback.waitLines,
     };
   } catch {
@@ -241,10 +256,11 @@ HARD RULE — ZERO clothing words after the reference phrase. Not fabric, sleeve
 CLIP ${clip} MUST END WITH: ${clip <= 1 ? 'breasts fully exposed' : clip === 2 ? 'completely nude' : 'nude and actively touching her pussy'}
 
 Return ONLY valid JSON:
-{"prompts":["p1","p2","p3","p4","p5","p6"],"onWait1":"1 conversational sentence max 18 words","onWait2":"1 conversational sentence max 18 words","onMid":"1 explicit sentence max 15 words","waitLines":["line1","line2","line3","line4"]}
+{"prompts":["p1","p2","p3","p4","p5","p6"],"onWait1":"1 conversational sentence max 18 words","onWait2":"1 conversational sentence max 18 words","onMid":"1 explicit sentence max 15 words","readyLine":"1 natural sentence max 24 words that says the video is ready and summarizes what is about to happen","waitLines":["line1","line2","line3","line4"]}
 
 Prompts: 6 strings, max 18 words each after the required reference phrase. Each prompt must progress from the previous prompt and must not repeat exact wording from earlier clips. Do not write negative/avoid/no-quality terms; the server appends those.
 Wait dialogue: first person, present tense, conversational, varied, persona-matched. It should invite the user to answer while the video generates; do not repeat the same idea.
+Ready line: persona-matched, natural, says the video is ready, summarizes the visual motion without sounding like a technical prompt.
 ${getPersonaVoice(personaName)}`,
           },
           ...recentHistory,
@@ -380,6 +396,7 @@ export async function POST(req: NextRequest) {
       onWait1: scenePlan.onWait1,
       onWait2: scenePlan.onWait2,
       onMid: scenePlan.onMid,
+      readyLine: scenePlan.readyLine,
       waitLines: scenePlan.waitLines,
       clipNumber: clip,
       usingFrameUrl: Boolean(frameUrl),
@@ -394,6 +411,7 @@ export async function POST(req: NextRequest) {
       onWait1: scenePlan.onWait1,
       onWait2: scenePlan.onWait2,
       onMid: scenePlan.onMid,
+      readyLine: scenePlan.readyLine,
       waitLines: scenePlan.waitLines,
     });
 
