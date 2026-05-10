@@ -47,19 +47,16 @@ function getPersonaNarrationStyle(personaName?: string | null) {
   if (normalizedName.includes('dominant')) {
     return 'Narration voice: calm, commanding, possessive, and in control. Make the user feel instructed to watch.';
   }
-
   if (normalizedName.includes('submissive')) {
     return 'Narration voice: eager, breathless, warm, devoted, and pleased to be watched.';
   }
-
   if (normalizedName.includes('classic') || normalizedName.includes('alyrax')) {
     return 'Narration voice: sultry, confident, sophisticated, and teasing.';
   }
-
   return 'Narration voice: preserve the selected persona tone and emotional style.';
 }
 
-function buildFallbackScenePlan(userMessage: string, personaName?: string | null): VideoScenePlan {
+function buildFallbackScenePlan(userMessage: string, personaName?: string | null, isUndressed?: boolean): VideoScenePlan {
   const request = userMessage.trim().replace(/\s+/g, ' ').slice(0, 220);
   const normalizedName = personaName?.toLowerCase() || '';
   const narration = normalizedName.includes('dominant')
@@ -68,22 +65,26 @@ function buildFallbackScenePlan(userMessage: string, personaName?: string | null
       ? `I'm getting it ready for you, slow and teasing, exactly how you wanted to see me.`
       : `Keep your eyes on me. I'm making this slow, teasing, and exactly the way you asked.`;
 
+  const prefix = isUndressed
+    ? 'same adult woman already undressed from the source image'
+    : 'same adult woman in the source image';
+
   return {
     prompts: [
-      `same adult woman in the source image holds seductive eye contact, acknowledging the request: "${request}", same camera and pose`,
-      'same adult woman slowly touches the clothing she was asked to remove, teasing the edge with smooth natural motion',
-      'same adult woman begins loosening the requested clothing, moving carefully and continuously while keeping eye contact',
-      'same adult woman slides the requested clothing farther off her body, breathing deeper, same room and camera',
-      'same adult woman removes the requested clothing almost completely, pausing with a teasing smile and natural movement',
-      'same adult woman has the requested clothing completely removed, holding a confident seductive pose, smooth continuous finish',
+      `${prefix} holds seductive eye contact, acknowledging the request: "${request}", same camera and pose`,
+      `${prefix} slowly reaches toward camera, eyes locked on viewer, breathing deepens`,
+      `${prefix} arches back slightly, biting her lip softly, intimate expression`,
+      `${prefix} leaning closer to camera, breathing slowly and deeply`,
+      `${prefix} runs hands slowly down her body, eyes on camera`,
+      `${prefix} holds a confident seductive pose, intense eye contact, smooth continuous motion`,
     ],
     narration,
   };
 }
 
-function extractScenePlan(content: string, userMessage: string, personaName?: string | null): VideoScenePlan {
+function extractScenePlan(content: string, userMessage: string, personaName?: string | null, isUndressed?: boolean): VideoScenePlan {
   const jsonMatch = content.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) return buildFallbackScenePlan(userMessage, personaName);
+  if (!jsonMatch) return buildFallbackScenePlan(userMessage, personaName, isUndressed);
 
   try {
     const scenePlan = JSON.parse(jsonMatch[0]);
@@ -95,7 +96,14 @@ function extractScenePlan(content: string, userMessage: string, personaName?: st
         .filter((prompt: unknown) => typeof prompt === 'string')
         .slice(0, 6);
 
-      if (prompts.length === 6 && prompts.every((prompt: string) => prompt.toLowerCase().includes('same adult woman'))) {
+      // FIX 1: Loosened validation — just requires "same" and "woman"
+      if (
+        prompts.length === 6 &&
+        prompts.every((prompt: string) =>
+          prompt.toLowerCase().includes('same') &&
+          prompt.toLowerCase().includes('woman')
+        )
+      ) {
         return {
           prompts,
           narration: refineNarration(scenePlan.narration, userMessage, personaName),
@@ -107,45 +115,41 @@ function extractScenePlan(content: string, userMessage: string, personaName?: st
       typeof scenePlan?.prompt === 'string'
       && typeof scenePlan?.narration === 'string'
     ) {
-      const fallback = buildFallbackScenePlan(userMessage, personaName);
+      const fallback = buildFallbackScenePlan(userMessage, personaName, isUndressed);
       return {
-        prompts: [
-          scenePlan.prompt,
-          ...fallback.prompts.slice(1),
-        ],
+        prompts: [scenePlan.prompt, ...fallback.prompts.slice(1)],
         narration: refineNarration(scenePlan.narration, userMessage, personaName),
       };
     }
   } catch {
-    // Fall through to request-aware fallback.
+    // fall through
   }
 
-  return buildFallbackScenePlan(userMessage, personaName);
+  return buildFallbackScenePlan(userMessage, personaName, isUndressed);
 }
 
 function refineNarration(narration: string, userMessage: string, personaName?: string | null) {
   const cleaned = narration.trim();
   const wordCount = cleaned.split(/\s+/).filter(Boolean).length;
-  const genericLines = [
-    'like what you see?',
-    'enjoy the show.',
-    'watch this.',
-  ];
+  const genericLines = ['like what you see?', 'enjoy the show.', 'watch this.'];
 
   if (wordCount >= 5 && !genericLines.includes(cleaned.toLowerCase())) {
     return cleaned;
   }
 
-  const request = userMessage.trim().replace(/\s+/g, ' ');
-  return buildFallbackScenePlan(request, personaName).narration;
+  return buildFallbackScenePlan(userMessage, personaName).narration;
 }
 
 async function generateVideoScenePlan(
   userMessage: string,
   conversationHistory: { role: string; content: string }[],
-  personaName?: string | null
+  personaName?: string | null,
+  isUndressed?: boolean,
 ): Promise<VideoScenePlan> {
   const recentHistory = conversationHistory.slice(-4);
+  const undressedContext = isUndressed
+    ? 'IMPORTANT: The woman is already fully undressed from the previous clip. All 6 prompts must keep her in that undressed state and continue the scene from there. Do NOT re-dress her or start from scratch.'
+    : '';
 
   try {
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
@@ -158,39 +162,37 @@ async function generateVideoScenePlan(
       },
       body: JSON.stringify({
         model: 'sao10k/l3-euryale-70b',
-        max_tokens: 500,
+        max_tokens: 600,
         temperature: 0.35,
         messages: [
           {
             role: 'system',
-          content: `You generate six image-to-video motion prompts and one short spoken narration line for an adult, spicy AI companion platform.
+            content: `You generate six image-to-video motion prompts and one short spoken narration line for an adult, spicy AI companion platform.
 The user wants sensual, flirtatious, seductive motion that progresses clearly through the requested visual action.
+${undressedContext}
 
 Return ONLY valid JSON with this exact shape:
 {"prompts":["prompt 1","prompt 2","prompt 3","prompt 4","prompt 5","prompt 6"],"narration":"one short line to speak while the video plays"}
 
 Prompt rules:
 - Write exactly 6 prompt strings
-- Every prompt starts with "same adult woman in the source image"
+- Every prompt starts with "same adult woman in the source image" (or "same adult woman already undressed" if continuing undressed)
 - Infer the user's fantasy and make it happen through natural, seductive motion
-- Keep the source image as truth: same woman, camera, room, lighting, outfit, and starting pose
-- Do not invent a bed, chair, new outfit, new pose, new prop, or new camera angle unless already implied
-- Build a six-step progression, each prompt advancing the action, not repeating the same motion
+- Keep the source image as truth: same woman, camera, room, lighting, and starting pose
+- Build a six-step progression, each prompt advancing the action
 - Include smooth natural motion and same camera continuity in each prompt
-- Prefer motions image-to-video handles well: eye contact, coy smile, lip bite, head tilt, slow lean, shoulder roll, arch, hand tracing neck/chest/waist/hip, hair touch, breathing
 - If the user explicitly asks for clothing removal, show gradual clothing removal across all 6 prompts
-- For explicit clothing-removal requests, prompt 1 begins the tease, prompts 2-5 progressively remove the requested clothing, and prompt 6 has the requested clothing completely removed
-- Avoid sudden transitions like standing to lying down, turning around, crawling, dancing, or changing location
-- Keep it spicy, intimate, and physically plausible
+- For explicit clothing-removal requests, prompt 1 begins the tease, prompts 2-5 progressively remove, prompt 6 has clothing completely removed
+- If continuing undressed, keep her undressed throughout all 6 prompts and escalate intimacy
+- Avoid sudden transitions like standing up, walking, or changing location
 - Max 26 words per prompt
 
 Narration rules:
 - One or two short sentences, max 34 words total
-- Spoken by the companion while the video generates, before the video is ready
-- Summarize the six-stage visual plan in a sexy way without listing numbers
+- Spoken by the companion while the video generates
 - Match the user's requested scene and selected persona voice
 - ${getPersonaNarrationStyle(personaName)}
-- Spicy, intimate, cinematic, not technical`,
+- Spicy, intimate, cinematic`,
           },
           ...recentHistory,
           {
@@ -202,8 +204,6 @@ Narration rules:
     });
 
     const data = await response.json();
-
-    // Log for debugging
     console.log('OpenRouter response status:', response.status);
     console.log('OpenRouter data:', JSON.stringify(data).slice(0, 500));
 
@@ -211,13 +211,13 @@ Narration rules:
 
     if (!response.ok || !content) {
       console.error('OpenRouter failed or empty content:', data);
-      return buildFallbackScenePlan(userMessage, personaName);
+      return buildFallbackScenePlan(userMessage, personaName, isUndressed);
     }
 
-    return extractScenePlan(content.trim(), userMessage, personaName);
+    return extractScenePlan(content.trim(), userMessage, personaName, isUndressed);
   } catch (error) {
     console.error('OpenRouter scene plan exception:', error);
-    return buildFallbackScenePlan(userMessage, personaName);
+    return buildFallbackScenePlan(userMessage, personaName, isUndressed);
   }
 }
 
@@ -234,7 +234,6 @@ async function submitAtlasVideo(
     promptPreview: prompts[0]?.slice(0, 220),
   });
 
-  // Submit job
   const submitResponse = await fetch(
     'https://api.atlascloud.ai/api/v1/model/generateVideo',
     {
@@ -273,12 +272,13 @@ async function submitAtlasVideo(
 
 export async function POST(req: NextRequest) {
   try {
-    const { userId, companionId, userMessage, conversationHistory } = await req.json();
+    const { userId, companionId, userMessage, conversationHistory, frameUrl } = await req.json();
 
     console.log('Video generation request received:', {
       hasUserId: Boolean(userId),
       companionId: companionId || null,
       userMessage,
+      hasFrameUrl: Boolean(frameUrl),
       historyCount: Array.isArray(conversationHistory) ? conversationHistory.length : 0,
     });
 
@@ -289,10 +289,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Fetch companion image URL from Supabase
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     const activeCompanionId = companionId || user?.user_metadata?.active_companion_id;
+
     let companionQuery = supabase
       .from('companions')
       .select('image_url, personas(name)')
@@ -302,9 +302,7 @@ export async function POST(req: NextRequest) {
       companionQuery = companionQuery.eq('id', activeCompanionId);
     }
 
-    const { data: companion, error } = await companionQuery
-      .limit(1)
-      .maybeSingle();
+    const { data: companion, error } = await companionQuery.limit(1).maybeSingle();
 
     if (error || !companion?.image_url) {
       return NextResponse.json(
@@ -313,17 +311,29 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // FIX 3: Use frameUrl if provided (last frame of previous clip), otherwise use original
+    const imageUrl = frameUrl || companion.image_url;
+    const isUndressed = Boolean(frameUrl); // if we have a frame, she may be undressed
+
     const persona = Array.isArray(companion.personas)
       ? companion.personas[0]
       : companion.personas as CompanionPersona | null;
-    const scenePlan = await generateVideoScenePlan(userMessage, conversationHistory || [], persona?.name);
+
+    const scenePlan = await generateVideoScenePlan(
+      userMessage,
+      conversationHistory || [],
+      persona?.name,
+      isUndressed,
+    );
+
     console.log('Video scene plan ready:', {
       promptCount: scenePlan.prompts.length,
       promptPreview: scenePlan.prompts[0]?.slice(0, 220),
       narration: scenePlan.narration,
+      usingFrameUrl: Boolean(frameUrl),
     });
 
-    const predictionId = await submitAtlasVideo(companion.image_url, scenePlan.prompts);
+    const predictionId = await submitAtlasVideo(imageUrl, scenePlan.prompts);
     console.log('Video generation submitted:', { predictionId });
 
     return NextResponse.json({

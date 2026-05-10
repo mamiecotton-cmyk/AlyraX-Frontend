@@ -62,6 +62,17 @@ export default function DashboardPage() {
   const isGeneratingRef = useRef(false);
   const currentVideoUrlRef = useRef<string | null>(null);
   const lastVideoRequestRef = useRef<{ key: string; at: number } | null>(null);
+  const lastFrameUrlRef = useRef<string | null>(null); // FIX 3: last frame of previous clip
+  const modeRef = useRef<Mode>('solo');
+  const callingRef = useRef(false);
+  const userIdRef = useRef<string | null>(null);
+  const companionRef = useRef<Companion | null>(null);
+
+  // Keep refs in sync with state
+  useEffect(() => { modeRef.current = mode; }, [mode]);
+  useEffect(() => { callingRef.current = calling; }, [calling]);
+  useEffect(() => { userIdRef.current = userId; }, [userId]);
+  useEffect(() => { companionRef.current = companion; }, [companion]);
 
   async function pollVideoResult(predictionId: string) {
     const maxAttempts = 120;
@@ -92,6 +103,7 @@ export default function DashboardPage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { router.push('/login'); return; }
     setUserId(user.id);
+    userIdRef.current = user.id;
 
     const { data: companionData } = await supabase
       .from('companions')
@@ -105,6 +117,7 @@ export default function DashboardPage() {
 
     setCompanions(companionData);
     setCompanion(activeCompanion);
+    companionRef.current = activeCompanion;
 
     const { data: personasData } = await supabase
       .from('personas')
@@ -125,19 +138,61 @@ export default function DashboardPage() {
     setLoading(false);
   }
 
-  async function generateVideo(userMessage: string) {
+  // FIX 3: Extract last frame from video element and upload to Supabase
+  async function extractLastFrame(): Promise<string | null> {
+    if (!videoRef.current || !userIdRef.current) return null;
+
+    try {
+      const video = videoRef.current;
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth || 480;
+      canvas.height = video.videoHeight || 854;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return null;
+      ctx.drawImage(video, 0, 0);
+
+      return new Promise((resolve) => {
+        canvas.toBlob(async (blob) => {
+          if (!blob) { resolve(null); return; }
+
+          const fileName = `${userIdRef.current}/frame-${Date.now()}.jpg`;
+          const { data, error } = await supabase.storage
+            .from('companions')
+            .upload(fileName, blob, {
+              contentType: 'image/jpeg',
+              upsert: true,
+            });
+
+          if (error) { console.error('Frame upload error:', error); resolve(null); return; }
+
+          const { data: urlData } = supabase.storage
+            .from('companions')
+            .getPublicUrl(data.path);
+
+          resolve(urlData.publicUrl);
+        }, 'image/jpeg', 0.92);
+      });
+    } catch (err) {
+      console.error('Frame extraction error:', err);
+      return null;
+    }
+  }
+
+  async function generateVideo(userMessage: string, frameUrl?: string | null) {
+    const currentUserId = userIdRef.current;
+    const currentCompanion = companionRef.current;
+
     const requestKey = userMessage.trim().toLowerCase().replace(/\s+/g, ' ');
     const recentRequest = lastVideoRequestRef.current;
     const isDuplicate =
       recentRequest?.key === requestKey && Date.now() - recentRequest.at < 120000;
 
-    if (!userId || !companion || isGeneratingRef.current || isDuplicate) {
+    if (!currentUserId || !currentCompanion || isGeneratingRef.current || isDuplicate) {
       console.log('Skipping video generation:', {
-        hasUserId: Boolean(userId),
-        hasCompanion: Boolean(companion),
+        hasUserId: Boolean(currentUserId),
+        hasCompanion: Boolean(currentCompanion),
         isGenerating: isGeneratingRef.current,
         isDuplicate,
-        requestKey,
       });
       return;
     }
@@ -145,25 +200,21 @@ export default function DashboardPage() {
     isGeneratingRef.current = true;
     lastVideoRequestRef.current = { key: requestKey, at: Date.now() };
     setIsGenerating(true);
-    console.log('Starting video generation:', {
-      companionId: companion.id,
-      userMessage,
-    });
 
     try {
       const response = await fetch('/api/generate-video', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          userId,
-          companionId: companion.id,
+          userId: currentUserId,
+          companionId: currentCompanion.id,
           userMessage,
+          frameUrl: frameUrl ?? lastFrameUrlRef.current, // FIX 3: pass last frame
           conversationHistory: conversationHistoryRef.current.slice(-4),
         }),
       });
 
       const data = await response.json();
-      console.log('Video generation response:', data);
 
       if (!response.ok) {
         console.error('Video generation failed:', data);
@@ -175,15 +226,11 @@ export default function DashboardPage() {
           vapi.say(data.narration, false, false, false);
         }
 
-        console.log('Polling video prediction:', data.prediction_id);
         const videoUrl = await pollVideoResult(data.prediction_id);
-        console.log('Video prediction ready:', videoUrl);
 
-        // If nothing playing, play now
         if (!currentVideoUrlRef.current) {
           setCurrentVideoUrl(videoUrl);
         } else {
-          // Buffer as next video
           nextVideoUrlRef.current = videoUrl;
           nextVideoNarrationRef.current = null;
         }
@@ -208,46 +255,37 @@ export default function DashboardPage() {
     vapi.on('call-start', () => {
       setStatus('connected');
       setCalling(true);
+      callingRef.current = true;
     });
 
     vapi.on('call-end', () => {
       setStatus('idle');
       setCalling(false);
+      callingRef.current = false;
       setCurrentVideoUrl(null);
       nextVideoUrlRef.current = null;
       nextVideoNarrationRef.current = null;
+      lastFrameUrlRef.current = null; // reset frame on call end
       conversationHistoryRef.current = [];
       loadData();
     });
 
     vapi.on('speech-start', () => setStatus('speaking'));
     vapi.on('speech-end', () => setStatus('listening'));
-    vapi.on('error', () => { setStatus('idle'); setCalling(false); });
+    vapi.on('error', () => { setStatus('idle'); setCalling(false); callingRef.current = false; });
 
-    // Listen for transcripts to capture conversation
     vapi.on('message', (message: TranscriptMessage) => {
       if (message.type === 'transcript' && message.role === 'user' && message.transcript) {
-        console.log('User transcript received:', {
-          transcriptType: message.transcriptType,
-          transcript: message.transcript,
-          mode,
-          calling,
-          isGenerating,
-        });
         if (message.transcriptType && message.transcriptType !== 'final') return;
 
         const userMessage = message.transcript.trim();
         if (!userMessage) return;
 
         lastUserMessageRef.current = userMessage;
+        conversationHistoryRef.current.push({ role: 'user', content: userMessage });
 
-        conversationHistoryRef.current.push({
-          role: 'user',
-          content: userMessage,
-        });
-
-        // Trigger video generation if in video mode
-        if (mode === 'solo_video' && calling && !isGenerating) {
+        // Use refs so we always have current values — fixes stale closure bug
+        if (modeRef.current === 'solo_video' && callingRef.current && !isGeneratingRef.current) {
           generateVideo(userMessage);
         }
       }
@@ -261,9 +299,8 @@ export default function DashboardPage() {
     });
 
     return () => { vapi?.removeAllListeners(); };
-  }, [mode, calling, isGenerating]);
+  }, []); // FIX 2: empty deps — uses refs instead of stale state
 
-  // Auto-hide controls
   useEffect(() => {
     if (showControls) {
       const timer = setTimeout(() => setShowControls(false), 3000);
@@ -271,7 +308,14 @@ export default function DashboardPage() {
     }
   }, [showControls]);
 
-  const handleVideoEnd = () => {
+  // FIX 2 + FIX 3: Extract frame, then continuously generate next video
+  const handleVideoEnd = async () => {
+    // Extract last frame before switching video
+    const lastFrame = await extractLastFrame();
+    if (lastFrame) {
+      lastFrameUrlRef.current = lastFrame;
+    }
+
     if (nextVideoUrlRef.current) {
       if (nextVideoNarrationRef.current && vapi) {
         vapi.say(nextVideoNarrationRef.current, false, false, false);
@@ -281,6 +325,11 @@ export default function DashboardPage() {
       nextVideoNarrationRef.current = null;
     } else {
       setCurrentVideoUrl(null);
+    }
+
+    // FIX 2: Always keep generating while in video mode on an active call
+    if (modeRef.current === 'solo_video' && callingRef.current && lastUserMessageRef.current && !isGeneratingRef.current) {
+      generateVideo(lastUserMessageRef.current, lastFrame);
     }
   };
 
@@ -301,17 +350,12 @@ export default function DashboardPage() {
   const updatePersona = async (index: number) => {
     const previousIndex = selectedPersonaIndex;
     const selectedPersona = personas[index];
-
     if (!selectedPersona) return;
 
     setSelectedPersonaIndex(index);
     setCompanion(prev => prev ? {
       ...prev,
-      personas: {
-        ...prev.personas,
-        name: selectedPersona.name,
-        tagline: selectedPersona.tagline,
-      },
+      personas: { ...prev.personas, name: selectedPersona.name, tagline: selectedPersona.tagline },
     } : prev);
 
     const response = await fetch('/api/companion/persona', {
@@ -328,9 +372,11 @@ export default function DashboardPage() {
 
   const updateActiveCompanion = async (nextCompanion: Companion) => {
     setCompanion(nextCompanion);
+    companionRef.current = nextCompanion;
     setCurrentVideoUrl(null);
     nextVideoUrlRef.current = null;
     nextVideoNarrationRef.current = null;
+    lastFrameUrlRef.current = null;
     const currentPersonaIndex = personas.findIndex(p => p.name === nextCompanion.personas?.name);
     setSelectedPersonaIndex(currentPersonaIndex >= 0 ? currentPersonaIndex : 0);
 
@@ -340,9 +386,7 @@ export default function DashboardPage() {
       body: JSON.stringify({ companionId: nextCompanion.id }),
     });
 
-    if (!response.ok) {
-      loadData();
-    }
+    if (!response.ok) loadData();
   };
 
   if (loading) {
@@ -359,7 +403,6 @@ export default function DashboardPage() {
       style={{ height: '100dvh' }}
       onClick={() => setShowControls(prev => !prev)}
     >
-      {/* Still image — base layer always visible */}
       {companion?.image_url && (
         <img
           src={companion.image_url}
@@ -368,7 +411,6 @@ export default function DashboardPage() {
         />
       )}
 
-      {/* Video layer — plays over still image when active */}
       {mode === 'solo_video' && currentVideoUrl && (
         <video
           ref={videoRef}
@@ -380,7 +422,6 @@ export default function DashboardPage() {
         />
       )}
 
-      {/* Generating indicator */}
       {mode === 'solo_video' && isGenerating && !currentVideoUrl && (
         <div className="absolute bottom-32 left-0 right-0 flex justify-center">
           <p className="text-xs text-red-400 italic animate-pulse">
@@ -389,19 +430,16 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Red pulse when on call */}
       {calling && (
         <div className="absolute top-4 right-4 w-2 h-2 rounded-full bg-red-500 animate-pulse" />
       )}
 
-      {/* Controls overlay */}
       <div
         className={`absolute inset-0 flex flex-col justify-between transition-opacity duration-500 ${
           showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}
         style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.85) 0%, transparent 40%, rgba(0,0,0,0.4) 100%)' }}
       >
-        {/* Top bar */}
         <div className="flex justify-between items-center p-5">
           <button
             onClick={(e) => { e.stopPropagation(); router.push('/credits'); }}
@@ -417,7 +455,6 @@ export default function DashboardPage() {
           </button>
         </div>
 
-        {/* Bottom controls */}
         <div className="flex flex-col items-center gap-4 p-6">
           <div className="text-center">
             <p className="text-white font-semibold tracking-wide">{companion?.name}</p>
@@ -449,7 +486,6 @@ export default function DashboardPage() {
             Add Persona
           </button>
 
-          {/* Mode selector */}
           <div className="flex gap-2">
             {[
               { key: 'solo', label: 'Voice $1.99' },
