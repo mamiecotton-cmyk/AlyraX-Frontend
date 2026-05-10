@@ -70,6 +70,7 @@ export default function DashboardPage() {
   const currentVideoUrlRef = useRef<string | null>(null);
   const lastFrameUrlRef = useRef<string | null>(null);
   const clipNumberRef = useRef(0);
+  const submittedClipNumberRef = useRef(0);
   const midPointTimerRef = useRef<NodeJS.Timeout | null>(null);
   const currentOnMidRef = useRef<string>('');
   const modeRef = useRef<Mode>('solo');
@@ -81,6 +82,7 @@ export default function DashboardPage() {
   const readyLineTimerRef = useRef<NodeJS.Timeout | null>(null);
   const callGenerationRef = useRef(0);
   const waitNarrationClipRef = useRef<number | null>(null);
+  const pendingPlaybackRef = useRef(false);
 
   useEffect(() => { modeRef.current = mode; }, [mode]);
   useEffect(() => { callingRef.current = calling; }, [calling]);
@@ -241,12 +243,14 @@ export default function DashboardPage() {
       || !callingRef.current
       || modeRef.current !== 'solo_video'
       || isGeneratingRef.current
+      || pendingPlaybackRef.current
       || videoQueueRef.current.length >= MAX_QUEUE
     ) {
       console.log('Skipping generation:', {
         calling: callingRef.current,
         mode: modeRef.current,
         isGenerating: isGeneratingRef.current,
+        pendingPlayback: pendingPlaybackRef.current,
         queueLength: videoQueueRef.current.length,
       });
       return;
@@ -255,7 +259,8 @@ export default function DashboardPage() {
     isGeneratingRef.current = true;
     setIsGenerating(true);
 
-    const nextClipNumber = clipNumberRef.current + 1;
+    const nextClipNumber = submittedClipNumberRef.current + 1;
+    submittedClipNumberRef.current = nextClipNumber;
 
     try {
       const response = await fetch('/api/generate-video', {
@@ -330,21 +335,31 @@ export default function DashboardPage() {
     currentOnMidRef.current = queued.onMid;
 
     if (queued.readyLine && vapi) {
+      pendingPlaybackRef.current = true;
       vapi.say(queued.readyLine, false, false);
       if (currentVideoUrlRef.current && videoRef.current) {
         isLoopingRef.current = true;
         loopVideoTail();
       }
       readyLineTimerRef.current = setTimeout(() => {
-        if (!callingRef.current || modeRef.current !== 'solo_video') return;
+        if (!callingRef.current || modeRef.current !== 'solo_video') {
+          pendingPlaybackRef.current = false;
+          readyLineTimerRef.current = null;
+          return;
+        }
+        pendingPlaybackRef.current = false;
+        readyLineTimerRef.current = null;
         isLoopingRef.current = false;
+        currentVideoUrlRef.current = queued.url;
         setVideoPlaybackKey((key) => key + 1);
         setCurrentVideoUrl(queued.url);
       }, READY_LINE_DELAY_MS);
       return;
     }
 
+    pendingPlaybackRef.current = false;
     isLoopingRef.current = false;
+    currentVideoUrlRef.current = queued.url;
     setVideoPlaybackKey((key) => key + 1);
     setCurrentVideoUrl(queued.url);
   }
@@ -354,7 +369,9 @@ export default function DashboardPage() {
     videoQueueRef.current = [];
     lastFrameUrlRef.current = null;
     clipNumberRef.current = 0;
+    submittedClipNumberRef.current = 0;
     isLoopingRef.current = false;
+    pendingPlaybackRef.current = false;
     waitNarrationClipRef.current = null;
     clearMidTimer();
     clearWait2Timer();
@@ -363,11 +380,17 @@ export default function DashboardPage() {
   }
 
   function prefetchNextClip(frameUrl?: string | null) {
-    if (modeRef.current !== 'solo_video' || !callingRef.current || isGeneratingRef.current || videoQueueRef.current.length >= MAX_QUEUE) {
+    if (
+      modeRef.current !== 'solo_video'
+      || !callingRef.current
+      || isGeneratingRef.current
+      || pendingPlaybackRef.current
+      || videoQueueRef.current.length >= MAX_QUEUE
+    ) {
       return;
     }
     const continuityFrame = frameUrl ?? lastFrameUrlRef.current;
-    if (currentVideoUrlRef.current && !continuityFrame) {
+    if ((currentVideoUrlRef.current || pendingPlaybackRef.current) && !continuityFrame) {
       console.warn('Skipping continuation: no generated frame available, refusing to restart from companion image');
       return;
     }

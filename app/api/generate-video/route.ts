@@ -96,6 +96,52 @@ function getPersonaWaitLine(personaName?: string | null) {
   return 'I am making that for you now. Talk to me, what should happen after this part?';
 }
 
+function getClipProgression(clipNumber: number, action: string) {
+  const phase = ((clipNumber - 1) % 4) + 1;
+
+  if (phase === 1) {
+    return [
+      `begin ${action}; slow natural movement`,
+      `continue ${action}; small pose change; steady camera-facing motion`,
+      `progress ${action}; hands and shoulders move with clear purpose`,
+      `continue ${action}; one continuous shot; no reset to first pose`,
+      `deepen ${action}; natural breathing and expression`,
+      `finish this first beat with ${action} visibly progressed; hold final pose`,
+    ];
+  }
+
+  if (phase === 2) {
+    return [
+      `resume from the held pose; continue ${action}; no restart`,
+      `shift weight and angle slightly while continuing ${action}`,
+      `move hands more deliberately; make ${action} clearly advance`,
+      `keep camera-facing motion; expression reacts to the progression`,
+      `slow down for a close transitional beat; maintain continuity`,
+      `end clip ${clipNumber} in a new pose that sets up the next clip`,
+    ];
+  }
+
+  if (phase === 3) {
+    return [
+      `start from the prior end pose; intensify ${action}`,
+      `change shoulder and hip angle while continuing ${action}`,
+      `make the motion smoother and more confident; no looped gesture`,
+      `hold eye contact as the body position changes again`,
+      `progress to a more advanced pose; keep motion fluid`,
+      `finish clip ${clipNumber} with the action further along than it began`,
+    ];
+  }
+
+  return [
+    `continue from the last frame; sustain ${action} with fluid motion`,
+    `vary the rhythm and pose; avoid repeating the previous gesture`,
+    `move into a new angle while keeping the same scene continuity`,
+    `make hands and body motion visibly different from earlier clips`,
+    `build to the strongest pose in this sequence`,
+    `end clip ${clipNumber} with a clear new final pose for continuation`,
+  ];
+}
+
 function buildScenePlan(
   userMessage?: string,
   personaName?: string | null,
@@ -106,16 +152,12 @@ function buildScenePlan(
   const action = getFallbackAction(userMessage);
   const clip = clipNumber || 1;
   const continuity = isUndressed ? 'continue from the exact pose in the generated frame' : 'start from the pose in the image';
+  const progression = getClipProgression(clip, action);
 
   return {
-    prompts: [
-      normalizeAtlasPrompt(`${reference}; ${continuity}; begin ${action}; slow natural movement`),
-      normalizeAtlasPrompt(`${reference}; continue ${action}; body position changes slightly; steady camera-facing motion`),
-      normalizeAtlasPrompt(`${reference}; progress ${action}; hands and shoulders move with clear purpose`),
-      normalizeAtlasPrompt(`${reference}; continue ${action}; keep one continuous shot; no reset to first pose`),
-      normalizeAtlasPrompt(`${reference}; intensify ${action}; natural breathing and expression; smooth motion`),
-      normalizeAtlasPrompt(`${reference}; finish clip ${clip} with ${action} visibly progressed; hold final pose`),
-    ],
+    prompts: progression.map((step, index) =>
+      normalizeAtlasPrompt(`${reference}; clip ${clip} step ${index + 1}; ${continuity}; ${step}`)
+    ),
     onWait1: getPersonaWaitLine(personaName),
     onWait2: '',
     onMid: '',
