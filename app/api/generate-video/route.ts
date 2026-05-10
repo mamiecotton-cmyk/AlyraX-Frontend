@@ -21,6 +21,11 @@ type AtlasPredictionResponse = {
   };
 };
 
+type VideoScenePlan = {
+  prompt: string;
+  narration: string;
+};
+
 function getAtlasOutputUrl(response: AtlasPredictionResponse): string | null {
   const output = response.data?.outputs?.[0]
     || response.outputs?.[0]
@@ -32,10 +37,15 @@ function getAtlasOutputUrl(response: AtlasPredictionResponse): string | null {
   return output?.url || null;
 }
 
-async function generateVideoPrompts(
+const FALLBACK_SCENE_PLAN: VideoScenePlan = {
+  prompt: 'same adult woman in the source image holds seductive eye contact, slowly smiles, tilts her head, breathes deeper, leans subtly closer, and traces one hand along her neck and waist in one continuous cinematic shot, same camera, same outfit, same room, natural smooth motion',
+  narration: "Keep your eyes on me. I'm making it soft, slow, and exactly for you.",
+};
+
+async function generateVideoScenePlan(
   userMessage: string,
   conversationHistory: { role: string; content: string }[]
-): Promise<string[]> {
+): Promise<VideoScenePlan> {
   const recentHistory = conversationHistory.slice(-4);
 
   const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
@@ -53,29 +63,35 @@ async function generateVideoPrompts(
       messages: [
         {
           role: 'system',
-          content: `You generate image-to-video prompts for an adult, spicy AI companion platform.
-The user wants sensual, flirtatious, seductive motion, not bland movement.
+          content: `You generate one continuous image-to-video movie prompt and one short spoken narration line for an adult, spicy AI companion platform.
+The user wants sensual, flirtatious, seductive motion that feels like a single continuous movie shot.
 
-Return ONLY a valid JSON array of exactly 6 strings. No explanation. No markdown.
+Return ONLY valid JSON with this exact shape:
+{"prompt":"one continuous image-to-video prompt","narration":"one short line to speak while the video plays"}
 
-Rules:
-- Each string starts with "same adult woman"
+Prompt rules:
+- Write one single paragraph prompt, not an array, not numbered beats
+- Start with "same adult woman in the source image"
 - Infer the user's fantasy and make it happen through natural, seductive motion
 - Keep the source image as truth: same woman, camera, room, lighting, outfit, and starting pose
 - Do not invent a bed, chair, new outfit, new pose, new prop, or new camera angle unless already implied
-- Build one continuous 5-second sequence, from subtle tease to more intense flirtation
+- Build one continuous cinematic shot, not repeated loops or separate clips
+- Include words like "one continuous shot", "smooth natural motion", "no cuts", "no looping", "no repeated action"
 - Prefer motions image-to-video handles well: eye contact, coy smile, lip bite, head tilt, slow lean, shoulder roll, arch, hand tracing neck/chest/waist/hip, hair touch, breathing
 - Avoid sudden transitions like standing to lying down, turning around, removing clothing, crawling, dancing, or changing location
 - Keep it spicy, intimate, and physically plausible
-- Max 20 words per prompt
+- Max 95 words for the prompt
 
-Good style:
-["same adult woman locks eyes with a teasing smile", "same adult woman slowly bites her lip, breathing deeper"]`,
+Narration rules:
+- One sentence, max 22 words
+- Spoken by the companion while the video plays
+- Match the user's requested scene
+- Spicy, intimate, cinematic, not technical`,
         },
         ...recentHistory,
         {
           role: 'user',
-          content: `User request: "${userMessage}". Generate 6 naturally escalating spicy motion prompts that satisfy the request without breaking source-image continuity.`,
+          content: `User request: "${userMessage}". Generate one continuous video prompt and one narration line.`,
         },
       ],
     }),
@@ -91,39 +107,28 @@ Good style:
 
   if (!response.ok || !content) {
     console.error('OpenRouter failed or empty content:', data);
-    return [
-      "same adult woman locks eyes with a slow seductive smile",
-      "same adult woman tilts her head, biting her lip softly",
-      "same adult woman breathes deeper, subtly arching toward the camera",
-      "same adult woman traces her fingers slowly along her neck and chest",
-      "same adult woman leans closer, holding intense flirtatious eye contact",
-      "same adult woman gives a teasing smile, moving her hand down her waist",
-    ];
+    return FALLBACK_SCENE_PLAN;
   }
 
   const trimmed = content.trim();
 
   try {
-    const prompts = JSON.parse(trimmed);
-    if (Array.isArray(prompts) && prompts.length === 6) {
-      return prompts;
+    const scenePlan = JSON.parse(trimmed);
+    if (typeof scenePlan?.prompt === 'string' && typeof scenePlan?.narration === 'string') {
+      return {
+        prompt: scenePlan.prompt,
+        narration: scenePlan.narration,
+      };
     }
     throw new Error('Invalid format');
   } catch {
-    return [
-      "same adult woman locks eyes with a slow seductive smile",
-      "same adult woman tilts her head, biting her lip softly",
-      "same adult woman breathes deeper, subtly arching toward the camera",
-      "same adult woman traces her fingers slowly along her neck and chest",
-      "same adult woman leans closer, holding intense flirtatious eye contact",
-      "same adult woman gives a teasing smile, moving her hand down her waist",
-    ];
+    return FALLBACK_SCENE_PLAN;
   }
 }
 
 async function generateAtlasVideo(
   imageUrl: string,
-  prompts: string[]
+  prompt: string
 ): Promise<string> {
   // Submit job
   const submitResponse = await fetch(
@@ -137,8 +142,8 @@ async function generateAtlasVideo(
       body: JSON.stringify({
         model: ATLAS_MODEL,
         image: imageUrl,
-        prompt: prompts,
-        duration: 5,
+        prompt,
+        duration: 8,
         resolution: '480p',
         seed: -1,
       }),
@@ -227,16 +232,16 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Generate 6 video prompts based on user request
-    const prompts = await generateVideoPrompts(userMessage, conversationHistory || []);
+    const scenePlan = await generateVideoScenePlan(userMessage, conversationHistory || []);
 
     // Generate video
-    const videoUrl = await generateAtlasVideo(companion.image_url, prompts);
+    const videoUrl = await generateAtlasVideo(companion.image_url, scenePlan.prompt);
 
     return NextResponse.json({
       success: true,
       video_url: videoUrl,
-      prompts, // return prompts so frontend can use last one for next prediction
+      prompt: scenePlan.prompt,
+      narration: scenePlan.narration,
     });
 
   } catch (error) {

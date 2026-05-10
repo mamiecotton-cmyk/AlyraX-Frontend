@@ -57,6 +57,7 @@ export default function DashboardPage() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const conversationHistoryRef = useRef<{ role: string; content: string }[]>([]);
   const nextVideoUrlRef = useRef<string | null>(null);
+  const nextVideoNarrationRef = useRef<string | null>(null);
   const lastUserMessageRef = useRef<string>('');
   const isGeneratingRef = useRef(false);
   const currentVideoUrlRef = useRef<string | null>(null);
@@ -133,10 +134,14 @@ export default function DashboardPage() {
       if (data.video_url) {
         // If nothing playing, play now
         if (!currentVideoUrlRef.current) {
+          if (data.narration && vapi) {
+            vapi.say(data.narration, false, false, false);
+          }
           setCurrentVideoUrl(data.video_url);
         } else {
           // Buffer as next video
           nextVideoUrlRef.current = data.video_url;
+          nextVideoNarrationRef.current = data.narration || null;
         }
       }
     } catch (error) {
@@ -166,6 +171,7 @@ export default function DashboardPage() {
       setCalling(false);
       setCurrentVideoUrl(null);
       nextVideoUrlRef.current = null;
+      nextVideoNarrationRef.current = null;
       conversationHistoryRef.current = [];
       loadData();
     });
@@ -216,8 +222,12 @@ export default function DashboardPage() {
 
   const handleVideoEnd = () => {
     if (nextVideoUrlRef.current) {
+      if (nextVideoNarrationRef.current && vapi) {
+        vapi.say(nextVideoNarrationRef.current, false, false, false);
+      }
       setCurrentVideoUrl(nextVideoUrlRef.current);
       nextVideoUrlRef.current = null;
+      nextVideoNarrationRef.current = null;
     } else {
       setCurrentVideoUrl(null);
     }
@@ -267,6 +277,9 @@ export default function DashboardPage() {
 
   const updateActiveCompanion = async (nextCompanion: Companion) => {
     setCompanion(nextCompanion);
+    setCurrentVideoUrl(null);
+    nextVideoUrlRef.current = null;
+    nextVideoNarrationRef.current = null;
     const currentPersonaIndex = personas.findIndex(p => p.name === nextCompanion.personas?.name);
     setSelectedPersonaIndex(currentPersonaIndex >= 0 ? currentPersonaIndex : 0);
 
