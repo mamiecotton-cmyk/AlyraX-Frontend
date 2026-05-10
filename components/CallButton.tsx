@@ -2,7 +2,13 @@
 import { vapi } from '@/lib/vapi';
 import { useState, useEffect } from 'react';
 
-export default function CallButton({ scenario }: { scenario: string }) {
+export default function CallButton({
+  scenario,
+  companionId,
+}: {
+  scenario: string;
+  companionId?: string;
+}) {
   const [calling, setCalling] = useState(false);
   const [connected, setConnected] = useState(false);
   const isVideoMode = scenario.toLowerCase().includes('video');
@@ -36,7 +42,10 @@ export default function CallButton({ scenario }: { scenario: string }) {
       await vapi.start(assistantId, isVideoMode ? {
         firstMessage: "Tell me what you want to see, baby. Give me the scene, and I'll make it worth the wait.",
         firstMessageMode: 'assistant-speaks-first',
-      } : undefined);
+        variableValues: { activeCompanionId: companionId },
+      } : {
+        variableValues: { activeCompanionId: companionId },
+      });
     } catch (err) {
       console.error("The Mouth failed to open:", err);
       setCalling(false);

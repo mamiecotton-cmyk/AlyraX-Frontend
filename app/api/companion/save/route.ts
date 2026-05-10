@@ -29,26 +29,48 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Persona not found' }, { status: 404 });
     }
 
-    const { error: companionError } = await supabase
+    const { data: companion, error: companionError } = await supabase
       .from('companions')
-      .upsert({
+      .insert({
         user_id: user.id,
         persona_id: selectedPersona.id,
         name: companionName,
         image_url: imageUrl,
         prompt_used: promptUsed,
-      }, { onConflict: 'user_id' });
+      })
+      .select('id')
+      .single();
 
     if (companionError) throw companionError;
 
-    const { error: creditsError } = await supabase.from('credits').upsert({
-      user_id: user.id,
-      balance_seconds: 0,
+    const { error: activeCompanionError } = await supabase.auth.updateUser({
+      data: { active_companion_id: companion.id },
     });
 
-    if (creditsError) throw creditsError;
+    if (activeCompanionError) throw activeCompanionError;
 
-    return NextResponse.json({ success: true, persona_id: selectedPersona.id });
+    const { data: existingCredits, error: creditsLookupError } = await supabase
+      .from('credits')
+      .select('user_id')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (creditsLookupError) throw creditsLookupError;
+
+    if (!existingCredits) {
+      const { error: creditsError } = await supabase.from('credits').insert({
+        user_id: user.id,
+        balance_seconds: 0,
+      });
+
+      if (creditsError) throw creditsError;
+    }
+
+    return NextResponse.json({
+      success: true,
+      companion_id: companion.id,
+      persona_id: selectedPersona.id,
+    });
   } catch (error) {
     console.error('Companion save error:', error);
     return NextResponse.json({ error: 'Companion save failed' }, { status: 500 });

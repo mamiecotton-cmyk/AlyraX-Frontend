@@ -194,7 +194,7 @@ async function generateAtlasVideo(
 
 export async function POST(req: NextRequest) {
   try {
-    const { userId, userMessage, conversationHistory } = await req.json();
+    const { userId, companionId, userMessage, conversationHistory } = await req.json();
 
     if (!userId || !userMessage) {
       return NextResponse.json(
@@ -205,11 +205,20 @@ export async function POST(req: NextRequest) {
 
     // Fetch companion image URL from Supabase
     const supabase = await createClient();
-    const { data: companion, error } = await supabase
+    const { data: { user } } = await supabase.auth.getUser();
+    const activeCompanionId = companionId || user?.user_metadata?.active_companion_id;
+    let companionQuery = supabase
       .from('companions')
       .select('image_url')
-      .eq('user_id', userId)
-      .single();
+      .eq('user_id', userId);
+
+    if (activeCompanionId) {
+      companionQuery = companionQuery.eq('id', activeCompanionId);
+    }
+
+    const { data: companion, error } = await companionQuery
+      .limit(1)
+      .maybeSingle();
 
     if (error || !companion?.image_url) {
       return NextResponse.json(

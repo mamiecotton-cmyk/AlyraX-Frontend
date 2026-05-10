@@ -47,6 +47,7 @@ export default function DashboardPage() {
   const [showControls, setShowControls] = useState(false);
   const [calling, setCalling] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
+  const [companions, setCompanions] = useState<Companion[]>([]);
   const [personas, setPersonas] = useState<PersonaOption[]>([]);
   const [selectedPersonaIndex, setSelectedPersonaIndex] = useState(0);
 
@@ -69,11 +70,15 @@ export default function DashboardPage() {
     const { data: companionData } = await supabase
       .from('companions')
       .select('*, personas(name, tagline, system_prompt, voice_id)')
-      .eq('user_id', user.id)
-      .single();
+      .eq('user_id', user.id);
 
-    if (!companionData) { router.push('/onboarding'); return; }
-    setCompanion(companionData);
+    if (!companionData || companionData.length === 0) { router.push('/onboarding'); return; }
+
+    const activeCompanionId = user.user_metadata?.active_companion_id;
+    const activeCompanion = companionData.find(item => item.id === activeCompanionId) || companionData[0];
+
+    setCompanions(companionData);
+    setCompanion(activeCompanion);
 
     const { data: personasData } = await supabase
       .from('personas')
@@ -81,7 +86,7 @@ export default function DashboardPage() {
       .order('sort_order');
 
     setPersonas(personasData || []);
-    const currentPersonaIndex = personasData?.findIndex(p => p.name === companionData.personas?.name) ?? -1;
+    const currentPersonaIndex = personasData?.findIndex(p => p.name === activeCompanion.personas?.name) ?? -1;
     setSelectedPersonaIndex(currentPersonaIndex >= 0 ? currentPersonaIndex : 0);
 
     const { data: creditsData } = await supabase
@@ -112,6 +117,7 @@ export default function DashboardPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           userId,
+          companionId: companion.id,
           userMessage,
           conversationHistory: conversationHistoryRef.current.slice(-4),
         }),
@@ -250,11 +256,27 @@ export default function DashboardPage() {
     const response = await fetch('/api/companion/persona', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ personaIndex: index }),
+      body: JSON.stringify({ companionId: companion?.id, personaIndex: index }),
     });
 
     if (!response.ok) {
       setSelectedPersonaIndex(previousIndex);
+      loadData();
+    }
+  };
+
+  const updateActiveCompanion = async (nextCompanion: Companion) => {
+    setCompanion(nextCompanion);
+    const currentPersonaIndex = personas.findIndex(p => p.name === nextCompanion.personas?.name);
+    setSelectedPersonaIndex(currentPersonaIndex >= 0 ? currentPersonaIndex : 0);
+
+    const response = await fetch('/api/companion/active', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ companionId: nextCompanion.id }),
+    });
+
+    if (!response.ok) {
       loadData();
     }
   };
@@ -338,6 +360,31 @@ export default function DashboardPage() {
             <p className="text-red-400 text-xs italic">{companion?.personas?.tagline}</p>
           </div>
 
+          {companions.length > 1 && (
+            <div className="flex flex-wrap justify-center gap-2 max-w-sm">
+              {companions.map(item => (
+                <button
+                  key={item.id}
+                  onClick={(e) => { e.stopPropagation(); updateActiveCompanion(item); }}
+                  className={`px-3 py-1.5 rounded-full text-xs font-bold transition border ${
+                    companion?.id === item.id
+                      ? 'border-red-500 text-red-400 bg-red-950/30'
+                      : 'border-gray-700 text-gray-500'
+                  }`}
+                >
+                  {item.name}
+                </button>
+              ))}
+            </div>
+          )}
+
+          <button
+            onClick={(e) => { e.stopPropagation(); router.push('/onboarding'); }}
+            className="text-xs text-yellow-500 hover:text-yellow-400 transition"
+          >
+            Add Persona
+          </button>
+
           {/* Mode selector */}
           <div className="flex gap-2">
             {[
@@ -377,7 +424,7 @@ export default function DashboardPage() {
           )}
 
           <div onClick={(e) => e.stopPropagation()}>
-            <CallButton scenario={`Mode: ${getModeLabel()}`} />
+            <CallButton scenario={`Mode: ${getModeLabel()}`} companionId={companion?.id} />
           </div>
 
           <p className="text-xs text-gray-700 uppercase tracking-widest pb-2">

@@ -48,6 +48,10 @@ export async function POST(req: NextRequest) {
   try {
     const vapiBody = await req.json();
     const incomingMessages = vapiBody.messages || [];
+    const requestedCompanionId =
+      vapiBody?.call?.assistantOverrides?.variableValues?.activeCompanionId
+      || vapiBody?.assistantOverrides?.variableValues?.activeCompanionId
+      || vapiBody?.variableValues?.activeCompanionId;
 
     // Try to get user's persona system prompt
     let systemPrompt = DEFAULT_SYSTEM_PROMPT;
@@ -58,11 +62,42 @@ export async function POST(req: NextRequest) {
       const { data: { user } } = await supabase.auth.getUser();
 
       if (user) {
+        const activeCompanionId = requestedCompanionId || user.user_metadata?.active_companion_id;
+        let companionQuery = supabase
+          .from('companions')
+          .select('personas(name, system_prompt)')
+          .eq('user_id', user.id);
+
+        if (activeCompanionId) {
+          companionQuery = companionQuery.eq('id', activeCompanionId);
+        }
+
         const { data: companion } = await supabase
           .from('companions')
           .select('personas(name, system_prompt)')
           .eq('user_id', user.id)
-          .single();
+          .limit(1)
+          .maybeSingle();
+
+        const { data: activeCompanion } = activeCompanionId
+          ? await companionQuery.limit(1).maybeSingle()
+          : { data: companion };
+
+        const selectedCompanion = activeCompanion || companion;
+        const persona = Array.isArray(selectedCompanion?.personas)
+          ? selectedCompanion.personas[0]
+          : selectedCompanion?.personas;
+        if (persona?.system_prompt) {
+          systemPrompt = persona.system_prompt;
+        }
+        personaName = persona?.name || null;
+      } else if (requestedCompanionId) {
+        const { data: companion } = await supabase
+          .from('companions')
+          .select('personas(name, system_prompt)')
+          .eq('id', requestedCompanionId)
+          .limit(1)
+          .maybeSingle();
 
         const persona = Array.isArray(companion?.personas)
           ? companion.personas[0]

@@ -15,7 +15,7 @@ async function getPersonaIdByIndex(index: number) {
 
 export async function POST(req: NextRequest) {
   try {
-    const { personaIndex } = await req.json();
+    const { companionId, personaIndex } = await req.json();
 
     if (typeof personaIndex !== 'number') {
       return NextResponse.json({ error: 'Missing personaIndex' }, { status: 400 });
@@ -34,9 +34,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Persona not found' }, { status: 404 });
     }
 
+    const targetCompanionId = companionId || user.user_metadata?.active_companion_id;
+
+    if (!targetCompanionId) {
+      return NextResponse.json({ error: 'Missing companionId' }, { status: 400 });
+    }
+
     const { error } = await supabase
       .from('companions')
       .update({ persona_id: personaId })
+      .eq('id', targetCompanionId)
       .eq('user_id', user.id);
 
     if (error) throw error;

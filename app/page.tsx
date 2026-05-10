@@ -14,7 +14,8 @@ export default async function Home() {
     .from('companions')
     .select('id')
     .eq('user_id', user.id)
-    .single();
+    .limit(1)
+    .maybeSingle();
 
   if (!companion) {
     redirect('/onboarding');
