@@ -49,19 +49,33 @@ async function generateVideoPrompts(
     body: JSON.stringify({
       model: 'sao10k/l3-euryale-70b',
       max_tokens: 500,
+      temperature: 0.35,
       messages: [
         {
           role: 'system',
-          content: `You generate video scene descriptions for an adult AI companion platform. 
-Return ONLY a JSON array of exactly 6 strings. No explanation. No markdown. Just the array.
-Each string describes what a woman does on webcam, escalating naturally.
-Keep her in the same position. Max 20 words per prompt. Start each with "woman".
-Example: ["woman smiles at camera", "woman leans forward slowly", "woman bites her lip"]`,
+          content: `You generate image-to-video prompts for an adult, spicy AI companion platform.
+The user wants sensual, flirtatious, seductive motion, not bland movement.
+
+Return ONLY a valid JSON array of exactly 6 strings. No explanation. No markdown.
+
+Rules:
+- Each string starts with "same adult woman"
+- Infer the user's fantasy and make it happen through natural, seductive motion
+- Keep the source image as truth: same woman, camera, room, lighting, outfit, and starting pose
+- Do not invent a bed, chair, new outfit, new pose, new prop, or new camera angle unless already implied
+- Build one continuous 5-second sequence, from subtle tease to more intense flirtation
+- Prefer motions image-to-video handles well: eye contact, coy smile, lip bite, head tilt, slow lean, shoulder roll, arch, hand tracing neck/chest/waist/hip, hair touch, breathing
+- Avoid sudden transitions like standing to lying down, turning around, removing clothing, crawling, dancing, or changing location
+- Keep it spicy, intimate, and physically plausible
+- Max 20 words per prompt
+
+Good style:
+["same adult woman locks eyes with a teasing smile", "same adult woman slowly bites her lip, breathing deeper"]`,
         },
         ...recentHistory,
         {
           role: 'user',
-          content: `User request: "${userMessage}". Generate 6 escalating video prompts.`,
+          content: `User request: "${userMessage}". Generate 6 naturally escalating spicy motion prompts that satisfy the request without breaking source-image continuity.`,
         },
       ],
     }),
@@ -78,12 +92,12 @@ Example: ["woman smiles at camera", "woman leans forward slowly", "woman bites h
   if (!response.ok || !content) {
     console.error('OpenRouter failed or empty content:', data);
     return [
-      "woman looking at camera with a seductive smile, soft bedroom lighting",
-      "woman slowly reaching toward camera, eyes locked on viewer",
-      "woman arching back slightly, biting her lip softly",
-      "woman leaning closer to camera, breathing slowly and deeply",
-      "woman running hands slowly down her body, eyes on camera",
-      "woman looking intensely at camera, flush with excitement",
+      "same adult woman locks eyes with a slow seductive smile",
+      "same adult woman tilts her head, biting her lip softly",
+      "same adult woman breathes deeper, subtly arching toward the camera",
+      "same adult woman traces her fingers slowly along her neck and chest",
+      "same adult woman leans closer, holding intense flirtatious eye contact",
+      "same adult woman gives a teasing smile, moving her hand down her waist",
     ];
   }
 
@@ -97,12 +111,12 @@ Example: ["woman smiles at camera", "woman leans forward slowly", "woman bites h
     throw new Error('Invalid format');
   } catch {
     return [
-      "woman looking at camera with a seductive smile, soft bedroom lighting",
-      "woman slowly reaching toward camera, eyes locked on viewer",
-      "woman arching back slightly, biting her lip softly",
-      "woman leaning closer to camera, breathing slowly and deeply",
-      "woman running hands slowly down her body, eyes on camera",
-      "woman looking intensely at camera, flush with excitement",
+      "same adult woman locks eyes with a slow seductive smile",
+      "same adult woman tilts her head, biting her lip softly",
+      "same adult woman breathes deeper, subtly arching toward the camera",
+      "same adult woman traces her fingers slowly along her neck and chest",
+      "same adult woman leans closer, holding intense flirtatious eye contact",
+      "same adult woman gives a teasing smile, moving her hand down her waist",
     ];
   }
 }

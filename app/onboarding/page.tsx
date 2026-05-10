@@ -344,7 +344,7 @@ export default function OnboardingPage() {
               <img
                 src={generatedImage}
                 alt="Your companion"
-                className="w-48 h-64 object-cover rounded-2xl border border-gray-700"
+                className="w-48 h-64 object-contain rounded-2xl border border-gray-700 bg-black"
               />
             )}
 

@@ -12,8 +12,8 @@ export async function POST(req: NextRequest) {
     const qualityTags = 'photorealistic, highly detailed, professional photography, sharp focus, beautiful studio lighting, 8k uhd, masterpiece';
     const composition = style === 'fullbody'
       ? 'full body shot, standing elegantly, neutral studio background'
-      : 'upper body portrait, face clearly visible, elegant pose';
-    const negative = 'ugly, deformed, blurry, low quality, cartoon, anime, bad anatomy, watermark, text, extra limbs, missing limbs, mutated hands, poorly drawn face';
+      : 'front-facing waist-up portrait, centered subject, looking directly at camera, face clearly visible, shoulders chest and waist visible, seductive elegant pose, hands naturally visible near torso, vertical profile image, enough room around upper body for animation';
+    const negative = 'ugly, deformed, blurry, low quality, cartoon, anime, bad anatomy, watermark, text, extra limbs, missing limbs, mutated hands, poorly drawn face, side profile, back view, turned away, full body, extreme close-up, cropped head, cropped face, cropped shoulders, cropped torso, cropped arms, out of frame';
 
     const prompt = `${qualityTags}, ${composition}, ${description}`;
 
