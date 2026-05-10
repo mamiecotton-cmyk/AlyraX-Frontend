@@ -40,6 +40,7 @@ type QueuedVideo = {
 const MAX_QUEUE = 2;
 const MID_POINT_MS = 15000;
 const LOOP_TAIL_SECONDS = 15;
+const WAIT_DIALOGUE_INTERVAL_MS = 12000;
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -76,6 +77,7 @@ export default function DashboardPage() {
   const companionRef = useRef<Companion | null>(null);
   const isLoopingRef = useRef(false);
   const wait2TimerRef = useRef<NodeJS.Timeout | null>(null);
+  const waitDialogueTimerRef = useRef<NodeJS.Timeout | null>(null);
   const callGenerationRef = useRef(0);
   const waitNarrationClipRef = useRef<number | null>(null);
 
@@ -209,6 +211,46 @@ export default function DashboardPage() {
     }
   }
 
+  function clearWaitDialogueTimer() {
+    if (waitDialogueTimerRef.current) {
+      clearTimeout(waitDialogueTimerRef.current);
+      waitDialogueTimerRef.current = null;
+    }
+  }
+
+  function getImmediateWaitLine(personaName?: string | null) {
+    const name = personaName?.toLowerCase() || '';
+    if (name.includes('dominant')) return 'Stay with me. I am setting up exactly what you asked to see.';
+    if (name.includes('submissive')) return 'I am making it for you now. Tell me if you want it slower or bolder.';
+    return 'I am making that for you now. Talk to me while it gets ready.';
+  }
+
+  function startWaitDialogue(clipNumber: number, lines: string[]) {
+    clearWaitDialogueTimer();
+    if (!vapi || waitNarrationClipRef.current !== clipNumber || lines.length === 0) return;
+
+    let index = 0;
+    const speakNext = () => {
+      if (
+        !vapi
+        || waitNarrationClipRef.current !== clipNumber
+        || !callingRef.current
+        || modeRef.current !== 'solo_video'
+        || !isGeneratingRef.current
+      ) {
+        clearWaitDialogueTimer();
+        return;
+      }
+
+      const line = lines[index % lines.length];
+      index += 1;
+      if (line) vapi.say(line, false, false);
+      waitDialogueTimerRef.current = setTimeout(speakNext, WAIT_DIALOGUE_INTERVAL_MS);
+    };
+
+    waitDialogueTimerRef.current = setTimeout(speakNext, WAIT_DIALOGUE_INTERVAL_MS);
+  }
+
   function startMidTimer() {
     clearMidTimer();
     if (!currentOnMidRef.current) return;
@@ -246,6 +288,9 @@ export default function DashboardPage() {
     setIsGenerating(true);
 
     const nextClipNumber = clipNumberRef.current + 1;
+    if (vapi) {
+      vapi.say(getImmediateWaitLine(currentCompanion.personas?.name), false, false);
+    }
 
     try {
       const response = await fetch('/api/generate-video', {
@@ -273,23 +318,21 @@ export default function DashboardPage() {
 
         const shouldNarrateWait = waitNarrationClipRef.current !== nextClipNumber;
         waitNarrationClipRef.current = nextClipNumber;
+        const waitLines = [
+          data.onWait1,
+          ...(Array.isArray(data.waitLines) ? data.waitLines : []),
+          data.onWait2,
+        ].filter((line): line is string => typeof line === 'string' && line.trim().length > 0);
 
-        // Fire onWait1 once per requested clip, not on every retry/loop.
-        if (shouldNarrateWait && data.onWait1 && vapi) {
-          vapi.say(data.onWait1, false, false);
-        }
-
-        // Fire onWait2 once if the clip is still not ready after 20 seconds.
+        // Keep her conversational while the clip is rendering, without replaying on tail loops.
         clearWait2Timer();
-        if (shouldNarrateWait && data.onWait2 && vapi) {
-          wait2TimerRef.current = setTimeout(() => {
-            if (vapi && (!currentVideoUrlRef.current || isLoopingRef.current)) {
-              vapi.say(data.onWait2, false, false);
-            }
-          }, 20000);
+        if (shouldNarrateWait) {
+          startWaitDialogue(nextClipNumber, waitLines);
         }
 
         const videoUrl = await pollVideoResult(data.prediction_id);
+        clearWaitDialogueTimer();
+        clearWait2Timer();
         clipNumberRef.current = nextClipNumber;
         if (generationCallId !== callGenerationRef.current || !callingRef.current || modeRef.current !== 'solo_video') {
           console.log('Discarding stale video result after call ended or mode changed');
@@ -316,6 +359,7 @@ export default function DashboardPage() {
     } catch (error) {
       console.error('Video generation error:', error);
     } finally {
+      clearWaitDialogueTimer();
       isGeneratingRef.current = false;
       setIsGenerating(false);
     }
@@ -339,6 +383,7 @@ export default function DashboardPage() {
     waitNarrationClipRef.current = null;
     clearMidTimer();
     clearWait2Timer();
+    clearWaitDialogueTimer();
     currentOnMidRef.current = '';
   }
 
