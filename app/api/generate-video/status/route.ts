@@ -46,6 +46,14 @@ export async function POST(req: NextRequest) {
 
     if (!statusResponse.ok) {
       const error = await statusResponse.text();
+      if (error.toLowerCase().includes('redislock: not obtained')) {
+        console.warn('Atlas status temporarily locked, continuing polling:', error);
+        return NextResponse.json({
+          success: false,
+          status: 'processing',
+        });
+      }
+
       return NextResponse.json({ error }, { status: statusResponse.status });
     }
 
