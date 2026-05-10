@@ -247,7 +247,7 @@ async function submitAtlasVideo(
         model: ATLAS_MODEL,
         image: imageUrl,
         prompt: prompts,
-        duration: 8,
+        duration: 5,
         resolution: '480p',
         seed: -1,
       }),
