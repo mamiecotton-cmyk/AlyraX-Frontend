@@ -22,7 +22,7 @@ type AtlasPredictionResponse = {
 };
 
 type VideoScenePlan = {
-  prompt: string;
+  prompts: string[];
   narration: string;
 };
 
@@ -41,7 +41,14 @@ function buildFallbackScenePlan(userMessage: string): VideoScenePlan {
   const request = userMessage.trim().replace(/\s+/g, ' ').slice(0, 220);
 
   return {
-    prompt: `same adult woman in the source image responds to this request: "${request}", creating one continuous cinematic shot with smooth natural motion, seductive eye contact, a slow smile, subtle breathing, a gentle lean closer, and one hand tracing naturally along her neck, chest, waist, or hip as appropriate, same camera, same outfit, same room, no cuts, no looping, no repeated action`,
+    prompts: [
+      `same adult woman in the source image holds seductive eye contact, acknowledging the request: "${request}", same camera and pose`,
+      'same adult woman slowly touches the clothing she was asked to remove, teasing the edge with smooth natural motion',
+      'same adult woman begins loosening the requested clothing, moving carefully and continuously while keeping eye contact',
+      'same adult woman slides the requested clothing farther off her body, breathing deeper, same room and camera',
+      'same adult woman removes the requested clothing almost completely, pausing with a teasing smile and natural movement',
+      'same adult woman has the requested clothing completely removed, holding a confident seductive pose, smooth continuous finish',
+    ],
     narration: "Keep your eyes on me. I'm making it exactly the way you asked.",
   };
 }
@@ -53,12 +60,31 @@ function extractScenePlan(content: string, userMessage: string): VideoScenePlan 
   try {
     const scenePlan = JSON.parse(jsonMatch[0]);
     if (
+      Array.isArray(scenePlan?.prompts)
+      && typeof scenePlan?.narration === 'string'
+    ) {
+      const prompts = scenePlan.prompts
+        .filter((prompt: unknown) => typeof prompt === 'string')
+        .slice(0, 6);
+
+      if (prompts.length === 6 && prompts.every((prompt: string) => prompt.toLowerCase().includes('same adult woman'))) {
+        return {
+          prompts,
+          narration: refineNarration(scenePlan.narration, userMessage),
+        };
+      }
+    }
+
+    if (
       typeof scenePlan?.prompt === 'string'
       && typeof scenePlan?.narration === 'string'
-      && scenePlan.prompt.toLowerCase().includes('same adult woman')
     ) {
+      const fallback = buildFallbackScenePlan(userMessage);
       return {
-        prompt: scenePlan.prompt,
+        prompts: [
+          scenePlan.prompt,
+          ...fallback.prompts.slice(1),
+        ],
         narration: refineNarration(scenePlan.narration, userMessage),
       };
     }
@@ -108,24 +134,26 @@ async function generateVideoScenePlan(
         messages: [
           {
             role: 'system',
-            content: `You generate one continuous image-to-video movie prompt and one short spoken narration line for an adult, spicy AI companion platform.
-The user wants sensual, flirtatious, seductive motion that feels like a single continuous movie shot.
+          content: `You generate six image-to-video motion prompts and one short spoken narration line for an adult, spicy AI companion platform.
+The user wants sensual, flirtatious, seductive motion that progresses clearly through the requested visual action.
 
 Return ONLY valid JSON with this exact shape:
-{"prompt":"one continuous image-to-video prompt","narration":"one short line to speak while the video plays"}
+{"prompts":["prompt 1","prompt 2","prompt 3","prompt 4","prompt 5","prompt 6"],"narration":"one short line to speak while the video plays"}
 
 Prompt rules:
-- Write one single paragraph prompt, not an array, not numbered beats
-- Start with "same adult woman in the source image"
+- Write exactly 6 prompt strings
+- Every prompt starts with "same adult woman in the source image"
 - Infer the user's fantasy and make it happen through natural, seductive motion
 - Keep the source image as truth: same woman, camera, room, lighting, outfit, and starting pose
 - Do not invent a bed, chair, new outfit, new pose, new prop, or new camera angle unless already implied
-- Build one continuous cinematic shot, not repeated loops or separate clips
-- Include words like "one continuous shot", "smooth natural motion", "no cuts", "no looping", "no repeated action"
+- Build a six-step progression, each prompt advancing the action, not repeating the same motion
+- Include smooth natural motion and same camera continuity in each prompt
 - Prefer motions image-to-video handles well: eye contact, coy smile, lip bite, head tilt, slow lean, shoulder roll, arch, hand tracing neck/chest/waist/hip, hair touch, breathing
-- Avoid sudden transitions like standing to lying down, turning around, removing clothing, crawling, dancing, or changing location
+- If the user explicitly asks for clothing removal, show gradual clothing removal across all 6 prompts
+- For explicit clothing-removal requests, prompt 1 begins the tease, prompts 2-5 progressively remove the requested clothing, and prompt 6 has the requested clothing completely removed
+- Avoid sudden transitions like standing to lying down, turning around, crawling, dancing, or changing location
 - Keep it spicy, intimate, and physically plausible
-- Max 95 words for the prompt
+- Max 26 words per prompt
 
 Narration rules:
 - One sentence, max 22 words
@@ -136,7 +164,7 @@ Narration rules:
           ...recentHistory,
           {
             role: 'user',
-            content: `User request: "${userMessage}". Generate one continuous video prompt and one narration line.`,
+            content: `User request: "${userMessage}". Generate six progressive motion prompts and one narration line.`,
           },
         ],
       }),
@@ -164,14 +192,15 @@ Narration rules:
 
 async function submitAtlasVideo(
   imageUrl: string,
-  prompt: string
+  prompts: string[]
 ): Promise<string> {
   console.log('Atlas submit starting:', {
     model: ATLAS_MODEL,
     imageHost: (() => {
       try { return new URL(imageUrl).host; } catch { return 'invalid-url'; }
     })(),
-    promptPreview: prompt.slice(0, 220),
+    promptCount: prompts.length,
+    promptPreview: prompts[0]?.slice(0, 220),
   });
 
   // Submit job
@@ -186,7 +215,7 @@ async function submitAtlasVideo(
       body: JSON.stringify({
         model: ATLAS_MODEL,
         image: imageUrl,
-        prompt: [prompt],
+        prompt: prompts,
         duration: 8,
         resolution: '480p',
         seed: -1,
@@ -255,17 +284,18 @@ export async function POST(req: NextRequest) {
 
     const scenePlan = await generateVideoScenePlan(userMessage, conversationHistory || []);
     console.log('Video scene plan ready:', {
-      promptPreview: scenePlan.prompt.slice(0, 220),
+      promptCount: scenePlan.prompts.length,
+      promptPreview: scenePlan.prompts[0]?.slice(0, 220),
       narration: scenePlan.narration,
     });
 
-    const predictionId = await submitAtlasVideo(companion.image_url, scenePlan.prompt);
+    const predictionId = await submitAtlasVideo(companion.image_url, scenePlan.prompts);
     console.log('Video generation submitted:', { predictionId });
 
     return NextResponse.json({
       success: true,
       prediction_id: predictionId,
-      prompt: scenePlan.prompt,
+      prompts: scenePlan.prompts,
       narration: scenePlan.narration,
     });
 
