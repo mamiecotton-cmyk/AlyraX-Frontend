@@ -23,7 +23,8 @@ type AtlasPredictionResponse = {
 
 type VideoScenePlan = {
   prompts: string[];
-  onStart: string;
+  onWait1: string;
+  onWait2: string;
   onMid: string;
 };
 
@@ -55,7 +56,7 @@ function getEscalationStage(clipNumber: number): string {
 }
 
 function buildFallbackScenePlan(
-  userMessage: string,
+  userMessage?: string,
   personaName?: string | null,
   clipNumber?: number,
   isUndressed?: boolean,
@@ -74,7 +75,8 @@ function buildFallbackScenePlan(
       `${prefix} touching herself, eyes on camera, fingers circling her clit`,
       `${prefix} fingering herself slowly, head back, mouth open, intense pleasure`,
     ],
-    onStart: 'Stripping for you baby. Watch every inch.',
+    onWait1: 'Getting naked for you right now baby. Sliding everything off nice and slow, letting you see every inch of me.',
+    onWait2: 'Almost ready for you. Running my hands down my bare skin, thinking about your eyes on me.',
     onMid: 'You see how wet I am? All for you.',
   };
 }
@@ -92,26 +94,34 @@ function extractScenePlan(
   try {
     const parsed = JSON.parse(jsonMatch[0]);
 
-    const prompts = Array.isArray(parsed?.prompts)
+    const prompts = Array.isArray(parsed.prompts)
       ? parsed.prompts.filter((p: unknown) => typeof p === 'string').slice(0, 6)
-      : [];
+      : buildFallbackScenePlan(userMessage, personaName, clipNumber, isUndressed).prompts;
 
-    const valid = prompts.length === 6 &&
+    const valid =
+      Array.isArray(prompts) &&
+      prompts.length === 6 &&
       prompts.every((p: string) =>
         p.toLowerCase().includes('same') && p.toLowerCase().includes('woman')
       );
 
     if (!valid) return buildFallbackScenePlan(userMessage, personaName, clipNumber, isUndressed);
 
-    const onStart = typeof parsed?.onStart === 'string' && parsed.onStart.trim().split(' ').length <= 15
-      ? parsed.onStart.trim()
-      : buildFallbackScenePlan(userMessage, personaName, clipNumber, isUndressed).onStart;
+    const fallback = buildFallbackScenePlan(userMessage, personaName, clipNumber, isUndressed);
 
-    const onMid = typeof parsed?.onMid === 'string' && parsed.onMid.trim().split(' ').length <= 15
+    const onWait1 = typeof parsed?.onWait1 === 'string' && parsed.onWait1.trim().length > 0
+      ? parsed.onWait1.trim()
+      : fallback.onWait1;
+
+    const onWait2 = typeof parsed?.onWait2 === 'string' && parsed.onWait2.trim().length > 0
+      ? parsed.onWait2.trim()
+      : fallback.onWait2;
+
+    const onMid = typeof parsed?.onMid === 'string' && parsed.onMid.trim().length > 0
       ? parsed.onMid.trim()
-      : buildFallbackScenePlan(userMessage, personaName, clipNumber, isUndressed).onMid;
+      : fallback.onMid;
 
-    return { prompts, onStart, onMid };
+    return { prompts, onWait1, onWait2, onMid };
   } catch {
     return buildFallbackScenePlan(userMessage, personaName, clipNumber, isUndressed);
   }
@@ -147,35 +157,35 @@ async function generateVideoScenePlan(
         messages: [
           {
             role: 'system',
-            content: `You generate six image-to-video motion prompts and two short dirty talk lines for an adult AI companion platform.
+            content: `You generate six image-to-video motion prompts and three dirty talk lines for an adult AI companion platform.
 
 ESCALATION STAGE (clip ${clip}): ${stage}
-${undressedContext}
+${isUndressed ? 'IMPORTANT: She is already fully nude. Keep her nude throughout all 6 prompts. Do NOT re-dress her.' : ''}
 ${userMessage ? `USER REQUEST: "${userMessage}" — honor this if it conflicts with the stage.` : 'No specific user request — follow the escalation stage.'}
 
+REQUIRED END STATE FOR PROMPT 6:
+${clip <= 1 ? 'Prompt 6 MUST end with her topless — bra removed, breasts fully exposed.' : ''}
+${clip === 2 ? 'Prompt 6 MUST end with her completely nude — all clothing removed, fully exposed.' : ''}
+${clip >= 3 ? 'Prompt 6 MUST end with her nude and actively fingering herself or rubbing her clit.' : ''}
+
 Return ONLY valid JSON:
-{
-  "prompts": ["prompt 1","prompt 2","prompt 3","prompt 4","prompt 5","prompt 6"],
-  "onStart": "one dirty line spoken when video starts playing",
-  "onMid": "one dirty line spoken 15 seconds into the video"
-}
+{"prompts":["p1","p2","p3","p4","p5","p6"],"onWait1":"2-3 sentence dirty talk while video generates","onWait2":"2-3 sentence continuation 20 seconds later","onMid":"1 sentence at 15 seconds into video"}
 
 PROMPT RULES:
 - Exactly 6 strings
 - Every prompt starts with "same adult woman in the source image" (or "same adult woman already nude" if continuing nude)
-- NEVER invent or name specific clothing items — describe only motion and body parts
-- For undressing: "sliding clothing off", "fabric falling away", never "blouse" or "skirt"
-- Build a clear 6-step progression through the escalation stage
+- NEVER name specific clothing items — describe only motion and body parts
+- For undressing: "sliding clothing off", "fabric falling away" — never "blouse" or "skirt"
+- Build a clear 6-step progression that REACHES the required end state by prompt 6
 - Each prompt max 26 words
-- Smooth natural webcam motion only — no standing up, walking, changing location
+- Smooth natural webcam motion only
 
 DIRTY TALK RULES:
-- onStart: spoken when video begins. Max 12 words. Present tense. Explicit. What she is doing right now.
-- onMid: spoken at 15 seconds. Max 12 words. Present tense. Explicit. Continuing the scene.
-- First person only. No filler. No promises. Pure action.
+- onWait1: 2-3 explicit sentences, max 50 words. Fires immediately while video generates. She describes what she is about to do in explicit detail. First person present tense.
+- onWait2: 2-3 explicit sentences, max 50 words. Fires 20 seconds later. Continues building. More explicit than onWait1.
+- onMid: 1 explicit sentence, max 15 words. Fires 15 seconds into video. Describes exactly what is on screen.
 - ${getPersonaVoice(personaName)}
-- Example onStart: "Sliding everything off for you. Watch me."
-- Example onMid: "You see how wet I am? All yours."`,
+- No filler. No "give me a second". Pure explicit action narration.`,
           },
           ...recentHistory,
           {
@@ -317,7 +327,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       prediction_id: predictionId,
-      onStart: scenePlan.onStart,
+      onWait1: scenePlan.onWait1,
+      onWait2: scenePlan.onWait2,
       onMid: scenePlan.onMid,
     });
 
