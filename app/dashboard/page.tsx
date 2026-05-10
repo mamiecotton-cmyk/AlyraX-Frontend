@@ -24,6 +24,10 @@ type Companion = {
 
 type Credits = { balance_seconds: number };
 type Mode = 'solo' | 'solo_video' | 'couples_spice' | 'couples_mediator';
+type PersonaOption = {
+  name: string;
+  tagline: string;
+};
 type TranscriptMessage = {
   type?: string;
   role?: string;
@@ -43,6 +47,8 @@ export default function DashboardPage() {
   const [showControls, setShowControls] = useState(false);
   const [calling, setCalling] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
+  const [personas, setPersonas] = useState<PersonaOption[]>([]);
+  const [selectedPersonaIndex, setSelectedPersonaIndex] = useState(0);
 
   // Video state
   const [currentVideoUrl, setCurrentVideoUrl] = useState<string | null>(null);
@@ -68,6 +74,15 @@ export default function DashboardPage() {
 
     if (!companionData) { router.push('/onboarding'); return; }
     setCompanion(companionData);
+
+    const { data: personasData } = await supabase
+      .from('personas')
+      .select('name, tagline')
+      .order('sort_order');
+
+    setPersonas(personasData || []);
+    const currentPersonaIndex = personasData?.findIndex(p => p.name === companionData.personas?.name) ?? -1;
+    setSelectedPersonaIndex(currentPersonaIndex >= 0 ? currentPersonaIndex : 0);
 
     const { data: creditsData } = await supabase
       .from('credits')
@@ -216,6 +231,34 @@ export default function DashboardPage() {
     return 'Mediate';
   };
 
+  const updatePersona = async (index: number) => {
+    const previousIndex = selectedPersonaIndex;
+    const selectedPersona = personas[index];
+
+    if (!selectedPersona) return;
+
+    setSelectedPersonaIndex(index);
+    setCompanion(prev => prev ? {
+      ...prev,
+      personas: {
+        ...prev.personas,
+        name: selectedPersona.name,
+        tagline: selectedPersona.tagline,
+      },
+    } : prev);
+
+    const response = await fetch('/api/companion/persona', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ personaIndex: index }),
+    });
+
+    if (!response.ok) {
+      setSelectedPersonaIndex(previousIndex);
+      loadData();
+    }
+  };
+
   if (loading) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-black">
@@ -314,6 +357,24 @@ export default function DashboardPage() {
               </button>
             ))}
           </div>
+
+          {personas.length > 0 && (
+            <div className="flex flex-wrap justify-center gap-2 max-w-sm">
+              {personas.map((persona, index) => (
+                <button
+                  key={persona.name}
+                  onClick={(e) => { e.stopPropagation(); updatePersona(index); }}
+                  className={`px-3 py-1.5 rounded-full text-xs font-bold transition border ${
+                    selectedPersonaIndex === index
+                      ? 'border-yellow-500 text-yellow-400 bg-yellow-950/20'
+                      : 'border-gray-700 text-gray-500'
+                  }`}
+                >
+                  {persona.name.replace('AlyraX ', '')}
+                </button>
+              ))}
+            </div>
+          )}
 
           <div onClick={(e) => e.stopPropagation()}>
             <CallButton scenario={`Mode: ${getModeLabel()}`} />
