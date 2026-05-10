@@ -39,6 +39,7 @@ type QueuedVideo = {
 
 const MAX_QUEUE = 2;
 const MID_POINT_MS = 15000;
+const LOOP_TAIL_SECONDS = 15;
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -343,6 +344,14 @@ export default function DashboardPage() {
     generateVideo(buildSceneIntent(), frameUrl ?? lastFrameUrlRef.current);
   }
 
+  function loopVideoTail() {
+    if (!videoRef.current) return;
+    const video = videoRef.current;
+    const duration = Number.isFinite(video.duration) ? video.duration : 0;
+    video.currentTime = Math.max(duration - LOOP_TAIL_SECONDS, 0);
+    video.play().catch(console.error);
+  }
+
   const handleVideoPlay = () => {
     // Stop onWait2 if video ready early
     clearWait2Timer();
@@ -362,44 +371,29 @@ export default function DashboardPage() {
   const handleVideoEnded = async () => {
     clearMidTimer();
 
-    // Extract last frame for continuity
-    const lastFrame = await extractLastFrame();
-    if (lastFrame) lastFrameUrlRef.current = lastFrame;
-
     const next = videoQueueRef.current.shift();
-
     if (next) {
-      // Next clip ready — play instantly
+      // Next clip ready: play instantly at the boundary.
       isLoopingRef.current = false;
       playVideo(next);
-    } else {
-      // Nothing ready — loop from halfway
-      if (videoRef.current && currentVideoUrlRef.current) {
-        isLoopingRef.current = true;
-        const video = videoRef.current;
-        video.currentTime = video.duration * 0.5;
-        video.play().catch(console.error);
-        console.log('Looping from halfway while waiting for next clip');
-      }
+      prefetchNextClip();
+      return;
     }
 
-    // Always try to generate more if queue has room
-    prefetchNextClip(lastFrame);
-  };
-
-  // When looping video ends, check queue again
-  const handleLoopEnded = async () => {
-    if (!isLoopingRef.current) return;
-    const next = videoQueueRef.current.shift();
-    if (next) {
-      isLoopingRef.current = false;
-      playVideo(next);
+    let lastFrame = lastFrameUrlRef.current;
+    if (!isLoopingRef.current) {
+      // Capture continuity once when the original clip ends, not every tail loop.
+      lastFrame = await extractLastFrame();
+      if (lastFrame) lastFrameUrlRef.current = lastFrame;
+      prefetchNextClip(lastFrame);
     } else {
-      // Keep looping
-      if (videoRef.current) {
-        videoRef.current.currentTime = videoRef.current.duration * 0.5;
-        videoRef.current.play().catch(console.error);
-      }
+      prefetchNextClip();
+    }
+
+    if (videoRef.current && currentVideoUrlRef.current) {
+      isLoopingRef.current = true;
+      loopVideoTail();
+      console.log('Looping last 15 seconds while waiting for next clip');
     }
   };
 
@@ -542,7 +536,7 @@ export default function DashboardPage() {
           autoPlay
           playsInline
           onPlay={handleVideoPlay}
-          onEnded={isLoopingRef.current ? handleLoopEnded : handleVideoEnded}
+          onEnded={handleVideoEnded}
         />
       )}
 
