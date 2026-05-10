@@ -62,8 +62,7 @@ class DeepgramVoiceClient {
     await this.inputContext.resume();
 
     const socket = new WebSocket(
-      'wss://agent.deepgram.com/v1/agent/converse',
-      ['bearer', tokenData.access_token]
+      `wss://agent.deepgram.com/v1/agent/converse?token=${encodeURIComponent(tokenData.access_token)}`
     );
     socket.binaryType = 'arraybuffer';
     this.socket = socket;
