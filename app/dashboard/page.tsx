@@ -208,7 +208,7 @@ export default function DashboardPage() {
     if (!currentOnMidRef.current) return;
     midPointTimerRef.current = setTimeout(() => {
       if (vapi && currentOnMidRef.current) {
-        vapi.say(currentOnMidRef.current, false, false, false);
+        vapi.say(currentOnMidRef.current, false, false);
       }
     }, MID_POINT_MS);
   }
@@ -253,7 +253,7 @@ export default function DashboardPage() {
 
         // Fire onWait1 immediately
         if (data.onWait1 && vapi) {
-          vapi.say(data.onWait1, false, false, false);
+          vapi.say(data.onWait1, false, false);
         }
 
         // Fire onWait2 at 20 seconds
@@ -261,7 +261,7 @@ export default function DashboardPage() {
         if (data.onWait2 && vapi) {
           wait2TimerRef.current = setTimeout(() => {
             if (vapi && !currentVideoUrlRef.current) {
-              vapi.say(data.onWait2, false, false, false);
+              vapi.say(data.onWait2, false, false);
             }
           }, 20000);
         }
@@ -318,7 +318,7 @@ export default function DashboardPage() {
     clearWait2Timer();
     // Snap into sync with video starting
     if (vapi) {
-      vapi.say('Watch me baby.', true, false, false);
+      vapi.say('Watch me baby.', false, false);
     }
     startMidTimer();
     if (modeRef.current === 'solo_video' && callingRef.current && !isGeneratingRef.current && videoQueueRef.current.length < MAX_QUEUE) {
