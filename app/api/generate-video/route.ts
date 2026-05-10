@@ -7,7 +7,6 @@ const ATLAS_API_KEY = process.env.ATLAS_CLOUD_API_KEY;
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 const ATLAS_MODEL = 'atlascloud/wan-2.2-turbo-spicy/infinite-image-to-video';
 const MAX_ATLAS_PROMPT_CHARS = 180;
-const ATLAS_NEGATIVE_GUARDRAIL = 'avoid: cuts, loops, resets, duplicate frames, flicker, warped hands, extra limbs';
 
 type AtlasPredictionResponse = {
   status?: string;
@@ -84,22 +83,31 @@ function getFallbackReadyLine(personaName?: string | null, isContinuation?: bool
 
 function normalizeAtlasPrompt(prompt: string): string {
   const compactPrompt = prompt.replace(/\s+/g, ' ').replace(/\s+;\s+/g, '; ').trim();
-  const withoutDuplicateGuardrail = compactPrompt
-    .replace(/\s*;?\s*avoid:\s*cuts, loops, resets, duplicate frames, flicker, warped hands, extra limbs/gi, '')
-    .trim();
-  const suffix = `; ${ATLAS_NEGATIVE_GUARDRAIL}`;
+  if (compactPrompt.length <= MAX_ATLAS_PROMPT_CHARS) return compactPrompt;
 
-  if (`${withoutDuplicateGuardrail}${suffix}`.length <= MAX_ATLAS_PROMPT_CHARS) {
-    return `${withoutDuplicateGuardrail}${suffix}`;
-  }
+  const clipped = compactPrompt.slice(0, MAX_ATLAS_PROMPT_CHARS + 1);
+  const wordBoundary = Math.max(
+    clipped.lastIndexOf(' '),
+    clipped.lastIndexOf(','),
+    clipped.lastIndexOf(';')
+  );
 
-  const availableChars = MAX_ATLAS_PROMPT_CHARS - suffix.length;
-  const trimmedPrompt = withoutDuplicateGuardrail
-    .slice(0, Math.max(availableChars, 0))
+  return clipped
+    .slice(0, wordBoundary > 80 ? wordBoundary : MAX_ATLAS_PROMPT_CHARS)
     .replace(/[;,\s]+$/g, '')
     .trim();
+}
 
-  return `${trimmedPrompt}${suffix}`;
+function getFallbackAction(userMessage?: string) {
+  const request = (userMessage || '').replace(/\s+/g, ' ').trim();
+  if (!request) return 'continue the requested motion with visible progression';
+
+  return request
+    .replace(/^i\s*(want|wanna|would like)\s*(to\s*)?(see|watch)?\s*/i, '')
+    .replace(/^you\s*/i, '')
+    .replace(/[.?!]+$/g, '')
+    .trim()
+    .slice(0, 90) || 'continue the requested motion with visible progression';
 }
 
 function buildFallbackScenePlan(
@@ -108,18 +116,18 @@ function buildFallbackScenePlan(
   clipNumber?: number,
   isUndressed?: boolean,
 ): VideoScenePlan {
-  const stage = getEscalationStage(clipNumber || 1);
   const reference = getImageReference(isUndressed);
   const motion = getClipMotionDirective(clipNumber || 1);
+  const action = getFallbackAction(userMessage);
 
   return {
     prompts: [
-      normalizeAtlasPrompt(`${reference}; ${stage}; ${motion}; smooth continuous motion, natural eye contact`),
-      normalizeAtlasPrompt(`${reference}; continue prior pose, deepen motion, hands move deliberately, body position changes`),
-      normalizeAtlasPrompt(`${reference}; progress action further, hips and shoulders shift naturally, camera-facing movement`),
-      normalizeAtlasPrompt(`${reference}; maintain continuity from frame, slower teasing motion, visible progression from prompt 3`),
-      normalizeAtlasPrompt(`${reference}; continue confidently, natural breathing and expression, changed pose`),
-      normalizeAtlasPrompt(`${reference}; complete this clip's progression, hold new end pose for next frame`),
+      normalizeAtlasPrompt(`${reference}; ${action}; ${motion}; smooth continuous motion`),
+      normalizeAtlasPrompt(`${reference}; continue ${action}; pose changes naturally; steady eye contact`),
+      normalizeAtlasPrompt(`${reference}; progress ${action}; hands and shoulders move with clear intent`),
+      normalizeAtlasPrompt(`${reference}; continue from prior pose; ${action}; motion stays fluid`),
+      normalizeAtlasPrompt(`${reference}; deepen ${action}; hips shift; expression reacts naturally`),
+      normalizeAtlasPrompt(`${reference}; complete this beat of ${action}; hold the new end pose`),
     ],
     onWait1: 'Getting naked for you right now baby. Sliding everything off nice and slow, letting you see every inch of me.',
     onWait2: 'Almost ready for you. Running my hands down my bare skin, thinking about your eyes on me.',
@@ -169,7 +177,6 @@ function extractScenePlan(
       prompts.every((p: string) =>
         p.toLowerCase().startsWith(expectedReference.toLowerCase()) &&
         p.length <= MAX_ATLAS_PROMPT_CHARS &&
-        p.toLowerCase().includes('avoid:') &&
         !forbiddenReferencePattern.test(p)
       );
 
@@ -258,7 +265,7 @@ CLIP ${clip} MUST END WITH: ${clip <= 1 ? 'breasts fully exposed' : clip === 2 ?
 Return ONLY valid JSON:
 {"prompts":["p1","p2","p3","p4","p5","p6"],"onWait1":"1 conversational sentence max 18 words","onWait2":"1 conversational sentence max 18 words","onMid":"1 explicit sentence max 15 words","readyLine":"1 natural sentence max 24 words that says the video is ready and summarizes what is about to happen","waitLines":["line1","line2","line3","line4"]}
 
-Prompts: 6 strings, max 18 words each after the required reference phrase. Each prompt must progress from the previous prompt and must not repeat exact wording from earlier clips. Do not write negative/avoid/no-quality terms; the server appends those.
+Prompts: 6 strings, max 18 words each after the required reference phrase. Each prompt must be specific to USER WANTS and progress from the previous prompt. Do not write negative/avoid/no-quality terms.
 Wait dialogue: first person, present tense, conversational, varied, persona-matched. It should invite the user to answer while the video generates; do not repeat the same idea.
 Ready line: persona-matched, natural, says the video is ready, summarizes the visual motion without sounding like a technical prompt.
 ${getPersonaVoice(personaName)}`,

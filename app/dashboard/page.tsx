@@ -420,7 +420,12 @@ export default function DashboardPage() {
     if (modeRef.current !== 'solo_video' || !callingRef.current || isGeneratingRef.current || videoQueueRef.current.length >= MAX_QUEUE) {
       return;
     }
-    generateVideo(buildSceneIntent(), frameUrl ?? lastFrameUrlRef.current);
+    const continuityFrame = frameUrl ?? lastFrameUrlRef.current;
+    if (currentVideoUrlRef.current && !continuityFrame) {
+      console.warn('Skipping continuation: no generated frame available, refusing to restart from companion image');
+      return;
+    }
+    generateVideo(buildSceneIntent(), continuityFrame);
   }
 
   function loopVideoTail() {
@@ -463,7 +468,11 @@ export default function DashboardPage() {
       // Capture continuity once when the original clip ends, not every tail loop.
       lastFrame = await extractLastFrame();
       if (lastFrame) lastFrameUrlRef.current = lastFrame;
-      prefetchNextClip(lastFrame);
+      if (lastFrame) {
+        prefetchNextClip(lastFrame);
+      } else {
+        console.warn('No last frame captured; holding tail loop instead of restarting from original image');
+      }
     } else {
       prefetchNextClip();
     }
