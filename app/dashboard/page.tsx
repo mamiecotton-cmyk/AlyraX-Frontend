@@ -63,6 +63,31 @@ export default function DashboardPage() {
   const currentVideoUrlRef = useRef<string | null>(null);
   const lastVideoRequestRef = useRef<{ key: string; at: number } | null>(null);
 
+  async function pollVideoResult(predictionId: string) {
+    const maxAttempts = 120;
+
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      await new Promise(resolve => setTimeout(resolve, 5000));
+
+      const response = await fetch('/api/generate-video/status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ predictionId }),
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Video status failed');
+      }
+
+      if (data.video_url) {
+        return data.video_url as string;
+      }
+    }
+
+    throw new Error('Video generation timed out');
+  }
+
   async function loadData() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { router.push('/login'); return; }
@@ -131,16 +156,18 @@ export default function DashboardPage() {
         return;
       }
 
-      if (data.video_url) {
+      if (data.prediction_id) {
+        const videoUrl = await pollVideoResult(data.prediction_id);
+
         // If nothing playing, play now
         if (!currentVideoUrlRef.current) {
           if (data.narration && vapi) {
             vapi.say(data.narration, false, false, false);
           }
-          setCurrentVideoUrl(data.video_url);
+          setCurrentVideoUrl(videoUrl);
         } else {
           // Buffer as next video
-          nextVideoUrlRef.current = data.video_url;
+          nextVideoUrlRef.current = videoUrl;
           nextVideoNarrationRef.current = data.narration || null;
         }
       }

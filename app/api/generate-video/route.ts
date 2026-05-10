@@ -37,10 +37,37 @@ function getAtlasOutputUrl(response: AtlasPredictionResponse): string | null {
   return output?.url || null;
 }
 
-const FALLBACK_SCENE_PLAN: VideoScenePlan = {
-  prompt: 'same adult woman in the source image holds seductive eye contact, slowly smiles, tilts her head, breathes deeper, leans subtly closer, and traces one hand along her neck and waist in one continuous cinematic shot, same camera, same outfit, same room, natural smooth motion',
-  narration: "Keep your eyes on me. I'm making it soft, slow, and exactly for you.",
-};
+function buildFallbackScenePlan(userMessage: string): VideoScenePlan {
+  const request = userMessage.trim().replace(/\s+/g, ' ').slice(0, 220);
+
+  return {
+    prompt: `same adult woman in the source image responds to this request: "${request}", creating one continuous cinematic shot with smooth natural motion, seductive eye contact, a slow smile, subtle breathing, a gentle lean closer, and one hand tracing naturally along her neck, chest, waist, or hip as appropriate, same camera, same outfit, same room, no cuts, no looping, no repeated action`,
+    narration: "Keep your eyes on me. I'm making it exactly the way you asked.",
+  };
+}
+
+function extractScenePlan(content: string, userMessage: string): VideoScenePlan {
+  const jsonMatch = content.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) return buildFallbackScenePlan(userMessage);
+
+  try {
+    const scenePlan = JSON.parse(jsonMatch[0]);
+    if (
+      typeof scenePlan?.prompt === 'string'
+      && typeof scenePlan?.narration === 'string'
+      && scenePlan.prompt.toLowerCase().includes('same adult woman')
+    ) {
+      return {
+        prompt: scenePlan.prompt,
+        narration: scenePlan.narration,
+      };
+    }
+  } catch {
+    // Fall through to request-aware fallback.
+  }
+
+  return buildFallbackScenePlan(userMessage);
+}
 
 async function generateVideoScenePlan(
   userMessage: string,
@@ -107,26 +134,13 @@ Narration rules:
 
   if (!response.ok || !content) {
     console.error('OpenRouter failed or empty content:', data);
-    return FALLBACK_SCENE_PLAN;
+    return buildFallbackScenePlan(userMessage);
   }
 
-  const trimmed = content.trim();
-
-  try {
-    const scenePlan = JSON.parse(trimmed);
-    if (typeof scenePlan?.prompt === 'string' && typeof scenePlan?.narration === 'string') {
-      return {
-        prompt: scenePlan.prompt,
-        narration: scenePlan.narration,
-      };
-    }
-    throw new Error('Invalid format');
-  } catch {
-    return FALLBACK_SCENE_PLAN;
-  }
+  return extractScenePlan(content.trim(), userMessage);
 }
 
-async function generateAtlasVideo(
+async function submitAtlasVideo(
   imageUrl: string,
   prompt: string
 ): Promise<string> {
@@ -162,39 +176,7 @@ async function generateAtlasVideo(
     throw new Error('No prediction ID returned');
   }
 
-  // Poll for result
-  const maxAttempts = 60;
-  let attempts = 0;
-
-  while (attempts < maxAttempts) {
-    await new Promise(resolve => setTimeout(resolve, 3000));
-
-    const statusResponse = await fetch(
-      `https://api.atlascloud.ai/api/v1/model/prediction/${predictionId}`,
-      {
-        headers: {
-          'Authorization': `Bearer ${ATLAS_API_KEY}`,
-        },
-      }
-    );
-
-    const statusData = await statusResponse.json() as AtlasPredictionResponse;
-    const status = (statusData.data?.status || statusData.status || '').toLowerCase();
-
-    if (status === 'succeeded' || status === 'completed') {
-      const videoUrl = getAtlasOutputUrl(statusData);
-      if (videoUrl) return videoUrl;
-      throw new Error('No video URL in completed response');
-    }
-
-    if (status === 'failed') {
-      throw new Error(`Atlas Cloud generation failed: ${statusData.data?.error || statusData.error || 'Unknown error'}`);
-    }
-
-    attempts++;
-  }
-
-  throw new Error('Video generation timed out');
+  return predictionId;
 }
 
 export async function POST(req: NextRequest) {
@@ -234,12 +216,11 @@ export async function POST(req: NextRequest) {
 
     const scenePlan = await generateVideoScenePlan(userMessage, conversationHistory || []);
 
-    // Generate video
-    const videoUrl = await generateAtlasVideo(companion.image_url, scenePlan.prompt);
+    const predictionId = await submitAtlasVideo(companion.image_url, scenePlan.prompt);
 
     return NextResponse.json({
       success: true,
-      video_url: videoUrl,
+      prediction_id: predictionId,
       prompt: scenePlan.prompt,
       narration: scenePlan.narration,
     });
