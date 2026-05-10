@@ -157,40 +157,22 @@ async function generateVideoScenePlan(
         messages: [
           {
             role: 'system',
-            content: `You generate six image-to-video motion prompts and three dirty talk lines for an adult AI companion platform.
+            content: `You write explicit adult video prompts based on what the user wants to see.
 
-ESCALATION STAGE (clip ${clip}): ${stage}
-${isUndressed ? 'IMPORTANT: She is already fully nude. Keep her nude throughout all 6 prompts. Do NOT re-dress her.' : ''}
-${userMessage ? `USER REQUEST: "${userMessage}" — honor this if it conflicts with the stage.` : 'No specific user request — follow the escalation stage.'}
+USER WANTS: "${userMessage || 'continue the scene naturally'}"
+STAGE (clip ${clip}): ${stage}
+${isUndressed ? 'She is already nude. Stay nude all 6 prompts.' : ''}
 
-REQUIRED END STATE FOR PROMPT 6:
-${clip <= 1 ? 'Prompt 6 MUST end with her topless — bra removed, breasts fully exposed.' : ''}
-${clip === 2 ? 'Prompt 6 MUST end with her completely nude — all clothing removed, fully exposed.' : ''}
-${clip >= 3 ? 'Prompt 6 MUST end with her nude and actively fingering herself or rubbing her clit.' : ''}
+HARD RULE — ZERO clothing words. Not fabric, sleeve, top, bottom, panties, bra, shirt, dress, underwear, outfit. Body parts only: skin, breasts, nipples, chest, hips, thighs, pussy, clit, fingers, hands, back, stomach.
+
+CLIP ${clip} MUST END WITH: ${clip <= 1 ? 'breasts fully exposed' : clip === 2 ? 'completely nude' : 'nude and actively touching her pussy'}
 
 Return ONLY valid JSON:
-{"prompts":["p1","p2","p3","p4","p5","p6"],"onWait1":"2-3 sentence dirty talk while video generates","onWait2":"2-3 sentence continuation 20 seconds later","onMid":"1 sentence at 15 seconds into video"}
+{"prompts":["p1","p2","p3","p4","p5","p6"],"onWait1":"2-3 explicit sentences max 50 words","onWait2":"2-3 explicit sentences max 50 words","onMid":"1 explicit sentence max 15 words"}
 
-
-PROMPT RULES:
-- Exactly 6 strings
-- Every prompt starts with "same adult woman in the source image" (or "same adult woman already nude" if continuing nude)
-- NEVER reference clothing of any kind — no fabric, sleeve, top, bottom, panties, bra, shirt, dress, shorts, nothing
-- Describe ONLY body parts and their motion — skin, breasts, nipples, hips, thighs, pussy
-- For undressing use ONLY body-focused language: "revealing her bare chest", "exposing her breasts", "showing her bare skin"
-- Think of it as describing a nude sculpture coming to life — only the body exists, no clothing
-- WRONG: "sliding fabric off", "removing her top", "pulling her sleeve down"
-- RIGHT: "arching her back, bare chest exposed", "cupping her breasts, nipples hardening", "spreading her thighs, showing her bare pussy"
-- Build a clear 6-step progression that REACHES the required end state by prompt 6
-- Each prompt max 26 words
-- Smooth natural webcam motion only
-
-DIRTY TALK RULES:
-- onWait1: 2-3 explicit sentences, max 50 words. Fires immediately while video generates. She describes what she is about to do in explicit detail. First person present tense.
-- onWait2: 2-3 explicit sentences, max 50 words. Fires 20 seconds later. Continues building. More explicit than onWait1.
-- onMid: 1 explicit sentence, max 15 words. Fires 15 seconds into video. Describes exactly what is on screen.
-- ${getPersonaVoice(personaName)}
-- No filler. No "give me a second". Pure explicit action narration.`,
+Prompts: 6 strings, max 26 words each, describe body motion only, no clothing, no location changes. Make them specific to what the user asked for.
+Dirty talk: first person, present tense, explicit, match the user's request.
+${getPersonaVoice(personaName)}`,
           },
           ...recentHistory,
           {
