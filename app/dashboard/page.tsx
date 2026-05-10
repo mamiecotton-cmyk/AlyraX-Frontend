@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { vapi } from '@/lib/vapi';
+import { type SessionDirectives, updateSessionDirectives } from '@/lib/session-directives';
 
 const CallButton = dynamic(() => import('@/components/CallButton'), { ssr: false });
 
@@ -83,6 +84,7 @@ export default function DashboardPage() {
   const callGenerationRef = useRef(0);
   const waitNarrationClipRef = useRef<number | null>(null);
   const pendingPlaybackRef = useRef(false);
+  const sessionDirectivesRef = useRef<SessionDirectives>({});
 
   useEffect(() => { modeRef.current = mode; }, [mode]);
   useEffect(() => { callingRef.current = calling; }, [calling]);
@@ -270,6 +272,7 @@ export default function DashboardPage() {
           userId: currentUserId,
           companionId: currentCompanion.id,
           userMessage: sceneIntent,
+          directives: sessionDirectivesRef.current,
           frameUrl: frameUrl ?? lastFrameUrlRef.current,
           clipNumber: nextClipNumber,
           conversationHistory: conversationHistoryRef.current.slice(-4),
@@ -371,6 +374,7 @@ export default function DashboardPage() {
     clipNumberRef.current = 0;
     submittedClipNumberRef.current = 0;
     isLoopingRef.current = false;
+    sessionDirectivesRef.current = {};
     pendingPlaybackRef.current = false;
     waitNarrationClipRef.current = null;
     clearMidTimer();
@@ -491,6 +495,7 @@ export default function DashboardPage() {
         if (!userMessage || userMessage.length < 3) return;
 
         lastUserMessageRef.current = userMessage;
+        sessionDirectivesRef.current = updateSessionDirectives(sessionDirectivesRef.current, userMessage);
         conversationHistoryRef.current.push({ role: 'user', content: userMessage });
 
         prefetchNextClip();

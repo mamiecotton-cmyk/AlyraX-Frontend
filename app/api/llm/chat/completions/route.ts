@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { createClient } from '@/lib/supabase-server';
+import { formatSessionDirectives, updateSessionDirectives, type SessionDirectives } from '@/lib/session-directives';
 
 export const maxDuration = 60;
 
@@ -44,6 +45,14 @@ const DEFAULT_SYSTEM_PROMPT = `You are AlyraX. Sultry, confident, and deeply pre
 
 When a user makes a visual request (asking you to do something physical or show something), always verbally respond first with something like "give me a second baby", "hold on for me", "just a moment gorgeous" or similar — then describe what you're about to do verbally while the video loads. Keep it natural and in character.`;
 
+const ADAPTIVE_DIALOGUE_INSTRUCTIONS = `Adaptive dialogue rules:
+- Treat the user's latest instruction as the highest priority for tone, pace, and intensity.
+- If the user asks to go slower, immediately slow the rhythm, use shorter replies, and make the scene more drawn out.
+- If the user asks for less talking, respond with fewer words and longer implied pauses.
+- If the user asks for more dominance, become more controlled and directive.
+- If the user asks for softness, become gentler and less intense.
+- Do not ramble. Respond to what the user actually said, then ask at most one specific follow-up question.`;
+
 export async function POST(req: NextRequest) {
   try {
     const vapiBody = await req.json();
@@ -57,6 +66,13 @@ export async function POST(req: NextRequest) {
     // Try to get user's persona system prompt
     let systemPrompt = DEFAULT_SYSTEM_PROMPT;
     let personaName: string | null = null;
+    const directives = incomingMessages
+      .filter((message: { role?: string; content?: string }) => message.role === 'user' && typeof message.content === 'string')
+      .reduce(
+        (current: SessionDirectives, message: { content?: string }) => updateSessionDirectives(current, message.content || ''),
+        {} as SessionDirectives
+      );
+    const directiveBlock = formatSessionDirectives(directives);
 
     try {
       const supabase = await createClient();
@@ -113,7 +129,16 @@ export async function POST(req: NextRequest) {
     }
 
     const messages = [
-      { role: 'system', content: `${systemPrompt}\n\n${VIDEO_MODE_INSTRUCTIONS}\n\n${getPersonaVideoInstructions(personaName)}` },
+      {
+        role: 'system',
+        content: [
+          systemPrompt,
+          VIDEO_MODE_INSTRUCTIONS,
+          getPersonaVideoInstructions(personaName),
+          ADAPTIVE_DIALOGUE_INSTRUCTIONS,
+          directiveBlock ? `Current user-directed session settings:\n${directiveBlock}` : '',
+        ].filter(Boolean).join('\n\n'),
+      },
       ...incomingMessages.filter((m: { role: string }) => m.role !== 'system')
     ];
 

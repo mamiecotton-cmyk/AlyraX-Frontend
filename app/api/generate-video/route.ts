@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase-server';
+import { buildVideoDirectivePhrase, type SessionDirectives } from '@/lib/session-directives';
 
 export const maxDuration = 300;
 
@@ -147,16 +148,23 @@ function buildScenePlan(
   personaName?: string | null,
   clipNumber?: number,
   isUndressed?: boolean,
+  directives?: SessionDirectives | null,
 ): VideoScenePlan {
   const reference = getImageReference(isUndressed);
   const action = getFallbackAction(userMessage);
   const clip = clipNumber || 1;
   const continuity = isUndressed ? 'continue from the exact pose in the generated frame' : 'start from the pose in the image';
+  const directivePhrase = buildVideoDirectivePhrase(directives);
   const progression = getClipProgression(clip, action);
 
   return {
     prompts: progression.map((step, index) =>
-      normalizeAtlasPrompt(`${reference}; clip ${clip} step ${index + 1}; ${continuity}; ${step}`)
+      normalizeAtlasPrompt([
+        `${reference}; clip ${clip} step ${index + 1}`,
+        continuity,
+        directivePhrase,
+        step,
+      ].filter(Boolean).join('; '))
     ),
     onWait1: getPersonaWaitLine(personaName),
     onWait2: '',
@@ -214,6 +222,7 @@ export async function POST(req: NextRequest) {
       userId,
       companionId,
       userMessage,
+      directives,
       conversationHistory,
       frameUrl,
       clipNumber,
@@ -264,6 +273,7 @@ export async function POST(req: NextRequest) {
       persona?.name,
       clip,
       isUndressed,
+      directives,
     );
 
     console.log('Video scene plan ready:', {
