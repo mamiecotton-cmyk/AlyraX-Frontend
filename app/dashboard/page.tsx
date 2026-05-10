@@ -32,7 +32,8 @@ type TranscriptMessage = {
 
 type QueuedVideo = {
   url: string;
-  onStart: string;
+  onWait1: string;
+  onWait2: string;
   onMid: string;
 };
 
@@ -72,6 +73,7 @@ export default function DashboardPage() {
   const userIdRef = useRef<string | null>(null);
   const companionRef = useRef<Companion | null>(null);
   const isLoopingRef = useRef(false);
+  const wait2TimerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => { modeRef.current = mode; }, [mode]);
   useEffect(() => { callingRef.current = calling; }, [calling]);
@@ -239,22 +241,38 @@ export default function DashboardPage() {
       if (!response.ok) { console.error('Video generation failed:', data); return; }
 
       if (data.prediction_id) {
+        console.log('Clip number:', nextClipNumber);
+
+        // Fire onWait1 immediately
+        if (data.onWait1 && vapi) {
+          vapi.say(data.onWait1, false, false, false);
+        }
+
+        // Fire onWait2 at 20 seconds
+        clearWait2Timer();
+        if (data.onWait2 && vapi) {
+          wait2TimerRef.current = setTimeout(() => {
+            if (vapi && !currentVideoUrlRef.current) {
+              vapi.say(data.onWait2, false, false, false);
+            }
+          }, 20000);
+        }
+
         const videoUrl = await pollVideoResult(data.prediction_id);
         clipNumberRef.current = nextClipNumber;
 
         const queued: QueuedVideo = {
           url: videoUrl,
-          onStart: data.onStart || '',
+          onWait1: data.onWait1 || '',
+          onWait2: data.onWait2 || '',
           onMid: data.onMid || '',
         };
 
-        // If nothing playing, play immediately
         if (!currentVideoUrlRef.current) {
           playVideo(queued);
         } else {
           videoQueueRef.current.push(queued);
           console.log('Video queued. Queue length:', videoQueueRef.current.length);
-          // If video was looping, switch now
           if (isLoopingRef.current && videoRef.current) {
             isLoopingRef.current = false;
             playVideo(queued);
@@ -283,18 +301,18 @@ export default function DashboardPage() {
     clipNumberRef.current = 0;
     isLoopingRef.current = false;
     clearMidTimer();
+    clearWait2Timer();
     currentOnMidRef.current = '';
   }
 
   const handleVideoPlay = () => {
-    // Speak onStart line
-    const onStart = videoQueueRef.current[0]?.onStart || currentOnMidRef.current;
-    if (vapi && onStart) {
-      vapi.say(onStart, true, false, false);
+    // Stop onWait2 if video ready early
+    clearWait2Timer();
+    // Snap into sync with video starting
+    if (vapi) {
+      vapi.say('Watch me baby.', true, false, false);
     }
-    // Start mid timer
     startMidTimer();
-    // Pre-generate next clip immediately
     if (modeRef.current === 'solo_video' && callingRef.current && !isGeneratingRef.current && videoQueueRef.current.length < MAX_QUEUE) {
       generateVideo(buildSceneIntent());
     }
