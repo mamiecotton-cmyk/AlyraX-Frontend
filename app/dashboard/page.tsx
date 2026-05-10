@@ -131,11 +131,24 @@ export default function DashboardPage() {
     const isDuplicate =
       recentRequest?.key === requestKey && Date.now() - recentRequest.at < 120000;
 
-    if (!userId || !companion || isGeneratingRef.current || isDuplicate) return;
+    if (!userId || !companion || isGeneratingRef.current || isDuplicate) {
+      console.log('Skipping video generation:', {
+        hasUserId: Boolean(userId),
+        hasCompanion: Boolean(companion),
+        isGenerating: isGeneratingRef.current,
+        isDuplicate,
+        requestKey,
+      });
+      return;
+    }
 
     isGeneratingRef.current = true;
     lastVideoRequestRef.current = { key: requestKey, at: Date.now() };
     setIsGenerating(true);
+    console.log('Starting video generation:', {
+      companionId: companion.id,
+      userMessage,
+    });
 
     try {
       const response = await fetch('/api/generate-video', {
@@ -150,6 +163,7 @@ export default function DashboardPage() {
       });
 
       const data = await response.json();
+      console.log('Video generation response:', data);
 
       if (!response.ok) {
         console.error('Video generation failed:', data);
@@ -157,7 +171,9 @@ export default function DashboardPage() {
       }
 
       if (data.prediction_id) {
+        console.log('Polling video prediction:', data.prediction_id);
         const videoUrl = await pollVideoResult(data.prediction_id);
+        console.log('Video prediction ready:', videoUrl);
 
         // If nothing playing, play now
         if (!currentVideoUrlRef.current) {
@@ -210,6 +226,13 @@ export default function DashboardPage() {
     // Listen for transcripts to capture conversation
     vapi.on('message', (message: TranscriptMessage) => {
       if (message.type === 'transcript' && message.role === 'user' && message.transcript) {
+        console.log('User transcript received:', {
+          transcriptType: message.transcriptType,
+          transcript: message.transcript,
+          mode,
+          calling,
+          isGenerating,
+        });
         if (message.transcriptType && message.transcriptType !== 'final') return;
 
         const userMessage = message.transcript.trim();

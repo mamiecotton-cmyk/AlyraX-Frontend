@@ -75,22 +75,23 @@ async function generateVideoScenePlan(
 ): Promise<VideoScenePlan> {
   const recentHistory = conversationHistory.slice(-4);
 
-  const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-      'HTTP-Referer': 'https://alyra-x-frontend.vercel.app',
-      'X-Title': 'AlyraX',
-    },
-    body: JSON.stringify({
-      model: 'sao10k/l3-euryale-70b',
-      max_tokens: 500,
-      temperature: 0.35,
-      messages: [
-        {
-          role: 'system',
-          content: `You generate one continuous image-to-video movie prompt and one short spoken narration line for an adult, spicy AI companion platform.
+  try {
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+        'HTTP-Referer': 'https://alyra-x-frontend.vercel.app',
+        'X-Title': 'AlyraX',
+      },
+      body: JSON.stringify({
+        model: 'sao10k/l3-euryale-70b',
+        max_tokens: 500,
+        temperature: 0.35,
+        messages: [
+          {
+            role: 'system',
+            content: `You generate one continuous image-to-video movie prompt and one short spoken narration line for an adult, spicy AI companion platform.
 The user wants sensual, flirtatious, seductive motion that feels like a single continuous movie shot.
 
 Return ONLY valid JSON with this exact shape:
@@ -114,36 +115,48 @@ Narration rules:
 - Spoken by the companion while the video plays
 - Match the user's requested scene
 - Spicy, intimate, cinematic, not technical`,
-        },
-        ...recentHistory,
-        {
-          role: 'user',
-          content: `User request: "${userMessage}". Generate one continuous video prompt and one narration line.`,
-        },
-      ],
-    }),
-  });
+          },
+          ...recentHistory,
+          {
+            role: 'user',
+            content: `User request: "${userMessage}". Generate one continuous video prompt and one narration line.`,
+          },
+        ],
+      }),
+    });
 
-  const data = await response.json();
+    const data = await response.json();
 
-  // Log for debugging
-  console.log('OpenRouter response status:', response.status);
-  console.log('OpenRouter data:', JSON.stringify(data).slice(0, 500));
+    // Log for debugging
+    console.log('OpenRouter response status:', response.status);
+    console.log('OpenRouter data:', JSON.stringify(data).slice(0, 500));
 
-  const content = data.choices?.[0]?.message?.content;
+    const content = data.choices?.[0]?.message?.content;
 
-  if (!response.ok || !content) {
-    console.error('OpenRouter failed or empty content:', data);
+    if (!response.ok || !content) {
+      console.error('OpenRouter failed or empty content:', data);
+      return buildFallbackScenePlan(userMessage);
+    }
+
+    return extractScenePlan(content.trim(), userMessage);
+  } catch (error) {
+    console.error('OpenRouter scene plan exception:', error);
     return buildFallbackScenePlan(userMessage);
   }
-
-  return extractScenePlan(content.trim(), userMessage);
 }
 
 async function submitAtlasVideo(
   imageUrl: string,
   prompt: string
 ): Promise<string> {
+  console.log('Atlas submit starting:', {
+    model: ATLAS_MODEL,
+    imageHost: (() => {
+      try { return new URL(imageUrl).host; } catch { return 'invalid-url'; }
+    })(),
+    promptPreview: prompt.slice(0, 220),
+  });
+
   // Submit job
   const submitResponse = await fetch(
     'https://api.atlascloud.ai/api/v1/model/generateVideo',
@@ -166,10 +179,12 @@ async function submitAtlasVideo(
 
   if (!submitResponse.ok) {
     const error = await submitResponse.text();
+    console.error('Atlas submit failed:', submitResponse.status, error);
     throw new Error(`Atlas Cloud submission failed: ${error}`);
   }
 
   const submitData = await submitResponse.json();
+  console.log('Atlas submit response:', JSON.stringify(submitData).slice(0, 500));
   const predictionId = submitData.data?.id || submitData.id;
 
   if (!predictionId) {
@@ -182,6 +197,13 @@ async function submitAtlasVideo(
 export async function POST(req: NextRequest) {
   try {
     const { userId, companionId, userMessage, conversationHistory } = await req.json();
+
+    console.log('Video generation request received:', {
+      hasUserId: Boolean(userId),
+      companionId: companionId || null,
+      userMessage,
+      historyCount: Array.isArray(conversationHistory) ? conversationHistory.length : 0,
+    });
 
     if (!userId || !userMessage) {
       return NextResponse.json(
@@ -215,8 +237,13 @@ export async function POST(req: NextRequest) {
     }
 
     const scenePlan = await generateVideoScenePlan(userMessage, conversationHistory || []);
+    console.log('Video scene plan ready:', {
+      promptPreview: scenePlan.prompt.slice(0, 220),
+      narration: scenePlan.narration,
+    });
 
     const predictionId = await submitAtlasVideo(companion.image_url, scenePlan.prompt);
+    console.log('Video generation submitted:', { predictionId });
 
     return NextResponse.json({
       success: true,
