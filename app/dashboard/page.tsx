@@ -435,6 +435,16 @@ export default function DashboardPage() {
           className="absolute inset-0 w-full h-full object-contain"
           autoPlay
           playsInline
+          onPlay={() => {
+            if (vapi) {
+              vapi.say(
+                "I'm ready for you baby. Watch me.",
+                true, // interrupt any current speech
+                false,
+                false
+              );
+            }
+          }}
           onEnded={handleVideoEnd}
         />
       )}
