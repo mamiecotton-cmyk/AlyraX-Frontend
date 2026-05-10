@@ -169,6 +169,7 @@ export default function DashboardPage() {
             .from('companions')
             .getPublicUrl(data.path);
 
+          console.log('Frame extracted and uploaded:', urlData.publicUrl);
           resolve(urlData.publicUrl);
         }, 'image/jpeg', 0.92);
       });
@@ -176,6 +177,22 @@ export default function DashboardPage() {
       console.error('Frame extraction error:', err);
       return null;
     }
+  }
+
+  function buildSceneIntent(): string {
+    const history = conversationHistoryRef.current.slice(-8);
+    const metaPhrases = [
+      'where is', "don't see", 'next video', 'are you there',
+      'still there', 'hello', 'you there', "i can't see", 'not working'
+    ];
+    const meaningful = history
+      .filter(m => m.role === 'user')
+      .map(m => m.content.trim())
+      .filter(m => !metaPhrases.some(p => m.toLowerCase().includes(p)))
+      .slice(-3)
+      .join('. ');
+
+    return meaningful || lastUserMessageRef.current;
   }
 
   async function generateVideo(userMessage: string, frameUrl?: string | null) {
@@ -286,7 +303,7 @@ export default function DashboardPage() {
 
         // Use refs so we always have current values — fixes stale closure bug
         if (modeRef.current === 'solo_video' && callingRef.current && !isGeneratingRef.current) {
-          generateVideo(userMessage);
+          generateVideo(buildSceneIntent());
         }
       }
 
@@ -329,7 +346,7 @@ export default function DashboardPage() {
 
     // FIX 2: Always keep generating while in video mode on an active call
     if (modeRef.current === 'solo_video' && callingRef.current && lastUserMessageRef.current && !isGeneratingRef.current) {
-      generateVideo(lastUserMessageRef.current, lastFrame);
+      generateVideo(buildSceneIntent(), lastFrame);
     }
   };
 
