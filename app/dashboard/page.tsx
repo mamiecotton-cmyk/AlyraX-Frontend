@@ -188,10 +188,18 @@ export default function DashboardPage() {
     }
   }
 
+
   function clearMidTimer() {
     if (midPointTimerRef.current) {
       clearTimeout(midPointTimerRef.current);
       midPointTimerRef.current = null;
+    }
+  }
+
+  function clearWait2Timer() {
+    if (wait2TimerRef.current) {
+      clearTimeout(wait2TimerRef.current);
+      wait2TimerRef.current = null;
     }
   }
 
