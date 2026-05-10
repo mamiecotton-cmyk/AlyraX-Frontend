@@ -171,11 +171,16 @@ ${clip >= 3 ? 'Prompt 6 MUST end with her nude and actively fingering herself or
 Return ONLY valid JSON:
 {"prompts":["p1","p2","p3","p4","p5","p6"],"onWait1":"2-3 sentence dirty talk while video generates","onWait2":"2-3 sentence continuation 20 seconds later","onMid":"1 sentence at 15 seconds into video"}
 
+
 PROMPT RULES:
 - Exactly 6 strings
 - Every prompt starts with "same adult woman in the source image" (or "same adult woman already nude" if continuing nude)
-- NEVER name specific clothing items — describe only motion and body parts
-- For undressing: "sliding clothing off", "fabric falling away" — never "blouse" or "skirt"
+- NEVER reference clothing of any kind — no fabric, sleeve, top, bottom, panties, bra, shirt, dress, shorts, nothing
+- Describe ONLY body parts and their motion — skin, breasts, nipples, hips, thighs, pussy
+- For undressing use ONLY body-focused language: "revealing her bare chest", "exposing her breasts", "showing her bare skin"
+- Think of it as describing a nude sculpture coming to life — only the body exists, no clothing
+- WRONG: "sliding fabric off", "removing her top", "pulling her sleeve down"
+- RIGHT: "arching her back, bare chest exposed", "cupping her breasts, nipples hardening", "spreading her thighs, showing her bare pussy"
 - Build a clear 6-step progression that REACHES the required end state by prompt 6
 - Each prompt max 26 words
 - Smooth natural webcam motion only
