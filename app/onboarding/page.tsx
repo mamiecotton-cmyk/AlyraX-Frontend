@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 
@@ -10,6 +10,7 @@ const EYE_COLORS = ['Brown', 'Blue', 'Green', 'Hazel', 'Grey', 'Amber'];
 const VIBES = ['Elegant', 'Mysterious', 'Playful', 'Bold', 'Sweet', 'Edgy'];
 const AGE_RANGES = ['20s', '30s', '40s', '50s', '60s', '70s', '80s'];
 const ETHNICITIES = ['Black', 'White', 'Latina', 'Asian', 'Middle Eastern', 'Mixed', 'Other'];
+const REGENERATION_DRAFT_KEY = 'alyrax-persona-regeneration-draft';
 
 const PERSONAS = [
   {
@@ -58,22 +59,58 @@ export default function OnboardingPage() {
   const [ageRange, setAgeRange] = useState('30s');
   const [freeText, setFreeText] = useState('');
 
-  const buildPrompt = () => {
+  const buildPromptFromDraft = (draft: {
+    bodyType: string;
+    ethnicity: string;
+    hairColor: string;
+    hairStyle: string;
+    eyeColor: string;
+    vibe: string;
+    ageRange: string;
+    freeText: string;
+  }) => {
     const parts = [];
-    if (bodyType) parts.push(`${bodyType.toLowerCase()} body type`);
-    if (ethnicity) parts.push(`${ethnicity.toLowerCase()} woman`);
-    if (hairColor && hairStyle) parts.push(`${hairColor.toLowerCase()} ${hairStyle.toLowerCase()} hair`);
-    if (eyeColor) parts.push(`${eyeColor.toLowerCase()} eyes`);
-    if (vibe) parts.push(`${vibe.toLowerCase()} style`);
-    if (ageRange) parts.push(`${ageRange}`);
-    if (freeText) parts.push(freeText);
+    if (draft.bodyType) parts.push(`${draft.bodyType.toLowerCase()} body type`);
+    if (draft.ethnicity) parts.push(`${draft.ethnicity.toLowerCase()} woman`);
+    if (draft.hairColor && draft.hairStyle) parts.push(`${draft.hairColor.toLowerCase()} ${draft.hairStyle.toLowerCase()} hair`);
+    if (draft.eyeColor) parts.push(`${draft.eyeColor.toLowerCase()} eyes`);
+    if (draft.vibe) parts.push(`${draft.vibe.toLowerCase()} style`);
+    if (draft.ageRange) parts.push(`${draft.ageRange}`);
+    if (draft.freeText) parts.push(draft.freeText);
     return parts.join(', ');
   };
 
-  const handleGenerate = async () => {
+  const getDraft = () => ({
+    bodyType,
+    ethnicity,
+    hairColor,
+    hairStyle,
+    eyeColor,
+    vibe,
+    ageRange,
+    freeText,
+    selectedPersonaIndex,
+    companionName,
+  });
+
+  const buildPrompt = () => buildPromptFromDraft(getDraft());
+
+  const applyDraft = (draft: ReturnType<typeof getDraft>) => {
+    setBodyType(draft.bodyType || '');
+    setEthnicity(draft.ethnicity || '');
+    setHairColor(draft.hairColor || '');
+    setHairStyle(draft.hairStyle || '');
+    setEyeColor(draft.eyeColor || '');
+    setVibe(draft.vibe || '');
+    setAgeRange(draft.ageRange || '30s');
+    setFreeText(draft.freeText || '');
+    setSelectedPersonaIndex(draft.selectedPersonaIndex || 0);
+    setCompanionName(draft.companionName || 'AlyraX');
+  };
+
+  const generateFromPrompt = async (prompt: string) => {
     setGenerating(true);
     try {
-      const prompt = buildPrompt();
       const response = await fetch('/api/generate-companion', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -89,6 +126,65 @@ export default function OnboardingPage() {
     }
     setGenerating(false);
   };
+
+  const startPaidRegeneration = async () => {
+    sessionStorage.setItem(REGENERATION_DRAFT_KEY, JSON.stringify(getDraft()));
+
+    const response = await fetch('/api/persona-regeneration-checkout', {
+      method: 'POST',
+    });
+    const data = await response.json();
+
+    if (!response.ok || !data.url) {
+      alert('Payment is not available yet. Please try again shortly.');
+      return;
+    }
+
+    window.location.href = data.url;
+  };
+
+  const handleGenerate = async () => {
+    if (generatedImage) {
+      await startPaidRegeneration();
+      return;
+    }
+
+    await generateFromPrompt(buildPrompt());
+  };
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const isPaidRegeneration = params.get('persona_regen') === 'paid';
+    const sessionId = params.get('session_id');
+
+    if (!isPaidRegeneration || !sessionId) return;
+
+    window.history.replaceState({}, '', '/onboarding');
+
+    const verifyAndGenerate = async () => {
+      const storedDraft = sessionStorage.getItem(REGENERATION_DRAFT_KEY);
+      if (!storedDraft) return;
+
+      const draft = JSON.parse(storedDraft) as ReturnType<typeof getDraft>;
+      applyDraft(draft);
+      sessionStorage.removeItem(REGENERATION_DRAFT_KEY);
+
+      const response = await fetch('/api/verify-persona-regeneration', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId }),
+      });
+
+      if (!response.ok) {
+        alert('Payment could not be verified. Please contact support.');
+        return;
+      }
+
+      await generateFromPrompt(buildPromptFromDraft(draft));
+    };
+
+    verifyAndGenerate();
+  }, []);
 
   const handleSave = async () => {
     setSaving(true);
@@ -318,7 +414,7 @@ export default function OnboardingPage() {
                 disabled={generating}
                 className="flex-1 bg-red-600 text-white py-3 rounded-xl font-bold hover:bg-red-700 transition disabled:opacity-50"
               >
-                {generating ? 'Creating her...' : 'Generate Her'}
+                {generating ? 'Creating her...' : generatedImage ? 'Generate New — $2' : 'Generate Her'}
               </button>
             </div>
 
@@ -366,7 +462,14 @@ export default function OnboardingPage() {
                 onClick={() => setStep(2)}
                 className="flex-1 border border-gray-700 text-gray-400 py-3 rounded-xl font-bold hover:border-gray-500 transition"
               >
-                Regenerate
+                Edit Choices
+              </button>
+              <button
+                onClick={startPaidRegeneration}
+                disabled={generating}
+                className="flex-1 border border-yellow-500/40 text-yellow-500 py-3 rounded-xl font-bold hover:bg-yellow-500 hover:text-black transition disabled:opacity-50"
+              >
+                {generating ? 'Creating...' : 'New — $2'}
               </button>
               <button
                 onClick={handleSave}
