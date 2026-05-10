@@ -76,7 +76,6 @@ export default function DashboardPage() {
   const isLoopingRef = useRef(false);
   const wait2TimerRef = useRef<NodeJS.Timeout | null>(null);
   const callGenerationRef = useRef(0);
-  const prefetchForUrlRef = useRef<string | null>(null);
 
   useEffect(() => { modeRef.current = mode; }, [mode]);
   useEffect(() => { callingRef.current = calling; }, [calling]);
@@ -112,7 +111,9 @@ export default function DashboardPage() {
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Video status failed');
-      if (data.video_url) return data.video_url as string;
+      if (data.video_url) {
+        return `/api/video-proxy?url=${encodeURIComponent(data.video_url as string)}`;
+      }
     }
     throw new Error('Video generation timed out');
   }
@@ -321,7 +322,6 @@ export default function DashboardPage() {
     clearMidTimer();
     currentOnMidRef.current = queued.onMid;
     isLoopingRef.current = false;
-    prefetchForUrlRef.current = null;
     setCurrentVideoUrl(queued.url);
   }
 
@@ -331,7 +331,6 @@ export default function DashboardPage() {
     lastFrameUrlRef.current = null;
     clipNumberRef.current = 0;
     isLoopingRef.current = false;
-    prefetchForUrlRef.current = null;
     clearMidTimer();
     clearWait2Timer();
     currentOnMidRef.current = '';
@@ -361,11 +360,6 @@ export default function DashboardPage() {
     }
     startMidTimer();
 
-    const currentUrl = currentVideoUrlRef.current;
-    if (currentUrl && prefetchForUrlRef.current !== currentUrl) {
-      prefetchForUrlRef.current = currentUrl;
-      prefetchNextClip();
-    }
   };
 
   const handleVideoEnded = async () => {
@@ -534,6 +528,7 @@ export default function DashboardPage() {
           src={currentVideoUrl}
           className="absolute inset-0 w-full h-full object-contain"
           autoPlay
+          crossOrigin="anonymous"
           playsInline
           onPlay={handleVideoPlay}
           onEnded={handleVideoEnded}
