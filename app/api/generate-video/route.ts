@@ -46,9 +46,7 @@ function getAtlasOutputUrl(response: AtlasPredictionResponse): string | null {
 }
 
 function getImageReference(isContinuation?: boolean): string {
-  return isContinuation
-    ? 'Reference the generated frame from the last clip'
-    : 'Reference the starting image';
+  return isContinuation ? 'Last frame' : 'Ref frame';
 }
 
 function getFallbackReadyLine(personaName?: string | null, isContinuation?: boolean) {
@@ -78,16 +76,18 @@ function normalizeAtlasPrompt(prompt: string): string {
 
 function getFallbackAction(userMessage?: string) {
   const request = (userMessage || '').replace(/\s+/g, ' ').trim();
-  if (!request) return 'continue the requested motion with visible progression';
+  if (!request) return 'continue motion';
 
   return request
     .replace(/^i\s*(want|wanna|would like)\s*(to\s*)?(see|watch)?\s*/i, '')
     .replace(/^you\s*/i, '')
     .replace(/\byour\b/gi, 'her')
     .replace(/\byou\b/gi, 'she')
+    .replace(/\b(top|shirt|bra|dress|panties|underwear|clothes|clothing|outfit|sleeves?)\b/gi, 'visible cover')
+    .replace(/\b(take off|remove|strip off|pull off)\b/gi, 'reveal')
     .replace(/[.?!]+$/g, '')
     .trim()
-    .slice(0, 90) || 'continue the requested motion with visible progression';
+    .slice(0, 48) || 'continue motion';
 }
 
 function getPersonaWaitLine(personaName?: string | null) {
@@ -102,44 +102,44 @@ function getClipProgression(clipNumber: number, action: string) {
 
   if (phase === 1) {
     return [
-      `begin ${action}; slow natural movement`,
-      `continue ${action}; small pose change; steady camera-facing motion`,
-      `progress ${action}; hands and shoulders move with clear purpose`,
-      `continue ${action}; one continuous shot; no reset to first pose`,
-      `deepen ${action}; natural breathing and expression`,
-      `finish this first beat with ${action} visibly progressed; hold final pose`,
+      `${action}; start`,
+      `${action}; hands move`,
+      `${action}; shoulders shift`,
+      `${action}; eye contact`,
+      `${action}; progress`,
+      `${action}; hold pose`,
     ];
   }
 
   if (phase === 2) {
     return [
-      `resume from the held pose; continue ${action}; no restart`,
-      `shift weight and angle slightly while continuing ${action}`,
-      `move hands more deliberately; make ${action} clearly advance`,
-      `keep camera-facing motion; expression reacts to the progression`,
-      `slow down for a close transitional beat; maintain continuity`,
-      `end clip ${clipNumber} in a new pose that sets up the next clip`,
+      `${action}; no restart`,
+      `${action}; angle shift`,
+      `${action}; hands lead`,
+      `${action}; gaze holds`,
+      `${action}; closer beat`,
+      `${action}; new pose`,
     ];
   }
 
   if (phase === 3) {
     return [
-      `start from the prior end pose; intensify ${action}`,
-      `change shoulder and hip angle while continuing ${action}`,
-      `make the motion smoother and more confident; no looped gesture`,
-      `hold eye contact as the body position changes again`,
-      `progress to a more advanced pose; keep motion fluid`,
-      `finish clip ${clipNumber} with the action further along than it began`,
+      `${action}; intensify`,
+      `${action}; hips shift`,
+      `${action}; no loop`,
+      `${action}; hold gaze`,
+      `${action}; fluid`,
+      `${action}; advanced pose`,
     ];
   }
 
   return [
-    `continue from the last frame; sustain ${action} with fluid motion`,
-    `vary the rhythm and pose; avoid repeating the previous gesture`,
-    `move into a new angle while keeping the same scene continuity`,
-    `make hands and body motion visibly different from earlier clips`,
-    `build to the strongest pose in this sequence`,
-    `end clip ${clipNumber} with a clear new final pose for continuation`,
+    `${action}; continue`,
+    `${action}; vary rhythm`,
+    `${action}; new angle`,
+    `${action}; body motion`,
+    `${action}; strongest pose`,
+    `${action}; final pose`,
   ];
 }
 
@@ -153,14 +153,17 @@ function buildScenePlan(
   const reference = getImageReference(isUndressed);
   const action = getFallbackAction(userMessage);
   const clip = clipNumber || 1;
-  const continuity = isUndressed ? 'continue from the exact pose in the generated frame' : 'start from the pose in the image';
+  const continuity = isUndressed ? 'continue pose' : 'start pose';
   const directivePhrase = buildVideoDirectivePhrase(directives);
   const progression = getClipProgression(clip, action);
 
   return {
     prompts: progression.map((step, index) =>
       normalizeAtlasPrompt([
-        `${reference}; clip ${clip} step ${index + 1}`,
+        reference,
+        'preserve look',
+        'no new objects',
+        `c${clip}s${index + 1}`,
         continuity,
         directivePhrase,
         step,

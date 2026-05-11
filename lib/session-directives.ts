@@ -83,22 +83,22 @@ export function formatSessionDirectives(directives?: SessionDirectives | null) {
 export function buildVideoDirectivePhrase(directives?: SessionDirectives | null) {
   const phrases: string[] = [];
 
-  if (directives?.pace === 'slow') phrases.push('move slowly with drawn-out pacing');
-  if (directives?.pace === 'fast') phrases.push('move faster with more urgency');
-  if (directives?.intensity === 'soft') phrases.push('keep the motion soft and gentle');
-  if (directives?.intensity === 'teasing') phrases.push('make the motion teasing and delayed');
-  if (directives?.intensity === 'intense') phrases.push('make the motion more intense');
-  if (directives?.tone === 'dominant') phrases.push('use confident controlled body language');
-  if (directives?.tone === 'submissive') phrases.push('use eager responsive body language');
-  if (directives?.tone === 'gentle') phrases.push('use tender relaxed body language');
-  if (directives?.tone === 'playful') phrases.push('use playful teasing body language');
-  if (directives?.tone === 'romantic') phrases.push('use affectionate romantic body language');
-  if (directives?.tone === 'confident') phrases.push('use confident sultry body language');
-  if (directives?.continuity === 'continue') phrases.push('continue the previous successful motion');
-  if (directives?.continuity === 'change') phrases.push('change the motion and avoid repeating the previous beat');
-  if (directives?.continuity === 'repeat') phrases.push('repeat the previous liked motion with a slight variation');
-  if (directives?.continuity === 'hold') phrases.push('hold the pose longer with subtle motion');
-  directives?.videoFocus?.forEach(focus => phrases.push(`emphasize ${focus}`));
+  if (directives?.pace === 'slow') phrases.push('slow');
+  if (directives?.pace === 'fast') phrases.push('faster');
+  if (directives?.intensity === 'soft') phrases.push('soft');
+  if (directives?.intensity === 'teasing') phrases.push('tease');
+  if (directives?.intensity === 'intense') phrases.push('intense');
+  if (directives?.tone === 'dominant') phrases.push('controlled');
+  if (directives?.tone === 'submissive') phrases.push('responsive');
+  if (directives?.tone === 'gentle') phrases.push('gentle');
+  if (directives?.tone === 'playful') phrases.push('playful');
+  if (directives?.tone === 'romantic') phrases.push('romantic');
+  if (directives?.tone === 'confident') phrases.push('confident');
+  if (directives?.continuity === 'continue') phrases.push('continue');
+  if (directives?.continuity === 'change') phrases.push('new motion');
+  if (directives?.continuity === 'repeat') phrases.push('repeat variation');
+  if (directives?.continuity === 'hold') phrases.push('hold pose');
+  directives?.videoFocus?.forEach(focus => phrases.push(focus));
 
   return phrases.join('; ');
 }
