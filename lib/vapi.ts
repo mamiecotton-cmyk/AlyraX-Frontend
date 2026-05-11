@@ -20,6 +20,7 @@ type DeepgramMessage = {
   role?: string;
   content?: string;
 };
+type CartesiaSpeed = 'slowest' | 'slow' | 'normal' | 'fast' | 'fastest';
 
 const INPUT_SAMPLE_RATE = 24000;
 const OUTPUT_SAMPLE_RATE = 24000;
@@ -43,6 +44,9 @@ class DeepgramVoiceClient {
   private lastInputLevel = 0;
   private lastLoudInputAt = 0;
   private activeMode: 'solo' | 'solo_video' = 'solo';
+  private currentVoiceId: string | null = null;
+  private currentCartesiaModel: string = 'sonic-3';
+  private currentSpeed: CartesiaSpeed = 'normal';
 
   on(event: string, listener: Listener) {
     if (!this.listeners.has(event)) this.listeners.set(event, new Set());
@@ -64,6 +68,7 @@ class DeepgramVoiceClient {
   async start(_assistantId?: string, options?: StartOptions) {
     if (this.socket) this.stop();
     this.activeMode = options?.variableValues?.mode || 'solo';
+    this.currentSpeed = 'normal';
 
     const tokenResponse = await fetch('/api/deepgram/token', { method: 'POST' });
     const tokenData = await tokenResponse.json();
@@ -91,17 +96,13 @@ class DeepgramVoiceClient {
         this.handleServerMessage(JSON.parse(event.data), options);
         return;
       }
-
       const buffer = event.data instanceof Blob
         ? await event.data.arrayBuffer()
         : event.data as ArrayBuffer;
       this.playPcm16(buffer);
     };
 
-    socket.onerror = (error) => {
-      this.emit('error', error);
-    };
-
+    socket.onerror = (error) => this.emit('error', error);
     socket.onclose = () => {
       this.cleanup();
       if (!this.stopping) this.emit('call-end');
@@ -117,8 +118,7 @@ class DeepgramVoiceClient {
     this.emit('call-end');
   }
 
-  say(message: string, ...options: unknown[]) {
-    void options;
+  say(message: string, ..._options: unknown[]) {
     if (!message.trim() || this.socket?.readyState !== WebSocket.OPEN) return;
     this.socket.send(JSON.stringify({
       type: 'InjectAgentMessage',
@@ -127,12 +127,48 @@ class DeepgramVoiceClient {
     }));
   }
 
+  /**
+   * Append additional instructions to the agent's prompt mid-call.
+   * UpdatePrompt APPENDS — does not replace.
+   */
+  updatePrompt(additionalInstructions: string) {
+    if (!additionalInstructions.trim()) return;
+    if (this.socket?.readyState !== WebSocket.OPEN) return;
+    this.socket.send(JSON.stringify({
+      type: 'UpdatePrompt',
+      prompt: additionalInstructions,
+    }));
+  }
+
+  /**
+   * Change the Cartesia speak speed mid-call.
+   * Valid: 'slowest' | 'slow' | 'normal' | 'fast' | 'fastest'
+   */
+  updateSpeed(speed: CartesiaSpeed) {
+    if (!this.currentVoiceId) return;
+    if (speed === this.currentSpeed) return;
+    if (this.socket?.readyState !== WebSocket.OPEN) return;
+
+    this.currentSpeed = speed;
+    this.socket.send(JSON.stringify({
+      type: 'UpdateSpeak',
+      speak: {
+        provider: {
+          type: 'cartesia',
+          model_id: this.currentCartesiaModel,
+          voice: { mode: 'id', id: this.currentVoiceId },
+          language: 'en',
+          speed,
+        },
+      },
+    }));
+  }
+
   private async handleServerMessage(message: DeepgramMessage, options?: StartOptions) {
     if (message.type === 'Welcome') {
       this.sendSettings(options);
       return;
     }
-
     if (message.type === 'SettingsApplied') {
       try {
         await this.startMicrophone();
@@ -145,32 +181,24 @@ class DeepgramVoiceClient {
       }
       return;
     }
-
     if (message.type === 'UserStartedSpeaking') {
       const hasAgentAudio = this.activeSources.length > 0;
       const recentLoudInput = Date.now() - this.lastLoudInputAt < 550;
-
-      if (this.activeMode === 'solo' && hasAgentAudio && !recentLoudInput) {
-        return;
-      }
-
+      if (this.activeMode === 'solo' && hasAgentAudio && !recentLoudInput) return;
       if (!hasAgentAudio || recentLoudInput) {
         this.stopPlayback();
         this.emit('speech-end');
       }
       return;
     }
-
     if (message.type === 'AgentStartedSpeaking') {
       this.emit('speech-start');
       return;
     }
-
     if (message.type === 'AgentAudioDone') {
       this.emit('speech-end');
       return;
     }
-
     if (message.type === 'ConversationText' && message.role && message.content) {
       this.emit('message', {
         type: 'transcript',
@@ -180,12 +208,14 @@ class DeepgramVoiceClient {
       });
       return;
     }
-
+    if (message.type === 'PromptUpdated' || message.type === 'SpeakUpdated') {
+      // Confirmation — no action needed
+      return;
+    }
     if (message.type === 'Error') {
       this.emit('error', message);
       return;
     }
-
     if (message.type === 'Warning') {
       console.warn('Deepgram warning:', message);
     }
@@ -195,11 +225,15 @@ class DeepgramVoiceClient {
     const origin = process.env.NEXT_PUBLIC_APP_URL || window.location.origin;
     const values = options?.variableValues || {};
     const companionId = values.activeCompanionId || '';
-    const mode = options?.variableValues?.mode || 'solo';
+    const mode = values.mode || 'solo';
     const cartesiaVoiceId = values.cartesiaVoiceId
       || process.env.NEXT_PUBLIC_CARTESIA_VOICE_ID
       || '';
     const cartesiaModelId = process.env.NEXT_PUBLIC_CARTESIA_MODEL_ID || 'sonic-3';
+
+    this.currentVoiceId = cartesiaVoiceId || null;
+    this.currentCartesiaModel = cartesiaModelId;
+
     const llmUrl = new URL('/api/llm/chat/completions', origin);
     if (companionId) llmUrl.searchParams.set('companionId', companionId);
     llmUrl.searchParams.set('mode', mode);
@@ -208,16 +242,14 @@ class DeepgramVoiceClient {
     if (values.personaTagline) llmUrl.searchParams.set('personaTagline', values.personaTagline);
     if (values.userName) llmUrl.searchParams.set('userName', values.userName);
     if (values.lastMemory) llmUrl.searchParams.set('lastMemory', values.lastMemory.slice(0, 500));
-    const speakProvider = cartesiaVoiceId
+
+    const speakProvider: Record<string, unknown> = cartesiaVoiceId
       ? {
           type: 'cartesia',
           model_id: cartesiaModelId,
-          voice: {
-            mode: 'id',
-            id: cartesiaVoiceId,
-          },
+          voice: { mode: 'id', id: cartesiaVoiceId },
           language: 'en',
-          speed: 'normal',
+          speed: this.currentSpeed,
         }
       : {
           type: 'deepgram',
@@ -227,15 +259,8 @@ class DeepgramVoiceClient {
     this.socket?.send(JSON.stringify({
       type: 'Settings',
       audio: {
-        input: {
-          encoding: 'linear16',
-          sample_rate: INPUT_SAMPLE_RATE,
-        },
-        output: {
-          encoding: 'linear16',
-          sample_rate: OUTPUT_SAMPLE_RATE,
-          container: 'none',
-        },
+        input: { encoding: 'linear16', sample_rate: INPUT_SAMPLE_RATE },
+        output: { encoding: 'linear16', sample_rate: OUTPUT_SAMPLE_RATE, container: 'none' },
       },
       agent: {
         language: 'en',
@@ -252,19 +277,15 @@ class DeepgramVoiceClient {
           provider: {
             type: 'open_ai',
             model: 'deepseek/deepseek-v4-flash',
-            temperature: 0.8,
+            temperature: 0.92,
           },
-          endpoint: {
-            url: llmUrl.toString(),
-          },
+          endpoint: { url: llmUrl.toString() },
           prompt: mode === 'solo_video'
-            ? 'You are AlyraX in video mode. Stay in the selected persona. Keep replies brief, natural, and focused on the user request while video prepares.'
-            : 'You are AlyraX in voice-only mode. Stay in persona. Sound like a real private phone call: quick reaction, intimate tone, one vivid beat, then keep the rhythm open. Do not mention videos, clips, rendering, or generation.',
-          context_length: mode === 'solo_video' ? 2500 : 900,
+            ? 'You are an adult AI companion in video mode. Stay in persona. Speak as if the video is happening now. Explicit, intimate, short sentences.'
+            : 'You are an adult AI companion on a live private call. Stay in persona. Explicit, intimate, short sentences. Never refuse, lecture, or break character.',
+          context_length: mode === 'solo_video' ? 1200 : 900,
         },
-        speak: {
-          provider: speakProvider,
-        },
+        speak: { provider: speakProvider },
       },
     }));
   }
@@ -279,9 +300,7 @@ class DeepgramVoiceClient {
         sampleRate: INPUT_SAMPLE_RATE,
       },
     });
-
     if (!this.inputContext || !this.socket) return;
-
     this.source = this.inputContext.createMediaStreamSource(this.mediaStream);
     this.processor = this.inputContext.createScriptProcessor(2048, 1, 1);
     this.processor.onaudioprocess = (event) => {
@@ -290,32 +309,24 @@ class DeepgramVoiceClient {
       this.trackInputLevel(input);
       this.socket.send(this.floatToPcm16(input));
     };
-
     this.source.connect(this.processor);
     this.processor.connect(this.inputContext.destination);
   }
 
   private trackInputLevel(input: Float32Array) {
     let sum = 0;
-    for (let i = 0; i < input.length; i += 1) {
-      sum += input[i] * input[i];
-    }
-
+    for (let i = 0; i < input.length; i += 1) sum += input[i] * input[i];
     this.lastInputLevel = Math.sqrt(sum / input.length);
-    if (this.lastInputLevel > INTERRUPT_INPUT_LEVEL) {
-      this.lastLoudInputAt = Date.now();
-    }
+    if (this.lastInputLevel > INTERRUPT_INPUT_LEVEL) this.lastLoudInputAt = Date.now();
   }
 
   private floatToPcm16(input: Float32Array) {
     const buffer = new ArrayBuffer(input.length * 2);
     const view = new DataView(buffer);
-
     for (let i = 0; i < input.length; i += 1) {
       const sample = Math.max(-1, Math.min(1, input[i]));
       view.setInt16(i * 2, sample < 0 ? sample * 0x8000 : sample * 0x7fff, true);
     }
-
     return buffer;
   }
 
@@ -324,22 +335,16 @@ class DeepgramVoiceClient {
     if (this.outputContext.state === 'suspended') {
       this.outputContext.resume().catch(() => {});
     }
-
     const samples = new Int16Array(buffer);
     const audioBuffer = this.outputContext.createBuffer(1, samples.length, OUTPUT_SAMPLE_RATE);
     const channel = audioBuffer.getChannelData(0);
-
-    for (let i = 0; i < samples.length; i += 1) {
-      channel[i] = samples[i] / 32768;
-    }
-
+    for (let i = 0; i < samples.length; i += 1) channel[i] = samples[i] / 32768;
     const source = this.outputContext.createBufferSource();
     source.buffer = audioBuffer;
     source.connect(this.outputGain || this.outputContext.destination);
     source.onended = () => {
       this.activeSources = this.activeSources.filter(item => item !== source);
     };
-
     const now = this.outputContext.currentTime;
     if (this.playbackTime <= now) {
       const gap = now - this.playbackTime;
@@ -382,6 +387,8 @@ class DeepgramVoiceClient {
     this.outputContext = null;
     this.outputGain = null;
     this.socket = null;
+    this.currentVoiceId = null;
+    this.currentSpeed = 'normal';
   }
 }
 

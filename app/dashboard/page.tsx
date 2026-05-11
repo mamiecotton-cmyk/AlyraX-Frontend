@@ -51,6 +51,44 @@ const MID_POINT_MS = 15000;
 const LOOP_TAIL_SECONDS = 15;
 const READY_LINE_DELAY_MS = 2400;
 
+// Map session directives to runtime instruction text we append via UpdatePrompt
+function buildRuntimeInstruction(
+  previous: SessionDirectives,
+  next: SessionDirectives,
+): string | null {
+  const changes: string[] = [];
+  if (next.pace && next.pace !== previous.pace) {
+    if (next.pace === 'slow') changes.push('User wants SLOWER pace. Shorter sentences. Longer pauses. Draw it out.');
+    if (next.pace === 'fast') changes.push('User wants FASTER pace. More urgent, quicker beats.');
+  }
+  if (next.intensity && next.intensity !== previous.intensity) {
+    if (next.intensity === 'soft') changes.push('User wants SOFTER intensity now. Gentler language. Less aggressive.');
+    if (next.intensity === 'teasing') changes.push('User wants more TEASING now. Build suspense, draw it out.');
+    if (next.intensity === 'intense') changes.push('User wants MORE INTENSE now. Escalate explicitness.');
+  }
+  if (next.tone && next.tone !== previous.tone) {
+    changes.push(`User wants tone shift to: ${next.tone}. Adopt that energy immediately.`);
+  }
+  if (next.talkativeness && next.talkativeness !== previous.talkativeness) {
+    if (next.talkativeness === 'minimal') changes.push('User wants LESS TALKING. Respond in 1 short sentence max until they say otherwise.');
+    if (next.talkativeness === 'chatty') changes.push('User wants MORE TALKING. Be vocal, narrate more.');
+  }
+  if (next.feedback === 'negative' && previous.feedback !== 'negative') {
+    changes.push('User said "not like that." Drop the current direction. Try something different.');
+  }
+  if (next.boundaries && next.boundaries.length > (previous.boundaries?.length || 0)) {
+    const newOnes = next.boundaries.filter(b => !(previous.boundaries || []).includes(b));
+    if (newOnes.length) changes.push(`User set new boundaries: ${newOnes.join(', ')}. Respect immediately.`);
+  }
+  return changes.length ? changes.join(' ') : null;
+}
+
+function mapPaceToSpeed(pace?: string): 'slowest' | 'slow' | 'normal' | 'fast' | 'fastest' {
+  if (pace === 'slow') return 'slow';
+  if (pace === 'fast') return 'fast';
+  return 'normal';
+}
+
 export default function DashboardPage() {
   const router = useRouter();
   const supabase = createClient();
@@ -115,7 +153,6 @@ export default function DashboardPage() {
       .filter(m => m.length > 5 && !metaPhrases.some(p => m.toLowerCase().includes(p)))
       .slice(-3)
       .join('. ');
-
     return meaningful || lastUserMessageRef.current || 'continue the scene';
   }
 
@@ -199,14 +236,8 @@ export default function DashboardPage() {
           const { data, error } = await supabase.storage
             .from('companions')
             .upload(fileName, blob, { contentType: 'image/jpeg', upsert: true });
-
           if (error) { console.error('Frame upload error:', error); resolve(null); return; }
-
-          const { data: urlData } = supabase.storage
-            .from('companions')
-            .getPublicUrl(data.path);
-
-          console.log('Frame extracted:', urlData.publicUrl);
+          const { data: urlData } = supabase.storage.from('companions').getPublicUrl(data.path);
           resolve(urlData.publicUrl);
         }, 'image/jpeg', 0.92);
       });
@@ -216,35 +247,21 @@ export default function DashboardPage() {
     }
   }
 
-
   function clearMidTimer() {
-    if (midPointTimerRef.current) {
-      clearTimeout(midPointTimerRef.current);
-      midPointTimerRef.current = null;
-    }
+    if (midPointTimerRef.current) { clearTimeout(midPointTimerRef.current); midPointTimerRef.current = null; }
   }
-
   function clearWait2Timer() {
-    if (wait2TimerRef.current) {
-      clearTimeout(wait2TimerRef.current);
-      wait2TimerRef.current = null;
-    }
+    if (wait2TimerRef.current) { clearTimeout(wait2TimerRef.current); wait2TimerRef.current = null; }
   }
-
   function clearReadyLineTimer() {
-    if (readyLineTimerRef.current) {
-      clearTimeout(readyLineTimerRef.current);
-      readyLineTimerRef.current = null;
-    }
+    if (readyLineTimerRef.current) { clearTimeout(readyLineTimerRef.current); readyLineTimerRef.current = null; }
   }
 
   function startMidTimer() {
     clearMidTimer();
     if (!currentOnMidRef.current) return;
     midPointTimerRef.current = setTimeout(() => {
-      if (vapi && currentOnMidRef.current) {
-        vapi.say(currentOnMidRef.current, false, false);
-      }
+      if (vapi && currentOnMidRef.current) vapi.say(currentOnMidRef.current);
     }, MID_POINT_MS);
   }
 
@@ -253,29 +270,14 @@ export default function DashboardPage() {
     const currentCompanion = companionRef.current;
     const generationCallId = callGenerationRef.current;
 
-    // Block if already generating or queue is full
     if (
-      !currentUserId
-      || !currentCompanion
-      || !callingRef.current
-      || modeRef.current !== 'solo_video'
-      || isGeneratingRef.current
-      || pendingPlaybackRef.current
-      || videoQueueRef.current.length >= MAX_QUEUE
-    ) {
-      console.log('Skipping generation:', {
-        calling: callingRef.current,
-        mode: modeRef.current,
-        isGenerating: isGeneratingRef.current,
-        pendingPlayback: pendingPlaybackRef.current,
-        queueLength: videoQueueRef.current.length,
-      });
-      return;
-    }
+      !currentUserId || !currentCompanion || !callingRef.current
+      || modeRef.current !== 'solo_video' || isGeneratingRef.current
+      || pendingPlaybackRef.current || videoQueueRef.current.length >= MAX_QUEUE
+    ) return;
 
     isGeneratingRef.current = true;
     setIsGenerating(true);
-
     const nextClipNumber = submittedClipNumberRef.current + 1;
     submittedClipNumberRef.current = nextClipNumber;
 
@@ -296,29 +298,18 @@ export default function DashboardPage() {
 
       const data = await response.json();
       if (!response.ok) { console.error('Video generation failed:', data); return; }
-      if (generationCallId !== callGenerationRef.current || !callingRef.current || modeRef.current !== 'solo_video') {
-        console.log('Discarding stale video generation response');
-        return;
-      }
+      if (generationCallId !== callGenerationRef.current || !callingRef.current || modeRef.current !== 'solo_video') return;
 
       if (data.prediction_id) {
-        console.log('Clip number:', nextClipNumber);
-
         const shouldNarrateWait = waitNarrationClipRef.current !== nextClipNumber;
         waitNarrationClipRef.current = nextClipNumber;
-        // Ask one short question, then leave space for the user to answer.
         clearWait2Timer();
-        if (shouldNarrateWait && data.onWait1 && vapi) {
-          vapi.say(data.onWait1, false, false);
-        }
+        if (shouldNarrateWait && data.onWait1 && vapi) vapi.say(data.onWait1);
 
         const videoUrl = await pollVideoResult(data.prediction_id);
         clearWait2Timer();
         clipNumberRef.current = nextClipNumber;
-        if (generationCallId !== callGenerationRef.current || !callingRef.current || modeRef.current !== 'solo_video') {
-          console.log('Discarding stale video result after call ended or mode changed');
-          return;
-        }
+        if (generationCallId !== callGenerationRef.current || !callingRef.current || modeRef.current !== 'solo_video') return;
 
         const queued: QueuedVideo = {
           url: videoUrl,
@@ -331,11 +322,9 @@ export default function DashboardPage() {
         if (!currentVideoUrlRef.current) {
           playVideo(queued);
         } else if (isLoopingRef.current && videoRef.current) {
-          console.log('Video ready during tail loop. Playing continuation now.');
           playVideo(queued);
         } else {
           videoQueueRef.current.push(queued);
-          console.log('Video queued. Queue length:', videoQueueRef.current.length);
         }
       }
     } catch (error) {
@@ -354,16 +343,14 @@ export default function DashboardPage() {
 
     if (queued.readyLine && vapi) {
       pendingPlaybackRef.current = true;
-      vapi.say(queued.readyLine, false, false);
+      vapi.say(queued.readyLine);
       if (currentVideoUrlRef.current && videoRef.current) {
         isLoopingRef.current = true;
         loopVideoTail();
       }
       readyLineTimerRef.current = setTimeout(() => {
         if (!callingRef.current || modeRef.current !== 'solo_video') {
-          pendingPlaybackRef.current = false;
-          readyLineTimerRef.current = null;
-          return;
+          pendingPlaybackRef.current = false; readyLineTimerRef.current = null; return;
         }
         pendingPlaybackRef.current = false;
         readyLineTimerRef.current = null;
@@ -402,16 +389,11 @@ export default function DashboardPage() {
     const currentCompanion = companionRef.current;
     const messages = conversationHistoryRef.current.slice(-12);
     if (!currentCompanion?.id || messages.length < 2) return;
-
     try {
       const response = await fetch('/api/companion/memory', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          companionId: currentCompanion.id,
-          messages,
-          mode: modeRef.current,
-        }),
+        body: JSON.stringify({ companionId: currentCompanion.id, messages, mode: modeRef.current }),
       });
       const data = await response.json();
       if (response.ok && data.memory) {
@@ -425,19 +407,11 @@ export default function DashboardPage() {
 
   function prefetchNextClip(frameUrl?: string | null) {
     if (
-      modeRef.current !== 'solo_video'
-      || !callingRef.current
-      || isGeneratingRef.current
-      || pendingPlaybackRef.current
-      || videoQueueRef.current.length >= MAX_QUEUE
-    ) {
-      return;
-    }
+      modeRef.current !== 'solo_video' || !callingRef.current || isGeneratingRef.current
+      || pendingPlaybackRef.current || videoQueueRef.current.length >= MAX_QUEUE
+    ) return;
     const continuityFrame = frameUrl ?? lastFrameUrlRef.current;
-    if ((currentVideoUrlRef.current || pendingPlaybackRef.current) && !continuityFrame) {
-      console.warn('Skipping continuation: no generated frame available, refusing to restart from companion image');
-      return;
-    }
+    if ((currentVideoUrlRef.current || pendingPlaybackRef.current) && !continuityFrame) return;
     generateVideo(buildSceneIntent(), continuityFrame);
   }
 
@@ -450,50 +424,31 @@ export default function DashboardPage() {
   }
 
   const handleVideoPlay = () => {
-    if (isLoopingRef.current) {
-      return;
-    }
-
+    if (isLoopingRef.current) return;
     clearWait2Timer();
     startMidTimer();
-
   };
 
   const handleVideoEnded = async () => {
     clearMidTimer();
-
-    if (readyLineTimerRef.current && isLoopingRef.current) {
-      loopVideoTail();
-      return;
-    }
-
+    if (readyLineTimerRef.current && isLoopingRef.current) { loopVideoTail(); return; }
     const next = videoQueueRef.current.shift();
     if (next) {
-      // Next clip ready: play instantly at the boundary.
       isLoopingRef.current = false;
       playVideo(next);
       prefetchNextClip();
       return;
     }
-
     let lastFrame = lastFrameUrlRef.current;
     if (!isLoopingRef.current) {
-      // Capture continuity once when the original clip ends, not every tail loop.
       lastFrame = await extractLastFrame();
-      if (lastFrame) lastFrameUrlRef.current = lastFrame;
-      if (lastFrame) {
-        prefetchNextClip(lastFrame);
-      } else {
-        console.warn('No last frame captured; holding tail loop instead of restarting from original image');
-      }
+      if (lastFrame) { lastFrameUrlRef.current = lastFrame; prefetchNextClip(lastFrame); }
     } else {
       prefetchNextClip();
     }
-
     if (videoRef.current && currentVideoUrlRef.current) {
       isLoopingRef.current = true;
       loopVideoTail();
-      console.log('Looping last 15 seconds while waiting for next clip');
     }
   };
 
@@ -536,9 +491,26 @@ export default function DashboardPage() {
         if (!userMessage || userMessage.length < 3) return;
 
         lastUserMessageRef.current = userMessage;
-        sessionDirectivesRef.current = updateSessionDirectives(sessionDirectivesRef.current, userMessage);
-        conversationHistoryRef.current.push({ role: 'user', content: userMessage });
 
+        // Detect directive changes and push them to Deepgram in real time
+        const previousDirectives = sessionDirectivesRef.current;
+        const nextDirectives = updateSessionDirectives(previousDirectives, userMessage);
+        sessionDirectivesRef.current = nextDirectives;
+
+        const runtimeInstruction = buildRuntimeInstruction(previousDirectives, nextDirectives);
+        if (runtimeInstruction && vapi) {
+          console.log('Pushing runtime instruction to agent:', runtimeInstruction);
+          vapi.updatePrompt(runtimeInstruction);
+        }
+
+        const nextSpeed = mapPaceToSpeed(nextDirectives.pace);
+        const prevSpeed = mapPaceToSpeed(previousDirectives.pace);
+        if (nextSpeed !== prevSpeed && vapi) {
+          console.log('Pushing speed change to Cartesia:', nextSpeed);
+          vapi.updateSpeed(nextSpeed);
+        }
+
+        conversationHistoryRef.current.push({ role: 'user', content: userMessage });
         prefetchNextClip();
       }
 
@@ -574,19 +546,16 @@ export default function DashboardPage() {
     const previousIndex = selectedPersonaIndex;
     const selectedPersona = personas[index];
     if (!selectedPersona) return;
-
     setSelectedPersonaIndex(index);
     setCompanion(prev => prev ? {
       ...prev,
       personas: { ...prev.personas, name: selectedPersona.name, tagline: selectedPersona.tagline },
     } : prev);
-
     const response = await fetch('/api/companion/persona', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ companionId: companion?.id, personaIndex: index }),
     });
-
     if (!response.ok) { setSelectedPersonaIndex(previousIndex); loadData(); }
   };
 
@@ -597,13 +566,11 @@ export default function DashboardPage() {
     resetVideoState();
     const currentPersonaIndex = personas.findIndex(p => p.name === nextCompanion.personas?.name);
     setSelectedPersonaIndex(currentPersonaIndex >= 0 ? currentPersonaIndex : 0);
-
     const response = await fetch('/api/companion/active', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ companionId: nextCompanion.id }),
     });
-
     if (!response.ok) loadData();
   };
 
@@ -621,7 +588,6 @@ export default function DashboardPage() {
       style={{ height: '100dvh' }}
       onClick={() => setShowControls(prev => !prev)}
     >
-      {/* Still/talking portrait base layer */}
       {companion?.image_url && mode === 'solo' && (
         <TalkingPortrait
           imageUrl={companion.image_url}
@@ -631,14 +597,9 @@ export default function DashboardPage() {
       )}
 
       {companion?.image_url && mode !== 'solo' && (
-        <img
-          src={companion.image_url}
-          alt={companion.name}
-          className="absolute inset-0 w-full h-full object-contain"
-        />
+        <img src={companion.image_url} alt={companion.name} className="absolute inset-0 w-full h-full object-contain" />
       )}
 
-      {/* Video layer */}
       {mode === 'solo_video' && currentVideoUrl && (
         <video
           ref={videoRef}
@@ -653,21 +614,14 @@ export default function DashboardPage() {
         />
       )}
 
-      {/* Generating indicator — only when no video playing */}
       {mode === 'solo_video' && isGenerating && !currentVideoUrl && (
         <div className="absolute bottom-32 left-0 right-0 flex justify-center">
-          <p className="text-xs text-red-400 italic animate-pulse">
-            give me a second baby...
-          </p>
+          <p className="text-xs text-red-400 italic animate-pulse">give me a second baby...</p>
         </div>
       )}
 
-      {/* Red pulse */}
-      {calling && (
-        <div className="absolute top-4 right-4 w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-      )}
+      {calling && (<div className="absolute top-4 right-4 w-2 h-2 rounded-full bg-red-500 animate-pulse" />)}
 
-      {/* Controls overlay */}
       <div
         className={`absolute inset-0 flex flex-col justify-between transition-opacity duration-500 ${
           showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'
@@ -675,18 +629,10 @@ export default function DashboardPage() {
         style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.85) 0%, transparent 40%, rgba(0,0,0,0.4) 100%)' }}
       >
         <div className="flex justify-between items-center p-5">
-          <button
-            onClick={(e) => { e.stopPropagation(); router.push('/credits'); }}
-            className="text-xs text-gray-400 hover:text-white transition"
-          >
+          <button onClick={(e) => { e.stopPropagation(); router.push('/credits'); }} className="text-xs text-gray-400 hover:text-white transition">
             {credits ? formatCredits(credits.balance_seconds) : '0s'}
           </button>
-          <button
-            onClick={(e) => { e.stopPropagation(); supabase.auth.signOut().then(() => router.push('/login')); }}
-            className="text-xs text-gray-500 hover:text-white transition"
-          >
-            ✕
-          </button>
+          <button onClick={(e) => { e.stopPropagation(); supabase.auth.signOut().then(() => router.push('/login')); }} className="text-xs text-gray-500 hover:text-white transition">✕</button>
         </div>
 
         <div className="flex flex-col items-center gap-4 p-6">
@@ -698,61 +644,37 @@ export default function DashboardPage() {
           {companions.length > 1 && (
             <div className="flex flex-wrap justify-center gap-2 max-w-sm">
               {companions.map(item => (
-                <button
-                  key={item.id}
-                  onClick={(e) => { e.stopPropagation(); updateActiveCompanion(item); }}
+                <button key={item.id} onClick={(e) => { e.stopPropagation(); updateActiveCompanion(item); }}
                   className={`px-3 py-1.5 rounded-full text-xs font-bold transition border ${
-                    companion?.id === item.id
-                      ? 'border-red-500 text-red-400 bg-red-950/30'
-                      : 'border-gray-700 text-gray-500'
-                  }`}
-                >
+                    companion?.id === item.id ? 'border-red-500 text-red-400 bg-red-950/30' : 'border-gray-700 text-gray-500'
+                  }`}>
                   {item.name}
                 </button>
               ))}
             </div>
           )}
 
-          <button
-            onClick={(e) => { e.stopPropagation(); router.push('/onboarding'); }}
-            className="text-xs text-yellow-500 hover:text-yellow-400 transition"
-          >
-            Add Persona
-          </button>
+          <button onClick={(e) => { e.stopPropagation(); router.push('/onboarding'); }} className="text-xs text-yellow-500 hover:text-yellow-400 transition">Add Persona</button>
 
           <div className="flex gap-2">
             {[
               { key: 'solo', label: 'Voice $1.99' },
               { key: 'solo_video', label: '📹 Video $3.99' },
             ].map(m => (
-              <button
-                key={m.key}
-                onClick={(e) => { e.stopPropagation(); setMode(m.key as Mode); }}
+              <button key={m.key} onClick={(e) => { e.stopPropagation(); setMode(m.key as Mode); }}
                 className={`px-4 py-1.5 rounded-full text-xs font-bold transition border ${
-                  mode === m.key
-                    ? 'border-red-500 text-red-400 bg-red-950/30'
-                    : 'border-gray-700 text-gray-500'
-                }`}
-              >
-                {m.label}
-              </button>
+                  mode === m.key ? 'border-red-500 text-red-400 bg-red-950/30' : 'border-gray-700 text-gray-500'
+                }`}>{m.label}</button>
             ))}
           </div>
 
           {personas.length > 0 && (
             <div className="flex flex-wrap justify-center gap-2 max-w-sm">
               {personas.map((persona, index) => (
-                <button
-                  key={persona.name}
-                  onClick={(e) => { e.stopPropagation(); updatePersona(index); }}
+                <button key={persona.name} onClick={(e) => { e.stopPropagation(); updatePersona(index); }}
                   className={`px-3 py-1.5 rounded-full text-xs font-bold transition border ${
-                    selectedPersonaIndex === index
-                      ? 'border-yellow-500 text-yellow-400 bg-yellow-950/20'
-                      : 'border-gray-700 text-gray-500'
-                  }`}
-                >
-                  {persona.name.replace('AlyraX ', '')}
-                </button>
+                    selectedPersonaIndex === index ? 'border-yellow-500 text-yellow-400 bg-yellow-950/20' : 'border-gray-700 text-gray-500'
+                  }`}>{persona.name.replace('AlyraX ', '')}</button>
               ))}
             </div>
           )}
@@ -770,9 +692,7 @@ export default function DashboardPage() {
             />
           </div>
 
-          <p className="text-xs text-gray-700 uppercase tracking-widest pb-2">
-            Discreet Billing: AA Technical Services
-          </p>
+          <p className="text-xs text-gray-700 uppercase tracking-widest pb-2">Discreet Billing: AA Technical Services</p>
         </div>
       </div>
     </main>

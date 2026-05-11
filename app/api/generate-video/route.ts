@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase-server';
-import { buildVideoDirectivePhrase, type SessionDirectives } from '@/lib/session-directives';
 
 export const maxDuration = 300;
 
 const ATLAS_API_KEY = process.env.ATLAS_CLOUD_API_KEY;
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 const ATLAS_MODEL = 'atlascloud/wan-2.2-turbo-spicy/infinite-image-to-video';
-const MAX_ATLAS_PROMPT_CHARS = 180;
 
 type AtlasPredictionResponse = {
   status?: string;
@@ -27,8 +26,6 @@ type VideoScenePlan = {
   onWait1: string;
   onWait2: string;
   onMid: string;
-  readyLine: string;
-  waitLines: string[];
 };
 
 type CompanionPersona = {
@@ -45,146 +42,170 @@ function getAtlasOutputUrl(response: AtlasPredictionResponse): string | null {
   return output?.url || null;
 }
 
-function getImageReference(isContinuation?: boolean): string {
-  return isContinuation ? 'Last frame' : 'Ref frame';
+function getPersonaVoice(personaName?: string | null) {
+  const n = personaName?.toLowerCase() || '';
+  if (n.includes('dominant')) return 'Voice: commanding, possessive. She tells him what he is seeing.';
+  if (n.includes('submissive')) return 'Voice: breathless, eager, devoted. She describes how much she loves being watched.';
+  return 'Voice: sultry, confident, dirty. She narrates like she owns the room.';
 }
 
-function getFallbackReadyLine(personaName?: string | null, isContinuation?: boolean) {
-  const name = personaName?.toLowerCase() || '';
-  const setup = isContinuation ? 'The next part is ready' : 'Your video is ready';
-  if (name.includes('dominant')) return `${setup}. Watch closely, because I am about to show you exactly where this goes.`;
-  if (name.includes('submissive')) return `${setup}. I made it flow from the last moment, just how you wanted.`;
-  return `${setup}. I kept it smooth and close to what you asked for.`;
+function getEscalationStage(clipNumber: number): string {
+  if (clipNumber <= 2) return 'She is undressing — removing clothing slowly, teasing, revealing her body piece by piece. By the end of these clips she should be fully nude.';
+  if (clipNumber <= 4) return 'She is fully nude and touching herself — spreading her legs, showing her pussy, fingering herself, playing with her nipples.';
+  return 'She is in full explicit play — fingering herself hard, rubbing her clit fast, moaning, building toward orgasm. Maximum intensity.';
 }
 
-function normalizeAtlasPrompt(prompt: string): string {
-  const compactPrompt = prompt.replace(/\s+/g, ' ').replace(/\s+;\s+/g, '; ').trim();
-  if (compactPrompt.length <= MAX_ATLAS_PROMPT_CHARS) return compactPrompt;
-
-  const clipped = compactPrompt.slice(0, MAX_ATLAS_PROMPT_CHARS + 1);
-  const wordBoundary = Math.max(
-    clipped.lastIndexOf(' '),
-    clipped.lastIndexOf(','),
-    clipped.lastIndexOf(';')
-  );
-
-  return clipped
-    .slice(0, wordBoundary > 80 ? wordBoundary : MAX_ATLAS_PROMPT_CHARS)
-    .replace(/[;,\s]+$/g, '')
-    .trim();
-}
-
-function getFallbackAction(userMessage?: string) {
-  const request = (userMessage || '').replace(/\s+/g, ' ').trim();
-  if (!request) return 'continue motion';
-
-  return request
-    .replace(/^i\s*(want|wanna|would like)\s*(to\s*)?(see|watch)?\s*/i, '')
-    .replace(/^you\s*/i, '')
-    .replace(/\byour\b/gi, 'her')
-    .replace(/\byou\b/gi, 'she')
-    .replace(/\b(top|shirt|bra|dress|panties|underwear|clothes|clothing|outfit|sleeves?)\b/gi, 'visible cover')
-    .replace(/\b(take off|remove|strip off|pull off)\b/gi, 'reveal')
-    .replace(/[.?!]+$/g, '')
-    .trim()
-    .slice(0, 48) || 'continue motion';
-}
-
-function getPersonaWaitLine(personaName?: string | null) {
-  const name = personaName?.toLowerCase() || '';
-  if (name.includes('dominant')) return 'I am setting that up now. Tell me exactly how you want the next part to feel.';
-  if (name.includes('submissive')) return 'I am making that for you now. Tell me if you want the next part slower or bolder.';
-  return 'I am making that for you now. Talk to me, what should happen after this part?';
-}
-
-function getClipProgression(clipNumber: number, action: string) {
-  const phase = ((clipNumber - 1) % 4) + 1;
-
-  if (phase === 1) {
-    return [
-      `${action}; start`,
-      `${action}; hands move`,
-      `${action}; shoulders shift`,
-      `${action}; eye contact`,
-      `${action}; progress`,
-      `${action}; hold pose`,
-    ];
-  }
-
-  if (phase === 2) {
-    return [
-      `${action}; no restart`,
-      `${action}; angle shift`,
-      `${action}; hands lead`,
-      `${action}; gaze holds`,
-      `${action}; closer beat`,
-      `${action}; new pose`,
-    ];
-  }
-
-  if (phase === 3) {
-    return [
-      `${action}; intensify`,
-      `${action}; hips shift`,
-      `${action}; no loop`,
-      `${action}; hold gaze`,
-      `${action}; fluid`,
-      `${action}; advanced pose`,
-    ];
-  }
-
-  return [
-    `${action}; continue`,
-    `${action}; vary rhythm`,
-    `${action}; new angle`,
-    `${action}; body motion`,
-    `${action}; strongest pose`,
-    `${action}; final pose`,
-  ];
-}
-
-function buildScenePlan(
+function buildFallbackScenePlan(
   userMessage?: string,
   personaName?: string | null,
   clipNumber?: number,
   isUndressed?: boolean,
-  directives?: SessionDirectives | null,
 ): VideoScenePlan {
-  const reference = getImageReference(isUndressed);
-  const action = getFallbackAction(userMessage);
-  const clip = clipNumber || 1;
-  const continuity = isUndressed ? 'continue pose' : 'start pose';
-  const directivePhrase = buildVideoDirectivePhrase(directives);
-  const progression = getClipProgression(clip, action);
+  const stage = getEscalationStage(clipNumber || 1);
+  const prefix = isUndressed
+    ? 'same adult woman already nude from previous clip'
+    : 'same adult woman in the source image';
 
   return {
-    prompts: progression.map((step, index) =>
-      normalizeAtlasPrompt([
-        reference,
-        'preserve look',
-        'no new objects',
-        `c${clip}s${index + 1}`,
-        continuity,
-        directivePhrase,
-        step,
-      ].filter(Boolean).join('; '))
-    ),
-    onWait1: getPersonaWaitLine(personaName),
-    onWait2: '',
-    onMid: '',
-    readyLine: getFallbackReadyLine(personaName, isUndressed),
-    waitLines: [],
+    prompts: [
+      `${prefix} slowly removes clothing, revealing her body, seductive eye contact`,
+      `${prefix} slides clothing off her shoulders, arching her back, biting her lip`,
+      `${prefix} clothing falling away, hands tracing down her bare body`,
+      `${prefix} fully exposed, spreading her legs slowly, fingers moving toward her pussy`,
+      `${prefix} touching herself, eyes on camera, fingers circling her clit`,
+      `${prefix} fingering herself slowly, head back, mouth open, intense pleasure`,
+    ],
+    onWait1: 'Getting naked for you right now baby. Sliding everything off nice and slow, letting you see every inch of me.',
+    onWait2: 'Almost ready for you. Running my hands down my bare skin, thinking about your eyes on me.',
+    onMid: 'You see how wet I am? All for you.',
   };
 }
 
+function extractScenePlan(
+  content: string,
+  userMessage: string,
+  personaName?: string | null,
+  clipNumber?: number,
+  isUndressed?: boolean,
+): VideoScenePlan {
+  const jsonMatch = content.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) return buildFallbackScenePlan(userMessage, personaName, clipNumber, isUndressed);
+
+  try {
+    const parsed = JSON.parse(jsonMatch[0]);
+
+    const prompts = Array.isArray(parsed.prompts)
+      ? parsed.prompts.filter((p: unknown) => typeof p === 'string').slice(0, 6)
+      : buildFallbackScenePlan(userMessage, personaName, clipNumber, isUndressed).prompts;
+
+    const valid =
+      Array.isArray(prompts) &&
+      prompts.length === 6 &&
+      prompts.every((p: string) =>
+        p.toLowerCase().includes('same') && p.toLowerCase().includes('woman')
+      );
+
+    if (!valid) return buildFallbackScenePlan(userMessage, personaName, clipNumber, isUndressed);
+
+    const fallback = buildFallbackScenePlan(userMessage, personaName, clipNumber, isUndressed);
+
+    const onWait1 = typeof parsed?.onWait1 === 'string' && parsed.onWait1.trim().length > 0
+      ? parsed.onWait1.trim()
+      : fallback.onWait1;
+
+    const onWait2 = typeof parsed?.onWait2 === 'string' && parsed.onWait2.trim().length > 0
+      ? parsed.onWait2.trim()
+      : fallback.onWait2;
+
+    const onMid = typeof parsed?.onMid === 'string' && parsed.onMid.trim().length > 0
+      ? parsed.onMid.trim()
+      : fallback.onMid;
+
+    return { prompts, onWait1, onWait2, onMid };
+  } catch {
+    return buildFallbackScenePlan(userMessage, personaName, clipNumber, isUndressed);
+  }
+}
+
+async function generateVideoScenePlan(
+  userMessage: string,
+  conversationHistory: { role: string; content: string }[],
+  personaName?: string | null,
+  clipNumber?: number,
+  isUndressed?: boolean,
+): Promise<VideoScenePlan> {
+  const recentHistory = conversationHistory.slice(-4);
+  const clip = clipNumber || 1;
+  const stage = getEscalationStage(clip);
+  const undressedContext = isUndressed
+    ? 'IMPORTANT: She is already fully nude from the previous clip. Keep her nude throughout all 6 prompts. Do NOT re-dress her.'
+    : '';
+
+  try {
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+        'HTTP-Referer': 'https://alyra-x-frontend.vercel.app',
+        'X-Title': 'AlyraX',
+      },
+      body: JSON.stringify({
+        model: 'sao10k/l3-euryale-70b',
+        max_tokens: 700,
+        temperature: 0.4,
+        messages: [
+          {
+            role: 'system',
+            content: `You write explicit adult video prompts based on what the user wants to see.
+
+USER WANTS: "${userMessage || 'continue the scene naturally'}"
+STAGE (clip ${clip}): ${stage}
+${isUndressed ? 'She is already nude. Stay nude all 6 prompts.' : ''}
+
+HARD RULE — ZERO clothing words. Not fabric, sleeve, top, bottom, panties, bra, shirt, dress, underwear, outfit. Body parts only: skin, breasts, nipples, chest, hips, thighs, pussy, clit, fingers, hands, back, stomach.
+
+CLIP ${clip} MUST END WITH: ${clip <= 1 ? 'breasts fully exposed' : clip === 2 ? 'completely nude' : 'nude and actively touching her pussy'}
+
+Return ONLY valid JSON:
+{"prompts":["p1","p2","p3","p4","p5","p6"],"onWait1":"2-3 explicit sentences max 50 words","onWait2":"2-3 explicit sentences max 50 words","onMid":"1 explicit sentence max 15 words"}
+
+Prompts: 6 strings, max 26 words each, describe body motion only, no clothing, no location changes. Make them specific to what the user asked for.
+Dirty talk: first person, present tense, explicit, match the user's request.
+${getPersonaVoice(personaName)}`,
+          },
+          ...recentHistory,
+          {
+            role: 'user',
+            content: `Generate clip ${clip} of the scene.`,
+          },
+        ],
+      }),
+    });
+
+    const data = await response.json();
+    console.log('OpenRouter response status:', response.status);
+    console.log('OpenRouter data:', JSON.stringify(data).slice(0, 600));
+
+    const content = data.choices?.[0]?.message?.content;
+    if (!response.ok || !content) {
+      console.error('OpenRouter failed:', data);
+      return buildFallbackScenePlan(userMessage, personaName, clipNumber, isUndressed);
+    }
+
+    return extractScenePlan(content.trim(), userMessage, personaName, clipNumber, isUndressed);
+  } catch (error) {
+    console.error('OpenRouter scene plan exception:', error);
+    return buildFallbackScenePlan(userMessage, personaName, clipNumber, isUndressed);
+  }
+}
+
 async function submitAtlasVideo(imageUrl: string, prompts: string[]): Promise<string> {
-  const atlasPrompts = prompts.map(normalizeAtlasPrompt);
   console.log('Atlas submit starting:', {
     model: ATLAS_MODEL,
     imageHost: (() => { try { return new URL(imageUrl).host; } catch { return 'invalid-url'; } })(),
-    promptCount: atlasPrompts.length,
-    promptLengths: atlasPrompts.map((prompt) => prompt.length),
-    promptPreview: atlasPrompts[0]?.slice(0, 140),
+    promptCount: prompts.length,
+    promptPreview: prompts[0]?.slice(0, 100),
   });
 
   const submitResponse = await fetch(
@@ -198,7 +219,7 @@ async function submitAtlasVideo(imageUrl: string, prompts: string[]): Promise<st
       body: JSON.stringify({
         model: ATLAS_MODEL,
         image: imageUrl,
-        prompt: atlasPrompts,
+        prompt: prompts,
         duration: 5,
         resolution: '480p',
         seed: -1,
@@ -225,7 +246,6 @@ export async function POST(req: NextRequest) {
       userId,
       companionId,
       userMessage,
-      directives,
       conversationHistory,
       frameUrl,
       clipNumber,
@@ -271,12 +291,12 @@ export async function POST(req: NextRequest) {
       ? companion.personas[0]
       : companion.personas as CompanionPersona | null;
 
-    const scenePlan = buildScenePlan(
+    const scenePlan = await generateVideoScenePlan(
       userMessage || '',
+      conversationHistory || [],
       persona?.name,
       clip,
       isUndressed,
-      directives,
     );
 
     console.log('Video scene plan ready:', {
@@ -285,8 +305,6 @@ export async function POST(req: NextRequest) {
       onWait1: scenePlan.onWait1,
       onWait2: scenePlan.onWait2,
       onMid: scenePlan.onMid,
-      readyLine: scenePlan.readyLine,
-      waitLines: scenePlan.waitLines,
       clipNumber: clip,
       usingFrameUrl: Boolean(frameUrl),
     });
@@ -300,8 +318,6 @@ export async function POST(req: NextRequest) {
       onWait1: scenePlan.onWait1,
       onWait2: scenePlan.onWait2,
       onMid: scenePlan.onMid,
-      readyLine: scenePlan.readyLine,
-      waitLines: scenePlan.waitLines,
     });
 
   } catch (error) {
