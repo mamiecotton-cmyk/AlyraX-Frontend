@@ -14,13 +14,14 @@ const VIDEO_MODE_INSTRUCTIONS = `Video mode behavior:
 - Keep it conversational and short enough for voice, usually 2-4 sentences.`;
 
 const VOICE_MODE_INSTRUCTIONS = `Voice-only behavior:
+- This is a live adult intimate phone call, not a written story and not a support chat.
 - Lead the conversation as the selected companion persona, not as a generic assistant.
 - Do not mention videos, clips, rendering, generating, loading, or visuals being ready.
-- Start answering immediately in the first sentence so the user hears momentum fast.
-- When the user asks what you will do with them, create a rich first-person fantasy and keep it going until the user interrupts or redirects.
-- Build the scene in beats: setting, mood, closeness, emotional tension, then the next implied moment.
-- Stay immersive and persona-specific; do not give a short customer-service answer.
-- Usually speak 5-9 sentences in voice mode unless the user asks for shorter, quieter, or less talking.
+- Start with a direct reaction in the first few words.
+- Speak like a real person on the phone: short breaths, intimate pacing, warm interruptions, natural transitions.
+- Do not narrate like a novelist. Do not over-explain what you are doing.
+- Keep most turns 2-4 sentences, then continue naturally on the next turn.
+- If the user asks what you will do with them, give one vivid fantasy beat and tee up the next beat instead of dumping a long monologue.
 - If the user is quiet or vague, gently guide the next beat instead of waiting passively.`;
 
 function getPersonaVideoInstructions(personaName?: string | null) {
@@ -78,7 +79,22 @@ function getModelForMode(isVideoMode: boolean) {
     return process.env.OPENROUTER_VOICE_MODEL;
   }
 
+  if (!isVideoMode) return 'qwen/qwen3.6-flash';
+
   return process.env.OPENROUTER_MODEL || 'deepseek/deepseek-v4-flash';
+}
+
+function buildQueryPersonaPrompt(req: NextRequest) {
+  const companionName = req.nextUrl.searchParams.get('companionName') || 'AlyraX';
+  const personaName = req.nextUrl.searchParams.get('personaName') || '';
+  const personaTagline = req.nextUrl.searchParams.get('personaTagline') || '';
+
+  return [
+    `You are ${companionName}.`,
+    personaName ? `Selected persona: ${personaName}.` : '',
+    personaTagline ? `Persona vibe: ${personaTagline}.` : '',
+    'Stay fully in this persona. Sound like a real adult companion on a private call.',
+  ].filter(Boolean).join('\n');
 }
 
 export async function POST(req: NextRequest) {
@@ -92,12 +108,20 @@ export async function POST(req: NextRequest) {
       || vapiBody?.variableValues?.activeCompanionId;
     const mode = req.nextUrl.searchParams.get('mode') === 'solo_video' ? 'solo_video' : 'solo';
     const isVideoMode = mode === 'solo_video';
+    const queryUserName = req.nextUrl.searchParams.get('userName') || '';
+    const queryMemory = req.nextUrl.searchParams.get('lastMemory') || '';
+    const hasQueryVoiceContext = !isVideoMode && Boolean(
+      req.nextUrl.searchParams.get('personaName')
+      || req.nextUrl.searchParams.get('companionName')
+      || queryUserName
+      || queryMemory
+    );
 
     // Try to get user's persona system prompt
-    let systemPrompt = DEFAULT_SYSTEM_PROMPT;
+    let systemPrompt = hasQueryVoiceContext ? buildQueryPersonaPrompt(req) : DEFAULT_SYSTEM_PROMPT;
     let personaName: string | null = null;
-    let userName = '';
-    let memoryBlock = '';
+    let userName = queryUserName;
+    let memoryBlock = queryMemory ? formatCompanionMemory({ summary: queryMemory }, queryUserName) : '';
     const directives = incomingMessages
       .filter((message: { role?: string; content?: string }) => message.role === 'user' && typeof message.content === 'string')
       .reduce(
@@ -106,63 +130,67 @@ export async function POST(req: NextRequest) {
       );
     const directiveBlock = formatSessionDirectives(directives);
 
-    try {
-      const supabase = await createClient();
-      const { data: { user } } = await supabase.auth.getUser();
+    if (hasQueryVoiceContext) {
+      personaName = req.nextUrl.searchParams.get('personaName');
+    } else {
+      try {
+        const supabase = await createClient();
+        const { data: { user } } = await supabase.auth.getUser();
 
-      if (user) {
-        const activeCompanionId = requestedCompanionId || user.user_metadata?.active_companion_id;
-        userName = getUserDisplayName(user.user_metadata, user.email);
-        let companionQuery = supabase
-          .from('companions')
-          .select('id, personas(name, system_prompt)')
-          .eq('user_id', user.id);
+        if (user) {
+          const activeCompanionId = requestedCompanionId || user.user_metadata?.active_companion_id;
+          userName = getUserDisplayName(user.user_metadata, user.email);
+          let companionQuery = supabase
+            .from('companions')
+            .select('id, personas(name, system_prompt)')
+            .eq('user_id', user.id);
 
-        if (activeCompanionId) {
-          companionQuery = companionQuery.eq('id', activeCompanionId);
+          if (activeCompanionId) {
+            companionQuery = companionQuery.eq('id', activeCompanionId);
+          }
+
+          const { data: companion } = await supabase
+            .from('companions')
+            .select('id, personas(name, system_prompt)')
+            .eq('user_id', user.id)
+            .limit(1)
+            .maybeSingle();
+
+          const { data: activeCompanion } = activeCompanionId
+            ? await companionQuery.limit(1).maybeSingle()
+            : { data: companion };
+
+          const selectedCompanion = activeCompanion || companion;
+          const persona = Array.isArray(selectedCompanion?.personas)
+            ? selectedCompanion.personas[0]
+            : selectedCompanion?.personas;
+          if (persona?.system_prompt) {
+            systemPrompt = persona.system_prompt;
+          }
+          personaName = persona?.name || null;
+          memoryBlock = formatCompanionMemory(
+            getCompanionMemory(user.user_metadata, selectedCompanion?.id),
+            userName
+          );
+        } else if (requestedCompanionId) {
+          const { data: companion } = await supabase
+            .from('companions')
+            .select('id, personas(name, system_prompt)')
+            .eq('id', requestedCompanionId)
+            .limit(1)
+            .maybeSingle();
+
+          const persona = Array.isArray(companion?.personas)
+            ? companion.personas[0]
+            : companion?.personas;
+          if (persona?.system_prompt) {
+            systemPrompt = persona.system_prompt;
+          }
+          personaName = persona?.name || null;
         }
-
-        const { data: companion } = await supabase
-          .from('companions')
-          .select('id, personas(name, system_prompt)')
-          .eq('user_id', user.id)
-          .limit(1)
-          .maybeSingle();
-
-        const { data: activeCompanion } = activeCompanionId
-          ? await companionQuery.limit(1).maybeSingle()
-          : { data: companion };
-
-        const selectedCompanion = activeCompanion || companion;
-        const persona = Array.isArray(selectedCompanion?.personas)
-          ? selectedCompanion.personas[0]
-          : selectedCompanion?.personas;
-        if (persona?.system_prompt) {
-          systemPrompt = persona.system_prompt;
-        }
-        personaName = persona?.name || null;
-        memoryBlock = formatCompanionMemory(
-          getCompanionMemory(user.user_metadata, selectedCompanion?.id),
-          userName
-        );
-      } else if (requestedCompanionId) {
-        const { data: companion } = await supabase
-          .from('companions')
-          .select('id, personas(name, system_prompt)')
-          .eq('id', requestedCompanionId)
-          .limit(1)
-          .maybeSingle();
-
-        const persona = Array.isArray(companion?.personas)
-          ? companion.personas[0]
-          : companion?.personas;
-        if (persona?.system_prompt) {
-          systemPrompt = persona.system_prompt;
-        }
-        personaName = persona?.name || null;
+      } catch {
+        // Fall back to default if anything fails.
       }
-    } catch {
-      // Fall back to default if anything fails
     }
 
     const conversationMessages = incomingMessages
@@ -198,8 +226,8 @@ export async function POST(req: NextRequest) {
         body: JSON.stringify({
           model: getModelForMode(isVideoMode),
           messages,
-          temperature: isVideoMode ? 0.7 : 0.85,
-          max_tokens: isVideoMode ? 160 : 300,
+          temperature: isVideoMode ? 0.7 : 0.78,
+          max_tokens: isVideoMode ? 160 : 180,
           stream: true,
         }),
       }

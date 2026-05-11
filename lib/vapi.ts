@@ -8,6 +8,11 @@ type StartOptions = {
     activeCompanionId?: string;
     cartesiaVoiceId?: string;
     mode?: 'solo' | 'solo_video';
+    companionName?: string;
+    personaName?: string;
+    personaTagline?: string;
+    userName?: string;
+    lastMemory?: string;
   };
 };
 type DeepgramMessage = {
@@ -18,7 +23,8 @@ type DeepgramMessage = {
 
 const INPUT_SAMPLE_RATE = 24000;
 const OUTPUT_SAMPLE_RATE = 24000;
-const INITIAL_PLAYBACK_BUFFER_SECONDS = 0.12;
+const INITIAL_PLAYBACK_BUFFER_SECONDS = 0.08;
+const CONTINUATION_PLAYBACK_BUFFER_SECONDS = 0.015;
 const INTERRUPT_INPUT_LEVEL = 0.075;
 
 class DeepgramVoiceClient {
@@ -27,6 +33,7 @@ class DeepgramVoiceClient {
   private mediaStream: MediaStream | null = null;
   private inputContext: AudioContext | null = null;
   private outputContext: AudioContext | null = null;
+  private outputGain: GainNode | null = null;
   private processor: ScriptProcessorNode | null = null;
   private source: MediaStreamAudioSourceNode | null = null;
   private keepAliveTimer: ReturnType<typeof setInterval> | null = null;
@@ -66,6 +73,9 @@ class DeepgramVoiceClient {
 
     this.outputContext = new AudioContext({ sampleRate: OUTPUT_SAMPLE_RATE });
     this.inputContext = new AudioContext({ sampleRate: INPUT_SAMPLE_RATE });
+    this.outputGain = this.outputContext.createGain();
+    this.outputGain.gain.value = 1.18;
+    this.outputGain.connect(this.outputContext.destination);
     await this.outputContext.resume();
     await this.inputContext.resume();
 
@@ -183,15 +193,21 @@ class DeepgramVoiceClient {
 
   private sendSettings(options?: StartOptions) {
     const origin = process.env.NEXT_PUBLIC_APP_URL || window.location.origin;
-    const companionId = options?.variableValues?.activeCompanionId || '';
+    const values = options?.variableValues || {};
+    const companionId = values.activeCompanionId || '';
     const mode = options?.variableValues?.mode || 'solo';
-    const cartesiaVoiceId = options?.variableValues?.cartesiaVoiceId
+    const cartesiaVoiceId = values.cartesiaVoiceId
       || process.env.NEXT_PUBLIC_CARTESIA_VOICE_ID
       || '';
     const cartesiaModelId = process.env.NEXT_PUBLIC_CARTESIA_MODEL_ID || 'sonic-3';
     const llmUrl = new URL('/api/llm/chat/completions', origin);
     if (companionId) llmUrl.searchParams.set('companionId', companionId);
     llmUrl.searchParams.set('mode', mode);
+    if (values.companionName) llmUrl.searchParams.set('companionName', values.companionName);
+    if (values.personaName) llmUrl.searchParams.set('personaName', values.personaName);
+    if (values.personaTagline) llmUrl.searchParams.set('personaTagline', values.personaTagline);
+    if (values.userName) llmUrl.searchParams.set('userName', values.userName);
+    if (values.lastMemory) llmUrl.searchParams.set('lastMemory', values.lastMemory.slice(0, 500));
     const speakProvider = cartesiaVoiceId
       ? {
           type: 'cartesia',
@@ -243,8 +259,8 @@ class DeepgramVoiceClient {
           },
           prompt: mode === 'solo_video'
             ? 'You are AlyraX in video mode. Stay in the selected persona. Keep replies brief, natural, and focused on the user request while video prepares.'
-            : 'You are AlyraX in voice-only mode. Stay in the selected persona. Start speaking with momentum, then build a rich immersive fantasy until the user interrupts or redirects. Do not mention videos, clips, rendering, or generation.',
-          context_length: mode === 'solo_video' ? 2500 : 1600,
+            : 'You are AlyraX in voice-only mode. Stay in persona. Sound like a real private phone call: quick reaction, intimate tone, one vivid beat, then keep the rhythm open. Do not mention videos, clips, rendering, or generation.',
+          context_length: mode === 'solo_video' ? 2500 : 900,
         },
         speak: {
           provider: speakProvider,
@@ -319,14 +335,15 @@ class DeepgramVoiceClient {
 
     const source = this.outputContext.createBufferSource();
     source.buffer = audioBuffer;
-    source.connect(this.outputContext.destination);
+    source.connect(this.outputGain || this.outputContext.destination);
     source.onended = () => {
       this.activeSources = this.activeSources.filter(item => item !== source);
     };
 
     const now = this.outputContext.currentTime;
-    if (this.activeSources.length === 0 || this.playbackTime <= now) {
-      this.playbackTime = now + INITIAL_PLAYBACK_BUFFER_SECONDS;
+    if (this.playbackTime <= now) {
+      const gap = now - this.playbackTime;
+      this.playbackTime = now + (gap > 0.35 ? INITIAL_PLAYBACK_BUFFER_SECONDS : CONTINUATION_PLAYBACK_BUFFER_SECONDS);
     }
     source.start(this.playbackTime);
     this.playbackTime += audioBuffer.duration;
@@ -363,6 +380,7 @@ class DeepgramVoiceClient {
     this.mediaStream = null;
     this.inputContext = null;
     this.outputContext = null;
+    this.outputGain = null;
     this.socket = null;
   }
 }

@@ -42,26 +42,26 @@ export default function CallButton({
     const persona = `${personaName || ''} ${personaTagline || ''}`.toLowerCase();
     const address = userName || 'baby';
     const memory = lastMemory?.lastUserMessage
-      ? ` I remember where we left off: ${lastMemory.lastUserMessage}.`
+      ? ` I remember where we left off.`
       : '';
 
     if (persona.includes('dominant')) {
-      return `There you are, ${address}. I was waiting for you, and I want your full attention now.${memory} Tell me what you need from me tonight.`;
+      return `There you are, ${address}.${memory} Take a breath and tell me what you want from me.`;
     }
 
     if (persona.includes('submissive')) {
-      return `Hi ${address}. I'm here, and I'm already listening for what you want from me.${memory} Tell me how you want me tonight.`;
+      return `Hi ${address}.${memory} I'm here with you. Tell me how you want me tonight.`;
     }
 
     if (persona.includes('romantic')) {
-      return `Hi ${address}. Come closer for me.${memory} I want to hear what kind of mood you're in tonight.`;
+      return `Hi ${address}.${memory} Come closer for me and tell me what mood you're in.`;
     }
 
     if (persona.includes('playful')) {
-      return `Hey ${address}. I was hoping you'd show up.${memory} Tell me what kind of trouble we're getting into tonight.`;
+      return `Hey ${address}.${memory} I was hoping you'd show up. What kind of trouble are we getting into?`;
     }
 
-    return `Hi ${address}, it's ${companionName || 'me'}. I'm here with you now.${memory} Tell me what you want tonight, and I'll take it from there.`;
+    return `Hi ${address}, it's ${companionName || 'me'}.${memory} I'm here now. Tell me what you want.`;
   };
 
   const startSecretCall = async () => {
@@ -72,20 +72,28 @@ export default function CallButton({
       return;
     }
     try {
+      const sharedValues = {
+        activeCompanionId: companionId,
+        cartesiaVoiceId: voiceId || undefined,
+        companionName: companionName || undefined,
+        personaName: personaName || undefined,
+        personaTagline: personaTagline || undefined,
+        userName: userName || undefined,
+        lastMemory: lastMemory?.summary || lastMemory?.lastUserMessage || undefined,
+      };
+
       await vapi.start(undefined, isVideoMode ? {
         firstMessage: `Tell me what you want to see${userName ? `, ${userName}` : ''}. Give me the scene, and I'll make it worth the wait.`,
         firstMessageMode: 'assistant-speaks-first',
         variableValues: {
-          activeCompanionId: companionId,
-          cartesiaVoiceId: voiceId || undefined,
+          ...sharedValues,
           mode: 'solo_video',
         },
       } : {
         firstMessage: buildVoiceGreeting(),
         firstMessageMode: 'assistant-speaks-first',
         variableValues: {
-          activeCompanionId: companionId,
-          cartesiaVoiceId: voiceId || undefined,
+          ...sharedValues,
           mode: 'solo',
         },
       });
