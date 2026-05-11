@@ -15,8 +15,11 @@ const VIDEO_MODE_INSTRUCTIONS = `Video mode behavior:
 const VOICE_MODE_INSTRUCTIONS = `Voice-only behavior:
 - Lead the conversation as the selected companion persona, not as a generic assistant.
 - Do not mention videos, clips, rendering, generating, loading, or visuals being ready.
-- Open space for the user with one warm, specific question or a persona-specific observation.
-- Keep replies quick for realtime speech, usually 1-2 sentences.
+- Start answering immediately in the first sentence so the user hears momentum fast.
+- When the user asks what you will do with them, create a rich first-person fantasy and keep it going until the user interrupts or redirects.
+- Build the scene in beats: setting, mood, closeness, emotional tension, then the next implied moment.
+- Stay immersive and persona-specific; do not give a short customer-service answer.
+- Usually speak 5-9 sentences in voice mode unless the user asks for shorter, quieter, or less talking.
 - If the user is quiet or vague, gently guide the next beat instead of waiting passively.`;
 
 function getPersonaVideoInstructions(personaName?: string | null) {
@@ -60,7 +63,8 @@ const ADAPTIVE_DIALOGUE_INSTRUCTIONS = `Adaptive dialogue rules:
 - If the user gives negative feedback or says "not like that", acknowledge briefly and change direction.
 - If the user names a visual focus like eye contact, hands, face, hips, or closer framing, make that the center of the next response.
 - Respect boundaries and pet-name preferences immediately.
-- Do not ramble. Respond to what the user actually said, then ask at most one specific follow-up question.`;
+- In voice-only fantasy, continue the scene instead of ending with repeated questions.
+- Respond to what the user actually said, then ask at most one specific follow-up question only when it improves the flow.`;
 
 export async function POST(req: NextRequest) {
   try {
@@ -139,6 +143,10 @@ export async function POST(req: NextRequest) {
       // Fall back to default if anything fails
     }
 
+    const conversationMessages = incomingMessages
+      .filter((m: { role: string }) => m.role !== 'system')
+      .slice(isVideoMode ? -8 : -6);
+
     const messages = [
       {
         role: 'system',
@@ -150,7 +158,7 @@ export async function POST(req: NextRequest) {
           directiveBlock ? `Current user-directed session settings:\n${directiveBlock}` : '',
         ].filter(Boolean).join('\n\n'),
       },
-      ...incomingMessages.filter((m: { role: string }) => m.role !== 'system')
+      ...conversationMessages
     ];
 
     const openrouterResponse = await fetch(
@@ -166,8 +174,8 @@ export async function POST(req: NextRequest) {
         body: JSON.stringify({
           model: process.env.OPENROUTER_MODEL || 'deepseek/deepseek-v4-flash',
           messages,
-          temperature: 0.7,
-          max_tokens: isVideoMode ? 160 : 110,
+          temperature: isVideoMode ? 0.7 : 0.85,
+          max_tokens: isVideoMode ? 160 : 420,
           stream: true,
         }),
       }

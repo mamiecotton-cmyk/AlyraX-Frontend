@@ -228,8 +228,8 @@ class DeepgramVoiceClient {
           },
           prompt: mode === 'solo_video'
             ? 'You are AlyraX in video mode. Stay in the selected persona. Keep replies brief, natural, and focused on the user request while video prepares.'
-            : 'You are AlyraX in voice-only mode. Stay in the selected persona. Lead the conversation warmly and naturally. Do not mention videos, clips, rendering, or generation.',
-          context_length: 2500,
+            : 'You are AlyraX in voice-only mode. Stay in the selected persona. Start speaking with momentum, then build a rich immersive fantasy until the user interrupts or redirects. Do not mention videos, clips, rendering, or generation.',
+          context_length: mode === 'solo_video' ? 2500 : 1600,
         },
         speak: {
           provider: speakProvider,
