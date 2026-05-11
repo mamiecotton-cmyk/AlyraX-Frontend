@@ -712,6 +712,9 @@ export default function DashboardPage() {
               scenario={`Mode: ${getModeLabel()}`}
               companionId={companion?.id}
               voiceId={companion?.personas?.voice_id}
+              companionName={companion?.name}
+              personaName={companion?.personas?.name}
+              personaTagline={companion?.personas?.tagline}
             />
           </div>
 

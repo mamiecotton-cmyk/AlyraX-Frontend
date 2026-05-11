@@ -6,10 +6,16 @@ export default function CallButton({
   scenario,
   companionId,
   voiceId,
+  companionName,
+  personaName,
+  personaTagline,
 }: {
   scenario: string;
   companionId?: string;
   voiceId?: string | null;
+  companionName?: string | null;
+  personaName?: string | null;
+  personaTagline?: string | null;
 }) {
   const [calling, setCalling] = useState(false);
   const [connected, setConnected] = useState(false);
@@ -26,6 +32,29 @@ export default function CallButton({
       vapi?.off('call-end', onEnd);
     };
   }, []);
+
+  const buildVoiceGreeting = () => {
+    const persona = `${personaName || ''} ${personaTagline || ''}`.toLowerCase();
+    const name = companionName || 'baby';
+
+    if (persona.includes('dominant')) {
+      return `There you are. I was waiting for you, and I want your full attention now. Tell me what you need from me tonight.`;
+    }
+
+    if (persona.includes('submissive')) {
+      return `Hi baby. I'm here, and I'm already listening for what you want from me. Tell me how you want me tonight.`;
+    }
+
+    if (persona.includes('romantic')) {
+      return `Hi, love. Come closer for me. I want to hear what kind of mood you're in tonight.`;
+    }
+
+    if (persona.includes('playful')) {
+      return `Hey you. I was hoping you'd show up. Tell me what kind of trouble we're getting into tonight.`;
+    }
+
+    return `Hi, it's ${name}. I'm here with you now. Tell me what you want tonight, and I'll take it from there.`;
+  };
 
   const startSecretCall = async () => {
     setCalling(true);
@@ -44,6 +73,8 @@ export default function CallButton({
           mode: 'solo_video',
         },
       } : {
+        firstMessage: buildVoiceGreeting(),
+        firstMessageMode: 'assistant-speaks-first',
         variableValues: {
           activeCompanionId: companionId,
           cartesiaVoiceId: voiceId || undefined,
