@@ -708,7 +708,11 @@ export default function DashboardPage() {
           )}
 
           <div onClick={(e) => e.stopPropagation()}>
-            <CallButton scenario={`Mode: ${getModeLabel()}`} companionId={companion?.id} />
+            <CallButton
+              scenario={`Mode: ${getModeLabel()}`}
+              companionId={companion?.id}
+              voiceId={companion?.personas?.voice_id}
+            />
           </div>
 
           <p className="text-xs text-gray-700 uppercase tracking-widest pb-2">

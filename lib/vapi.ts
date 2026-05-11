@@ -6,6 +6,7 @@ type StartOptions = {
   firstMessageMode?: string;
   variableValues?: {
     activeCompanionId?: string;
+    cartesiaVoiceId?: string;
   };
 };
 type DeepgramMessage = {
@@ -167,8 +168,27 @@ class DeepgramVoiceClient {
   private sendSettings(options?: StartOptions) {
     const origin = process.env.NEXT_PUBLIC_APP_URL || window.location.origin;
     const companionId = options?.variableValues?.activeCompanionId || '';
+    const cartesiaVoiceId = options?.variableValues?.cartesiaVoiceId
+      || process.env.NEXT_PUBLIC_CARTESIA_VOICE_ID
+      || '';
+    const cartesiaModelId = process.env.NEXT_PUBLIC_CARTESIA_MODEL_ID || 'sonic-3';
     const llmUrl = new URL('/api/llm/chat/completions', origin);
     if (companionId) llmUrl.searchParams.set('companionId', companionId);
+    const speakProvider = cartesiaVoiceId
+      ? {
+          type: 'cartesia',
+          model_id: cartesiaModelId,
+          voice: {
+            mode: 'id',
+            id: cartesiaVoiceId,
+          },
+          language: 'en',
+          speed: 'normal',
+        }
+      : {
+          type: 'deepgram',
+          model: 'aura-2-thalia-en',
+        };
 
     this.socket?.send(JSON.stringify({
       type: 'Settings',
@@ -207,10 +227,7 @@ class DeepgramVoiceClient {
           context_length: 4000,
         },
         speak: {
-          provider: {
-            type: 'deepgram',
-            model: 'aura-2-thalia-en',
-          },
+          provider: speakProvider,
         },
       },
     }));
