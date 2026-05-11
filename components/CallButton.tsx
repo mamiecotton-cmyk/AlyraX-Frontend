@@ -1,5 +1,6 @@
 'use client';
 import { vapi } from '@/lib/vapi';
+import { type CompanionMemory } from '@/lib/companion-memory';
 import { useState, useEffect } from 'react';
 
 export default function CallButton({
@@ -9,6 +10,8 @@ export default function CallButton({
   companionName,
   personaName,
   personaTagline,
+  userName,
+  lastMemory,
 }: {
   scenario: string;
   companionId?: string;
@@ -16,6 +19,8 @@ export default function CallButton({
   companionName?: string | null;
   personaName?: string | null;
   personaTagline?: string | null;
+  userName?: string | null;
+  lastMemory?: CompanionMemory | null;
 }) {
   const [calling, setCalling] = useState(false);
   const [connected, setConnected] = useState(false);
@@ -35,25 +40,28 @@ export default function CallButton({
 
   const buildVoiceGreeting = () => {
     const persona = `${personaName || ''} ${personaTagline || ''}`.toLowerCase();
-    const name = companionName || 'baby';
+    const address = userName || 'baby';
+    const memory = lastMemory?.lastUserMessage
+      ? ` I remember where we left off: ${lastMemory.lastUserMessage}.`
+      : '';
 
     if (persona.includes('dominant')) {
-      return `There you are. I was waiting for you, and I want your full attention now. Tell me what you need from me tonight.`;
+      return `There you are, ${address}. I was waiting for you, and I want your full attention now.${memory} Tell me what you need from me tonight.`;
     }
 
     if (persona.includes('submissive')) {
-      return `Hi baby. I'm here, and I'm already listening for what you want from me. Tell me how you want me tonight.`;
+      return `Hi ${address}. I'm here, and I'm already listening for what you want from me.${memory} Tell me how you want me tonight.`;
     }
 
     if (persona.includes('romantic')) {
-      return `Hi, love. Come closer for me. I want to hear what kind of mood you're in tonight.`;
+      return `Hi ${address}. Come closer for me.${memory} I want to hear what kind of mood you're in tonight.`;
     }
 
     if (persona.includes('playful')) {
-      return `Hey you. I was hoping you'd show up. Tell me what kind of trouble we're getting into tonight.`;
+      return `Hey ${address}. I was hoping you'd show up.${memory} Tell me what kind of trouble we're getting into tonight.`;
     }
 
-    return `Hi, it's ${name}. I'm here with you now. Tell me what you want tonight, and I'll take it from there.`;
+    return `Hi ${address}, it's ${companionName || 'me'}. I'm here with you now.${memory} Tell me what you want tonight, and I'll take it from there.`;
   };
 
   const startSecretCall = async () => {
@@ -65,7 +73,7 @@ export default function CallButton({
     }
     try {
       await vapi.start(undefined, isVideoMode ? {
-        firstMessage: "Tell me what you want to see, baby. Give me the scene, and I'll make it worth the wait.",
+        firstMessage: `Tell me what you want to see${userName ? `, ${userName}` : ''}. Give me the scene, and I'll make it worth the wait.`,
         firstMessageMode: 'assistant-speaks-first',
         variableValues: {
           activeCompanionId: companionId,

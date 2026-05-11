@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { createClient } from '@/lib/supabase-server';
 import { formatSessionDirectives, updateSessionDirectives, type SessionDirectives } from '@/lib/session-directives';
+import { formatCompanionMemory, getCompanionMemory, getUserDisplayName } from '@/lib/companion-memory';
 
 export const maxDuration = 60;
 
@@ -66,6 +67,12 @@ const ADAPTIVE_DIALOGUE_INSTRUCTIONS = `Adaptive dialogue rules:
 - In voice-only fantasy, continue the scene instead of ending with repeated questions.
 - Respond to what the user actually said, then ask at most one specific follow-up question only when it improves the flow.`;
 
+const PERSONALIZATION_INSTRUCTIONS = `Personalization rules:
+- Use the user's name naturally, especially at the beginning of a new call, but do not overuse it.
+- Use the last chat memory as emotional and conversational continuity.
+- If last memory exists, subtly pick up from it instead of starting like a stranger.
+- Keep memory references natural and brief; do not recite stored data like a profile.`;
+
 export async function POST(req: NextRequest) {
   try {
     const vapiBody = await req.json();
@@ -81,6 +88,8 @@ export async function POST(req: NextRequest) {
     // Try to get user's persona system prompt
     let systemPrompt = DEFAULT_SYSTEM_PROMPT;
     let personaName: string | null = null;
+    let userName = '';
+    let memoryBlock = '';
     const directives = incomingMessages
       .filter((message: { role?: string; content?: string }) => message.role === 'user' && typeof message.content === 'string')
       .reduce(
@@ -95,9 +104,10 @@ export async function POST(req: NextRequest) {
 
       if (user) {
         const activeCompanionId = requestedCompanionId || user.user_metadata?.active_companion_id;
+        userName = getUserDisplayName(user.user_metadata, user.email);
         let companionQuery = supabase
           .from('companions')
-          .select('personas(name, system_prompt)')
+          .select('id, personas(name, system_prompt)')
           .eq('user_id', user.id);
 
         if (activeCompanionId) {
@@ -106,7 +116,7 @@ export async function POST(req: NextRequest) {
 
         const { data: companion } = await supabase
           .from('companions')
-          .select('personas(name, system_prompt)')
+          .select('id, personas(name, system_prompt)')
           .eq('user_id', user.id)
           .limit(1)
           .maybeSingle();
@@ -123,10 +133,14 @@ export async function POST(req: NextRequest) {
           systemPrompt = persona.system_prompt;
         }
         personaName = persona?.name || null;
+        memoryBlock = formatCompanionMemory(
+          getCompanionMemory(user.user_metadata, selectedCompanion?.id),
+          userName
+        );
       } else if (requestedCompanionId) {
         const { data: companion } = await supabase
           .from('companions')
-          .select('personas(name, system_prompt)')
+          .select('id, personas(name, system_prompt)')
           .eq('id', requestedCompanionId)
           .limit(1)
           .maybeSingle();
@@ -154,6 +168,8 @@ export async function POST(req: NextRequest) {
           systemPrompt,
           isVideoMode ? VIDEO_MODE_INSTRUCTIONS : VOICE_MODE_INSTRUCTIONS,
           isVideoMode ? getPersonaVideoInstructions(personaName) : '',
+          PERSONALIZATION_INSTRUCTIONS,
+          memoryBlock ? `Known user context:\n${memoryBlock}` : userName ? `Known user context:\nUser name: ${userName}` : '',
           ADAPTIVE_DIALOGUE_INSTRUCTIONS,
           directiveBlock ? `Current user-directed session settings:\n${directiveBlock}` : '',
         ].filter(Boolean).join('\n\n'),

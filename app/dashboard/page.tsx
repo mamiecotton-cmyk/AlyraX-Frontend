@@ -5,6 +5,12 @@ import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { vapi } from '@/lib/vapi';
 import { type SessionDirectives, updateSessionDirectives } from '@/lib/session-directives';
+import {
+  getCompanionMemory,
+  getUserDisplayName,
+  type CompanionMemory,
+  type CompanionMemoryMap,
+} from '@/lib/companion-memory';
 
 const CallButton = dynamic(() => import('@/components/CallButton'), { ssr: false });
 
@@ -62,6 +68,9 @@ export default function DashboardPage() {
   const [currentVideoUrl, setCurrentVideoUrl] = useState<string | null>(null);
   const [videoPlaybackKey, setVideoPlaybackKey] = useState(0);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [userName, setUserName] = useState('');
+  const [lastMemory, setLastMemory] = useState<CompanionMemory | null>(null);
+  const [memoryMap, setMemoryMap] = useState<CompanionMemoryMap>({});
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const conversationHistoryRef = useRef<{ role: string; content: string }[]>([]);
@@ -132,6 +141,10 @@ export default function DashboardPage() {
     if (!user) { router.push('/login'); return; }
     setUserId(user.id);
     userIdRef.current = user.id;
+    const displayName = getUserDisplayName(user.user_metadata, user.email);
+    setUserName(displayName);
+    const savedMemories = (user.user_metadata?.alyrax_memories || {}) as CompanionMemoryMap;
+    setMemoryMap(savedMemories);
 
     const { data: companionData } = await supabase
       .from('companions')
@@ -146,6 +159,7 @@ export default function DashboardPage() {
     setCompanions(companionData);
     setCompanion(activeCompanion);
     companionRef.current = activeCompanion;
+    setLastMemory(getCompanionMemory({ alyrax_memories: savedMemories }, activeCompanion.id));
 
     const { data: personasData } = await supabase
       .from('personas')
@@ -383,6 +397,31 @@ export default function DashboardPage() {
     currentOnMidRef.current = '';
   }
 
+  async function saveCallMemory() {
+    const currentCompanion = companionRef.current;
+    const messages = conversationHistoryRef.current.slice(-12);
+    if (!currentCompanion?.id || messages.length < 2) return;
+
+    try {
+      const response = await fetch('/api/companion/memory', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          companionId: currentCompanion.id,
+          messages,
+          mode: modeRef.current,
+        }),
+      });
+      const data = await response.json();
+      if (response.ok && data.memory) {
+        setLastMemory(data.memory);
+        setMemoryMap(prev => ({ ...prev, [currentCompanion.id]: data.memory }));
+      }
+    } catch (error) {
+      console.error('Memory save failed:', error);
+    }
+  }
+
   function prefetchNextClip(frameUrl?: string | null) {
     if (
       modeRef.current !== 'solo_video'
@@ -470,6 +509,7 @@ export default function DashboardPage() {
     });
 
     vapi.on('call-end', () => {
+      void saveCallMemory();
       setStatus('idle');
       setCalling(false);
       callingRef.current = false;
@@ -552,6 +592,7 @@ export default function DashboardPage() {
   const updateActiveCompanion = async (nextCompanion: Companion) => {
     setCompanion(nextCompanion);
     companionRef.current = nextCompanion;
+    setLastMemory(memoryMap[nextCompanion.id] || null);
     resetVideoState();
     const currentPersonaIndex = personas.findIndex(p => p.name === nextCompanion.personas?.name);
     setSelectedPersonaIndex(currentPersonaIndex >= 0 ? currentPersonaIndex : 0);
@@ -715,6 +756,8 @@ export default function DashboardPage() {
               companionName={companion?.name}
               personaName={companion?.personas?.name}
               personaTagline={companion?.personas?.tagline}
+              userName={userName}
+              lastMemory={lastMemory}
             />
           </div>
 
