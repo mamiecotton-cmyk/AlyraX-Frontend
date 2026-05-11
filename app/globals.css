@@ -33,7 +33,7 @@ body {
 
 .talking-portrait-image {
   transform-origin: 50% 45%;
-  animation: portrait-idle 6.5s ease-in-out infinite;
+  animation: portrait-idle 4.8s ease-in-out infinite;
   filter: saturate(1.04) contrast(1.03);
   will-change: transform, filter;
 }
@@ -43,8 +43,8 @@ body {
 }
 
 .talking-portrait.is-speaking .talking-portrait-image {
-  animation: portrait-speaking 2.2s ease-in-out infinite;
-  filter: saturate(1.09) contrast(1.06);
+  animation: portrait-speaking 1.45s ease-in-out infinite;
+  filter: saturate(1.14) contrast(1.08);
 }
 
 .talking-portrait-breath {
@@ -71,8 +71,8 @@ body {
 }
 
 .talking-portrait.is-speaking .talking-portrait-mouth {
-  animation: portrait-mouth 420ms ease-in-out infinite;
-  opacity: 0.34;
+  animation: portrait-mouth 360ms ease-in-out infinite;
+  opacity: 0.46;
 }
 
 .talking-portrait.is-listening .talking-portrait-mouth {
@@ -95,9 +95,56 @@ body {
   animation-duration: 2s;
 }
 
+.talking-portrait-wave {
+  position: absolute;
+  left: 50%;
+  bottom: 14%;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 42px;
+  transform: translateX(-50%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.talking-portrait-wave span {
+  display: block;
+  width: 4px;
+  height: 18px;
+  border-radius: 999px;
+  background: rgba(248, 113, 113, 0.72);
+  box-shadow: 0 0 14px rgba(248, 113, 113, 0.35);
+  transform-origin: center bottom;
+}
+
+.talking-portrait.is-speaking .talking-portrait-wave {
+  opacity: 0.82;
+}
+
+.talking-portrait.is-speaking .talking-portrait-wave span {
+  animation: portrait-wave 720ms ease-in-out infinite;
+}
+
+.talking-portrait.is-speaking .talking-portrait-wave span:nth-child(2) {
+  animation-delay: 90ms;
+}
+
+.talking-portrait.is-speaking .talking-portrait-wave span:nth-child(3) {
+  animation-delay: 180ms;
+}
+
+.talking-portrait.is-speaking .talking-portrait-wave span:nth-child(4) {
+  animation-delay: 270ms;
+}
+
+.talking-portrait.is-speaking .talking-portrait-wave span:nth-child(5) {
+  animation-delay: 360ms;
+}
+
 @keyframes portrait-idle {
   0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
-  50% { transform: translate3d(0, -0.5%, 0) scale(1.012); }
+  50% { transform: translate3d(0, -0.9%, 0) scale(1.018); }
 }
 
 @keyframes portrait-listening {
@@ -107,10 +154,10 @@ body {
 }
 
 @keyframes portrait-speaking {
-  0%, 100% { transform: translate3d(0, 0, 0) scale(1.01); }
-  25% { transform: translate3d(-0.25%, -0.35%, 0) scale(1.022); }
-  55% { transform: translate3d(0.22%, -0.15%, 0) scale(1.018); }
-  80% { transform: translate3d(0, 0.18%, 0) scale(1.026); }
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1.018); }
+  25% { transform: translate3d(-0.55%, -0.7%, 0) scale(1.038); }
+  55% { transform: translate3d(0.45%, -0.3%, 0) scale(1.03); }
+  80% { transform: translate3d(0, 0.35%, 0) scale(1.045); }
 }
 
 @keyframes portrait-mouth {
@@ -131,4 +178,10 @@ body {
 @keyframes portrait-presence {
   0%, 100% { transform: scale(0.98); opacity: 0.24; }
   50% { transform: scale(1.04); opacity: 0.42; }
+}
+
+@keyframes portrait-wave {
+  0%, 100% { transform: scaleY(0.45); opacity: 0.45; }
+  45% { transform: scaleY(1.75); opacity: 0.95; }
+  72% { transform: scaleY(0.9); opacity: 0.62; }
 }

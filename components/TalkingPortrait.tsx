@@ -30,6 +30,13 @@ export default function TalkingPortrait({ imageUrl, name, state }: Props) {
       <div className="talking-portrait-breath" />
       <div className="talking-portrait-mouth" />
       <div className="talking-portrait-presence" />
+      <div className="talking-portrait-wave" aria-hidden="true">
+        <span />
+        <span />
+        <span />
+        <span />
+        <span />
+      </div>
     </div>
   );
 }

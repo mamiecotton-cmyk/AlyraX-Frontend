@@ -31,6 +31,8 @@ class DeepgramVoiceClient {
   private playbackTime = 0;
   private activeSources: AudioBufferSourceNode[] = [];
   private stopping = false;
+  private lastInputLevel = 0;
+  private lastLoudInputAt = 0;
 
   on(event: string, listener: Listener) {
     if (!this.listeners.has(event)) this.listeners.set(event, new Set());
@@ -131,8 +133,13 @@ class DeepgramVoiceClient {
     }
 
     if (message.type === 'UserStartedSpeaking') {
-      this.stopPlayback();
-      this.emit('speech-end');
+      const hasAgentAudio = this.activeSources.length > 0;
+      const recentLoudInput = Date.now() - this.lastLoudInputAt < 550;
+
+      if (!hasAgentAudio || recentLoudInput) {
+        this.stopPlayback();
+        this.emit('speech-end');
+      }
       return;
     }
 
@@ -256,11 +263,24 @@ class DeepgramVoiceClient {
     this.processor.onaudioprocess = (event) => {
       if (this.socket?.readyState !== WebSocket.OPEN) return;
       const input = event.inputBuffer.getChannelData(0);
+      this.trackInputLevel(input);
       this.socket.send(this.floatToPcm16(input));
     };
 
     this.source.connect(this.processor);
     this.processor.connect(this.inputContext.destination);
+  }
+
+  private trackInputLevel(input: Float32Array) {
+    let sum = 0;
+    for (let i = 0; i < input.length; i += 1) {
+      sum += input[i] * input[i];
+    }
+
+    this.lastInputLevel = Math.sqrt(sum / input.length);
+    if (this.lastInputLevel > 0.035) {
+      this.lastLoudInputAt = Date.now();
+    }
   }
 
   private floatToPcm16(input: Float32Array) {
