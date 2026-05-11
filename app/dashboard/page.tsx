@@ -30,6 +30,7 @@ type Companion = {
 
 type Credits = { balance_seconds: number };
 type Mode = 'solo' | 'solo_video' | 'couples_spice' | 'couples_mediator';
+type WardrobeState = 'clothed' | 'partial' | 'nude';
 type PersonaOption = { name: string; tagline: string; };
 type TranscriptMessage = {
   type?: string;
@@ -48,7 +49,7 @@ type QueuedVideo = {
 
 const MAX_QUEUE = 2;
 const MID_POINT_MS = 15000;
-const LOOP_TAIL_SECONDS = 15;
+const LOOP_TAIL_SECONDS = 3;
 const READY_LINE_DELAY_MS = 2400;
 
 // Map session directives to runtime instruction text we append via UpdatePrompt
@@ -120,6 +121,7 @@ export default function DashboardPage() {
   const lastFrameUrlRef = useRef<string | null>(null);
   const clipNumberRef = useRef(0);
   const submittedClipNumberRef = useRef(0);
+  const wardrobeStateRef = useRef<WardrobeState>('clothed');
   const midPointTimerRef = useRef<NodeJS.Timeout | null>(null);
   const currentOnMidRef = useRef<string>('');
   const modeRef = useRef<Mode>('solo');
@@ -291,14 +293,17 @@ export default function DashboardPage() {
           userMessage: sceneIntent,
           directives: sessionDirectivesRef.current,
           frameUrl: frameUrl ?? lastFrameUrlRef.current,
-          clipNumber: nextClipNumber,
-          conversationHistory: conversationHistoryRef.current.slice(-4),
+          wardrobeState: wardrobeStateRef.current,
+          conversationHistory: conversationHistoryRef.current.slice(-12),
         }),
       });
 
       const data = await response.json();
       if (!response.ok) { console.error('Video generation failed:', data); return; }
       if (generationCallId !== callGenerationRef.current || !callingRef.current || modeRef.current !== 'solo_video') return;
+      if (data.endWardrobeState === 'clothed' || data.endWardrobeState === 'partial' || data.endWardrobeState === 'nude') {
+        wardrobeStateRef.current = data.endWardrobeState;
+      }
 
       if (data.prediction_id) {
         const shouldNarrateWait = waitNarrationClipRef.current !== nextClipNumber;
@@ -375,6 +380,7 @@ export default function DashboardPage() {
     lastFrameUrlRef.current = null;
     clipNumberRef.current = 0;
     submittedClipNumberRef.current = 0;
+    wardrobeStateRef.current = 'clothed';
     isLoopingRef.current = false;
     sessionDirectivesRef.current = {};
     pendingPlaybackRef.current = false;
@@ -431,21 +437,18 @@ export default function DashboardPage() {
 
   const handleVideoEnded = async () => {
     clearMidTimer();
+    const lastFrame = await extractLastFrame();
+    if (lastFrame) lastFrameUrlRef.current = lastFrame;
+
     if (readyLineTimerRef.current && isLoopingRef.current) { loopVideoTail(); return; }
     const next = videoQueueRef.current.shift();
     if (next) {
       isLoopingRef.current = false;
       playVideo(next);
-      prefetchNextClip();
+      prefetchNextClip(lastFrame);
       return;
     }
-    let lastFrame = lastFrameUrlRef.current;
-    if (!isLoopingRef.current) {
-      lastFrame = await extractLastFrame();
-      if (lastFrame) { lastFrameUrlRef.current = lastFrame; prefetchNextClip(lastFrame); }
-    } else {
-      prefetchNextClip();
-    }
+    prefetchNextClip(lastFrame);
     if (videoRef.current && currentVideoUrlRef.current) {
       isLoopingRef.current = true;
       loopVideoTail();
