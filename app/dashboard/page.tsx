@@ -13,6 +13,7 @@ import {
 } from '@/lib/companion-memory';
 
 const CallButton = dynamic(() => import('@/components/CallButton'), { ssr: false });
+const TalkingPortrait = dynamic(() => import('@/components/TalkingPortrait'), { ssr: false });
 
 type Companion = {
   id: string;
@@ -620,8 +621,16 @@ export default function DashboardPage() {
       style={{ height: '100dvh' }}
       onClick={() => setShowControls(prev => !prev)}
     >
-      {/* Still image base layer */}
-      {companion?.image_url && (
+      {/* Still/talking portrait base layer */}
+      {companion?.image_url && mode === 'solo' && (
+        <TalkingPortrait
+          imageUrl={companion.image_url}
+          name={companion.name}
+          state={calling ? (status === 'speaking' ? 'speaking' : 'listening') : 'idle'}
+        />
+      )}
+
+      {companion?.image_url && mode !== 'solo' && (
         <img
           src={companion.image_url}
           alt={companion.name}

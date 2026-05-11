@@ -24,3 +24,111 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+.talking-portrait {
+  background:
+    radial-gradient(circle at 50% 38%, rgba(255, 72, 110, 0.12), transparent 34%),
+    #000;
+}
+
+.talking-portrait-image {
+  transform-origin: 50% 45%;
+  animation: portrait-idle 6.5s ease-in-out infinite;
+  filter: saturate(1.04) contrast(1.03);
+  will-change: transform, filter;
+}
+
+.talking-portrait.is-listening .talking-portrait-image {
+  animation: portrait-listening 4.6s ease-in-out infinite;
+}
+
+.talking-portrait.is-speaking .talking-portrait-image {
+  animation: portrait-speaking 2.2s ease-in-out infinite;
+  filter: saturate(1.09) contrast(1.06);
+}
+
+.talking-portrait-breath {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(circle at 50% 58%, rgba(255, 255, 255, 0.06), transparent 30%);
+  opacity: 0.22;
+  animation: portrait-presence 5.5s ease-in-out infinite;
+}
+
+.talking-portrait-mouth {
+  position: absolute;
+  left: 50%;
+  top: 34%;
+  width: clamp(20px, 5vw, 54px);
+  height: clamp(5px, 1.2vw, 11px);
+  border-radius: 999px;
+  transform: translate(-50%, -50%) scaleX(0.7);
+  background: radial-gradient(ellipse at center, rgba(255, 45, 92, 0.65), rgba(255, 45, 92, 0.08) 62%, transparent 72%);
+  box-shadow: 0 0 18px rgba(255, 45, 92, 0.45);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.talking-portrait.is-speaking .talking-portrait-mouth {
+  animation: portrait-mouth 420ms ease-in-out infinite;
+  opacity: 0.34;
+}
+
+.talking-portrait.is-listening .talking-portrait-mouth {
+  opacity: 0.16;
+  transform: translate(-50%, -50%) scaleX(0.5);
+}
+
+.talking-portrait-presence {
+  position: absolute;
+  inset: auto 12% 8%;
+  height: 28%;
+  pointer-events: none;
+  background: radial-gradient(ellipse at center, rgba(190, 18, 60, 0.18), transparent 62%);
+  opacity: 0.3;
+  animation: portrait-presence 4.8s ease-in-out infinite;
+}
+
+.talking-portrait.is-speaking .talking-portrait-presence {
+  opacity: 0.48;
+  animation-duration: 2s;
+}
+
+@keyframes portrait-idle {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(0, -0.5%, 0) scale(1.012); }
+}
+
+@keyframes portrait-listening {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1.006); }
+  35% { transform: translate3d(-0.35%, -0.25%, 0) scale(1.014); }
+  70% { transform: translate3d(0.28%, 0.1%, 0) scale(1.01); }
+}
+
+@keyframes portrait-speaking {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1.01); }
+  25% { transform: translate3d(-0.25%, -0.35%, 0) scale(1.022); }
+  55% { transform: translate3d(0.22%, -0.15%, 0) scale(1.018); }
+  80% { transform: translate3d(0, 0.18%, 0) scale(1.026); }
+}
+
+@keyframes portrait-mouth {
+  0%, 100% {
+    transform: translate(-50%, -50%) scaleX(0.52) scaleY(0.45);
+    opacity: 0.24;
+  }
+  45% {
+    transform: translate(-50%, -50%) scaleX(1.04) scaleY(1.35);
+    opacity: 0.54;
+  }
+  72% {
+    transform: translate(-50%, -50%) scaleX(0.82) scaleY(0.9);
+    opacity: 0.38;
+  }
+}
+
+@keyframes portrait-presence {
+  0%, 100% { transform: scale(0.98); opacity: 0.24; }
+  50% { transform: scale(1.04); opacity: 0.42; }
+}
