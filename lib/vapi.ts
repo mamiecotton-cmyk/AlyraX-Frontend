@@ -7,6 +7,7 @@ type StartOptions = {
   variableValues?: {
     activeCompanionId?: string;
     cartesiaVoiceId?: string;
+    mode?: 'solo' | 'solo_video';
   };
 };
 type DeepgramMessage = {
@@ -168,12 +169,14 @@ class DeepgramVoiceClient {
   private sendSettings(options?: StartOptions) {
     const origin = process.env.NEXT_PUBLIC_APP_URL || window.location.origin;
     const companionId = options?.variableValues?.activeCompanionId || '';
+    const mode = options?.variableValues?.mode || 'solo';
     const cartesiaVoiceId = options?.variableValues?.cartesiaVoiceId
       || process.env.NEXT_PUBLIC_CARTESIA_VOICE_ID
       || '';
     const cartesiaModelId = process.env.NEXT_PUBLIC_CARTESIA_MODEL_ID || 'sonic-3';
     const llmUrl = new URL('/api/llm/chat/completions', origin);
     if (companionId) llmUrl.searchParams.set('companionId', companionId);
+    llmUrl.searchParams.set('mode', mode);
     const speakProvider = cartesiaVoiceId
       ? {
           type: 'cartesia',
@@ -210,8 +213,8 @@ class DeepgramVoiceClient {
             type: 'deepgram',
             model: 'flux-general-en',
             version: 'v2',
-            eot_threshold: 0.75,
-            eager_eot_threshold: 0.45,
+            eot_threshold: 0.85,
+            eager_eot_threshold: 0.65,
           },
         },
         think: {
@@ -223,8 +226,10 @@ class DeepgramVoiceClient {
           endpoint: {
             url: llmUrl.toString(),
           },
-          prompt: 'You are AlyraX. Keep spoken replies intimate, natural, concise, and conversational. Ask one direct follow-up when the user is waiting.',
-          context_length: 4000,
+          prompt: mode === 'solo_video'
+            ? 'You are AlyraX in video mode. Stay in the selected persona. Keep replies brief, natural, and focused on the user request while video prepares.'
+            : 'You are AlyraX in voice-only mode. Stay in the selected persona. Lead the conversation warmly and naturally. Do not mention videos, clips, rendering, or generation.',
+          context_length: 2500,
         },
         speak: {
           provider: speakProvider,

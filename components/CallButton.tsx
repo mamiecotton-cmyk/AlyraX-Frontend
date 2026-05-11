@@ -38,9 +38,17 @@ export default function CallButton({
       await vapi.start(undefined, isVideoMode ? {
         firstMessage: "Tell me what you want to see, baby. Give me the scene, and I'll make it worth the wait.",
         firstMessageMode: 'assistant-speaks-first',
-        variableValues: { activeCompanionId: companionId, cartesiaVoiceId: voiceId || undefined },
+        variableValues: {
+          activeCompanionId: companionId,
+          cartesiaVoiceId: voiceId || undefined,
+          mode: 'solo_video',
+        },
       } : {
-        variableValues: { activeCompanionId: companionId, cartesiaVoiceId: voiceId || undefined },
+        variableValues: {
+          activeCompanionId: companionId,
+          cartesiaVoiceId: voiceId || undefined,
+          mode: 'solo',
+        },
       });
     } catch (err) {
       console.error("The Mouth failed to open:", err);

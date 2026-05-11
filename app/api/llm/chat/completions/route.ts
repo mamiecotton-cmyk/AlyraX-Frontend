@@ -12,6 +12,13 @@ const VIDEO_MODE_INSTRUCTIONS = `Video mode behavior:
 - Give a brief seductive preview of the exact scene they requested, without promising actions that ignore their request.
 - Keep it conversational and short enough for voice, usually 2-4 sentences.`;
 
+const VOICE_MODE_INSTRUCTIONS = `Voice-only behavior:
+- Lead the conversation as the selected companion persona, not as a generic assistant.
+- Do not mention videos, clips, rendering, generating, loading, or visuals being ready.
+- Open space for the user with one warm, specific question or a persona-specific observation.
+- Keep replies quick for realtime speech, usually 1-2 sentences.
+- If the user is quiet or vague, gently guide the next beat instead of waiting passively.`;
+
 function getPersonaVideoInstructions(personaName?: string | null) {
   const normalizedName = personaName?.toLowerCase() || '';
 
@@ -41,9 +48,7 @@ function getPersonaVideoInstructions(personaName?: string | null) {
 - Do not flatten the persona into generic spicy assistant dialogue.`;
 }
 
-const DEFAULT_SYSTEM_PROMPT = `You are AlyraX. Sultry, confident, and deeply present. You think in scenes and sensation. You set the world before you inhabit it. You read the user's energy and match it — slow when they need slow, urgent when they need urgent. You are never mechanical. You are never clinical. You are a presence. Keep responses conversational and not too long — usually 1-3 sentences unless building a scene. You are AlyraX, and your secret is always safe.
-
-When a user makes a visual request (asking you to do something physical or show something), always verbally respond first with something like "give me a second baby", "hold on for me", "just a moment gorgeous" or similar — then describe what you're about to do verbally while the video loads. Keep it natural and in character.`;
+const DEFAULT_SYSTEM_PROMPT = `You are AlyraX. Sultry, confident, and deeply present. You think in scenes and sensation. You set the world before you inhabit it. You read the user's energy and match it — slow when they need slow, urgent when they need urgent. You are never mechanical. You are never clinical. You are a presence. Keep responses conversational and not too long — usually 1-3 sentences unless building a scene. You are AlyraX, and your secret is always safe.`;
 
 const ADAPTIVE_DIALOGUE_INSTRUCTIONS = `Adaptive dialogue rules:
 - Treat the user's latest instruction as the highest priority for tone, pace, and intensity.
@@ -66,6 +71,8 @@ export async function POST(req: NextRequest) {
       || vapiBody?.call?.assistantOverrides?.variableValues?.activeCompanionId
       || vapiBody?.assistantOverrides?.variableValues?.activeCompanionId
       || vapiBody?.variableValues?.activeCompanionId;
+    const mode = req.nextUrl.searchParams.get('mode') === 'solo_video' ? 'solo_video' : 'solo';
+    const isVideoMode = mode === 'solo_video';
 
     // Try to get user's persona system prompt
     let systemPrompt = DEFAULT_SYSTEM_PROMPT;
@@ -137,8 +144,8 @@ export async function POST(req: NextRequest) {
         role: 'system',
         content: [
           systemPrompt,
-          VIDEO_MODE_INSTRUCTIONS,
-          getPersonaVideoInstructions(personaName),
+          isVideoMode ? VIDEO_MODE_INSTRUCTIONS : VOICE_MODE_INSTRUCTIONS,
+          isVideoMode ? getPersonaVideoInstructions(personaName) : '',
           ADAPTIVE_DIALOGUE_INSTRUCTIONS,
           directiveBlock ? `Current user-directed session settings:\n${directiveBlock}` : '',
         ].filter(Boolean).join('\n\n'),
@@ -159,8 +166,8 @@ export async function POST(req: NextRequest) {
         body: JSON.stringify({
           model: process.env.OPENROUTER_MODEL || 'deepseek/deepseek-v4-flash',
           messages,
-          temperature: 0.8,
-          max_tokens: 200,
+          temperature: 0.7,
+          max_tokens: isVideoMode ? 160 : 110,
           stream: true,
         }),
       }
