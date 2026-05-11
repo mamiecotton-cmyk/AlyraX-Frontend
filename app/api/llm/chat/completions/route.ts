@@ -73,6 +73,14 @@ const PERSONALIZATION_INSTRUCTIONS = `Personalization rules:
 - If last memory exists, subtly pick up from it instead of starting like a stranger.
 - Keep memory references natural and brief; do not recite stored data like a profile.`;
 
+function getModelForMode(isVideoMode: boolean) {
+  if (!isVideoMode && process.env.OPENROUTER_VOICE_MODEL) {
+    return process.env.OPENROUTER_VOICE_MODEL;
+  }
+
+  return process.env.OPENROUTER_MODEL || 'deepseek/deepseek-v4-flash';
+}
+
 export async function POST(req: NextRequest) {
   try {
     const vapiBody = await req.json();
@@ -188,10 +196,10 @@ export async function POST(req: NextRequest) {
           'X-Title': 'AlyraX',
         },
         body: JSON.stringify({
-          model: process.env.OPENROUTER_MODEL || 'deepseek/deepseek-v4-flash',
+          model: getModelForMode(isVideoMode),
           messages,
           temperature: isVideoMode ? 0.7 : 0.85,
-          max_tokens: isVideoMode ? 160 : 420,
+          max_tokens: isVideoMode ? 160 : 300,
           stream: true,
         }),
       }

@@ -18,6 +18,8 @@ type DeepgramMessage = {
 
 const INPUT_SAMPLE_RATE = 24000;
 const OUTPUT_SAMPLE_RATE = 24000;
+const INITIAL_PLAYBACK_BUFFER_SECONDS = 0.12;
+const INTERRUPT_INPUT_LEVEL = 0.075;
 
 class DeepgramVoiceClient {
   private listeners = new Map<string, Set<Listener>>();
@@ -33,6 +35,7 @@ class DeepgramVoiceClient {
   private stopping = false;
   private lastInputLevel = 0;
   private lastLoudInputAt = 0;
+  private activeMode: 'solo' | 'solo_video' = 'solo';
 
   on(event: string, listener: Listener) {
     if (!this.listeners.has(event)) this.listeners.set(event, new Set());
@@ -53,6 +56,7 @@ class DeepgramVoiceClient {
 
   async start(_assistantId?: string, options?: StartOptions) {
     if (this.socket) this.stop();
+    this.activeMode = options?.variableValues?.mode || 'solo';
 
     const tokenResponse = await fetch('/api/deepgram/token', { method: 'POST' });
     const tokenData = await tokenResponse.json();
@@ -135,6 +139,10 @@ class DeepgramVoiceClient {
     if (message.type === 'UserStartedSpeaking') {
       const hasAgentAudio = this.activeSources.length > 0;
       const recentLoudInput = Date.now() - this.lastLoudInputAt < 550;
+
+      if (this.activeMode === 'solo' && hasAgentAudio && !recentLoudInput) {
+        return;
+      }
 
       if (!hasAgentAudio || recentLoudInput) {
         this.stopPlayback();
@@ -220,8 +228,8 @@ class DeepgramVoiceClient {
             type: 'deepgram',
             model: 'flux-general-en',
             version: 'v2',
-            eot_threshold: 0.85,
-            eager_eot_threshold: 0.65,
+            eot_threshold: 0.78,
+            eager_eot_threshold: 0.52,
           },
         },
         think: {
@@ -278,7 +286,7 @@ class DeepgramVoiceClient {
     }
 
     this.lastInputLevel = Math.sqrt(sum / input.length);
-    if (this.lastInputLevel > 0.035) {
+    if (this.lastInputLevel > INTERRUPT_INPUT_LEVEL) {
       this.lastLoudInputAt = Date.now();
     }
   }
@@ -297,6 +305,9 @@ class DeepgramVoiceClient {
 
   private playPcm16(buffer: ArrayBuffer) {
     if (!this.outputContext || buffer.byteLength === 0) return;
+    if (this.outputContext.state === 'suspended') {
+      this.outputContext.resume().catch(() => {});
+    }
 
     const samples = new Int16Array(buffer);
     const audioBuffer = this.outputContext.createBuffer(1, samples.length, OUTPUT_SAMPLE_RATE);
@@ -314,7 +325,9 @@ class DeepgramVoiceClient {
     };
 
     const now = this.outputContext.currentTime;
-    this.playbackTime = Math.max(this.playbackTime, now);
+    if (this.activeSources.length === 0 || this.playbackTime <= now) {
+      this.playbackTime = now + INITIAL_PLAYBACK_BUFFER_SECONDS;
+    }
     source.start(this.playbackTime);
     this.playbackTime += audioBuffer.duration;
     this.activeSources.push(source);
