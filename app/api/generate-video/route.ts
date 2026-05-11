@@ -187,8 +187,12 @@ async function askEuryaleForScenePlan(
     },
     body: JSON.stringify({
       model: OPENROUTER_MODEL,
+      provider: {
+        ignore: ['novita'],
+      },
       max_tokens: 650,
       temperature: 0.45,
+      stream: false,
       messages: [
         {
           role: 'system',
@@ -218,14 +222,34 @@ Return ONLY valid JSON:
   });
 
   const data = await response.json();
-  console.log('OpenRouter response status:', response.status);
-  console.log('OpenRouter data:', JSON.stringify(data).slice(0, 600));
 
-  const content = data.choices?.[0]?.message?.content;
-  if (!response.ok || !content) {
-    console.error('OpenRouter failed:', data);
+  if (!response.ok) {
+    console.error('OpenRouter HTTP error:', {
+      status: response.status,
+      statusText: response.statusText,
+      error: data?.error || data,
+      model: OPENROUTER_MODEL,
+    });
     return null;
   }
+
+  const content = data.choices?.[0]?.message?.content;
+
+  if (!content) {
+    console.error('OpenRouter returned 200 but no content:', {
+      finishReason: data.choices?.[0]?.finish_reason,
+      fullResponse: JSON.stringify(data).slice(0, 800),
+    });
+    return null;
+  }
+
+  console.log('OpenRouter success:', {
+    model: OPENROUTER_MODEL,
+    status: response.status,
+    contentLength: content.length,
+    finishReason: data.choices?.[0]?.finish_reason,
+    usage: data.usage,
+  });
 
   return content.trim();
 }
@@ -235,11 +259,17 @@ async function generateVideoScenePlan(
   conversationHistory: ConversationMessage[],
   wardrobeState: WardrobeState,
   personaName?: string | null,
+  requestId?: string,
+  trace?: string[],
 ): Promise<VideoScenePlan> {
+  const tag = requestId ? `[${requestId}]` : '';
   let retryReason: string | undefined;
 
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
+      trace?.push(`euryale-attempt-${attempt + 1}`);
+      console.log(`${tag} euryale attempt ${attempt + 1}/3${retryReason ? ` (retry: ${retryReason})` : ''}`);
+
       const content = await askEuryaleForScenePlan(
         userMessage,
         conversationHistory,
@@ -248,40 +278,63 @@ async function generateVideoScenePlan(
         retryReason,
       );
 
-      if (!content) break;
+      if (!content) {
+        retryReason = 'provider returned no message content';
+        console.warn(`${tag} euryale returned no content (attempt ${attempt + 1}) — retrying`);
+        trace?.push('euryale-empty-response');
+        continue;
+      }
+
+      console.log(`${tag} euryale raw response (${content.length} chars):`, content.slice(0, 400));
 
       const parsedJson = extractJsonObject(content);
+      if (!parsedJson) {
+        console.warn(`${tag} euryale response did not contain parseable JSON`);
+        trace?.push('json-parse-failed');
+        retryReason = 'response was not valid JSON';
+        continue;
+      }
+
       const rawPrompts = Array.isArray(parsedJson?.prompts)
         ? parsedJson.prompts.filter((prompt): prompt is string => typeof prompt === 'string')
         : [];
 
       if (hasNudeLeak(rawPrompts, wardrobeState)) {
         retryReason = 'nude prompt contained a banned wardrobe word';
-        console.warn('Nude prompt leak detected; regenerating');
+        console.warn(`${tag} validation failed: ${retryReason}`);
+        trace?.push('nude-leak-detected');
         continue;
       }
 
       if (rawPrompts.length < 3 || rawPrompts.length > 6) {
-        retryReason = 'prompt count must be between 3 and 6';
+        retryReason = `prompt count was ${rawPrompts.length}, expected 3-6`;
+        console.warn(`${tag} validation failed: ${retryReason}`);
+        trace?.push('bad-prompt-count');
         continue;
       }
 
+      console.log(`${tag} euryale plan accepted on attempt ${attempt + 1}`);
+      trace?.push(`euryale-success-attempt-${attempt + 1}`);
       return parseScenePlan(content, userMessage, wardrobeState);
     } catch (error) {
-      console.error('OpenRouter scene plan exception:', error);
+      console.error(`${tag} euryale exception on attempt ${attempt + 1}:`, error);
+      trace?.push(`euryale-exception-attempt-${attempt + 1}`);
       retryReason = 'provider error';
     }
   }
 
+  console.warn(`${tag} falling back to buildFallbackScenePlan after all attempts exhausted`);
+  trace?.push('using-fallback');
   return buildFallbackScenePlan(userMessage, wardrobeState);
 }
 
-async function submitAtlasVideo(imageUrl: string, prompts: string[]): Promise<string> {
-  console.log('Atlas submit starting:', {
+async function submitAtlasVideo(imageUrl: string, prompts: string[], requestId?: string): Promise<string> {
+  const tag = requestId ? `[${requestId}]` : '';
+  console.log(`${tag} Atlas submit starting:`, {
     model: ATLAS_MODEL,
-    imageHost: (() => { try { return new URL(imageUrl).host; } catch { return 'invalid-url'; } })(),
+    imageUrl,
     promptCount: prompts.length,
-    promptPreview: prompts[0]?.slice(0, 100),
+    prompts,
   });
 
   const submitResponse = await fetch(
@@ -305,18 +358,24 @@ async function submitAtlasVideo(imageUrl: string, prompts: string[]): Promise<st
 
   if (!submitResponse.ok) {
     const error = await submitResponse.text();
-    console.error('Atlas submit failed:', submitResponse.status, error);
+    console.error(`${tag} Atlas submit FAILED:`, { status: submitResponse.status, body: error });
     throw new Error(`Atlas Cloud submission failed: ${error}`);
   }
 
   const submitData = await submitResponse.json();
-  console.log('Atlas submit response:', JSON.stringify(submitData).slice(0, 500));
+  console.log(`${tag} Atlas submit response:`, JSON.stringify(submitData).slice(0, 500));
   const predictionId = submitData.data?.id || submitData.id;
   if (!predictionId) throw new Error('No prediction ID returned');
   return predictionId;
 }
 
 export async function POST(req: NextRequest) {
+  // Per-request trace ID so you can correlate logs across an async flow.
+  const requestId = `vid-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+  // Tracks which code paths fired during this request.
+  const trace: string[] = [];
+  const t0 = Date.now();
+
   try {
     const {
       userId,
@@ -329,7 +388,7 @@ export async function POST(req: NextRequest) {
 
     const wardrobeState = normalizeWardrobeState(requestedWardrobeState);
 
-    console.log('Video generation request received:', {
+    console.log(`[${requestId}] === VIDEO REQUEST START ===`, {
       hasUserId: Boolean(userId),
       companionId: companionId || null,
       userMessage,
@@ -371,20 +430,25 @@ export async function POST(req: NextRequest) {
       Array.isArray(conversationHistory) ? conversationHistory : [],
       wardrobeState,
       persona?.name,
+      requestId,
+      trace,
     );
 
-    console.log('Video scene plan ready:', {
+    console.log(`[${requestId}] scene plan ready:`, {
       promptCount: scenePlan.prompts.length,
-      promptPreview: scenePlan.prompts[0]?.slice(0, 100),
+      allPrompts: scenePlan.prompts,
       endWardrobeState: scenePlan.endWardrobeState,
       onWait1: scenePlan.onWait1,
       onWait2: scenePlan.onWait2,
       onMid: scenePlan.onMid,
       usingFrameUrl: Boolean(frameUrl),
+      frameUrl: frameUrl || null,
+      trace: trace.join(' → '),
+      elapsedMs: Date.now() - t0,
     });
 
-    const predictionId = await submitAtlasVideo(imageUrl, scenePlan.prompts);
-    console.log('Video generation submitted:', { predictionId });
+    const predictionId = await submitAtlasVideo(imageUrl, scenePlan.prompts, requestId);
+    console.log(`[${requestId}] === VIDEO REQUEST END === predictionId=${predictionId} totalMs=${Date.now() - t0}`);
 
     return NextResponse.json({
       success: true,
@@ -395,7 +459,11 @@ export async function POST(req: NextRequest) {
       onMid: scenePlan.onMid,
     });
   } catch (error) {
-    console.error('Video generation error:', error);
+    console.error(`[${requestId}] === VIDEO REQUEST FAILED ===`, {
+      error: error instanceof Error ? { message: error.message, stack: error.stack } : error,
+      trace: trace.join(' → '),
+      elapsedMs: Date.now() - t0,
+    });
     return NextResponse.json({ error: 'Video generation failed' }, { status: 500 });
   }
 }

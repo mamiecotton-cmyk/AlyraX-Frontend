@@ -220,31 +220,71 @@ export default function DashboardPage() {
     setLoading(false);
   }
 
-  async function extractLastFrame(): Promise<string | null> {
-    if (!videoRef.current || !userIdRef.current) return null;
-    try {
-      const video = videoRef.current;
-      const canvas = document.createElement('canvas');
-      canvas.width = video.videoWidth || 480;
-      canvas.height = video.videoHeight || 854;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return null;
-      ctx.drawImage(video, 0, 0);
+  async function extractLastFrame(clipNumberForLogging?: number): Promise<string | null> {
+    const tag = `[frame-capture clip=${clipNumberForLogging ?? '?'}]`;
 
-      return new Promise((resolve) => {
-        canvas.toBlob(async (blob) => {
-          if (!blob) { resolve(null); return; }
-          const fileName = `${userIdRef.current}/frame-${Date.now()}.jpg`;
-          const { data, error } = await supabase.storage
-            .from('companions')
-            .upload(fileName, blob, { contentType: 'image/jpeg', upsert: true });
-          if (error) { console.error('Frame upload error:', error); resolve(null); return; }
-          const { data: urlData } = supabase.storage.from('companions').getPublicUrl(data.path);
-          resolve(urlData.publicUrl);
-        }, 'image/jpeg', 0.92);
+    if (!videoRef.current) {
+      console.warn(`${tag} skipped: no video element`);
+      return null;
+    }
+    if (!userIdRef.current) {
+      console.warn(`${tag} skipped: no userId`);
+      return null;
+    }
+
+    const video = videoRef.current;
+    const videoWidth = video.videoWidth;
+    const videoHeight = video.videoHeight;
+
+    // If the video element has been torn down or hasn't loaded metadata,
+    // videoWidth will be 0. Bail out rather than silently writing a blank frame.
+    if (!videoWidth || !videoHeight) {
+      console.warn(`${tag} skipped: video has no dimensions (w=${videoWidth} h=${videoHeight}) — likely torn down or unloaded`);
+      return null;
+    }
+
+    try {
+      const canvas = document.createElement('canvas');
+      canvas.width = videoWidth;
+      canvas.height = videoHeight;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        console.error(`${tag} failed: could not get 2d context`);
+        return null;
+      }
+
+      try {
+        ctx.drawImage(video, 0, 0);
+      } catch (drawErr) {
+        // drawImage throws SecurityError if the video is tainted (cross-origin without CORS)
+        console.error(`${tag} failed: drawImage threw`, drawErr);
+        return null;
+      }
+
+      const blob = await new Promise<Blob | null>((resolve) => {
+        canvas.toBlob((b) => resolve(b), 'image/jpeg', 0.92);
       });
+
+      if (!blob) {
+        console.error(`${tag} failed: canvas.toBlob returned null`);
+        return null;
+      }
+
+      const fileName = `${userIdRef.current}/frame-${Date.now()}.jpg`;
+      const { data, error } = await supabase.storage
+        .from('companions')
+        .upload(fileName, blob, { contentType: 'image/jpeg', upsert: true });
+
+      if (error) {
+        console.error(`${tag} failed: supabase upload error`, error);
+        return null;
+      }
+
+      const { data: urlData } = supabase.storage.from('companions').getPublicUrl(data.path);
+      console.log(`${tag} captured: ${urlData.publicUrl}`);
+      return urlData.publicUrl;
     } catch (err) {
-      console.error('Frame extraction error:', err);
+      console.error(`${tag} failed: unexpected error`, err);
       return null;
     }
   }
@@ -437,8 +477,22 @@ export default function DashboardPage() {
 
   const handleVideoEnded = async () => {
     clearMidTimer();
-    const lastFrame = await extractLastFrame();
-    if (lastFrame) lastFrameUrlRef.current = lastFrame;
+
+    // Capture the actual last frame of THIS clip before anything else runs.
+    // Pass the clip number for debug logging so you can match frame captures to clips.
+    const endingClipNumber = clipNumberRef.current;
+    const lastFrame = await extractLastFrame(endingClipNumber);
+
+    if (lastFrame) {
+      lastFrameUrlRef.current = lastFrame;
+    } else {
+      // CRITICAL: do NOT silently fall through with the previous clip's frame.
+      // The previous behavior reused stale frames, which is the root cause of
+      // the "same frame across multiple clips" bug in Atlas request logs.
+      console.warn(
+        `[frame-capture clip=${endingClipNumber}] no fresh frame captured — keeping previous: ${lastFrameUrlRef.current}`
+      );
+    }
 
     if (readyLineTimerRef.current && isLoopingRef.current) { loopVideoTail(); return; }
     const next = videoQueueRef.current.shift();
