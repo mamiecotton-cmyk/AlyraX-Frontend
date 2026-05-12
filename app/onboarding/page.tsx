@@ -1,6 +1,7 @@
 'use client';
-import { useState } from 'react';
+import { type ChangeEvent, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { createClient } from '@/lib/supabase';
 
 const BODY_TYPES = ['Petite', 'Slim', 'Athletic', 'Curvy', 'Plus size'];
 const HAIR_COLORS = ['Black', 'Brown', 'Blonde', 'Red', 'Silver', 'Auburn'];
@@ -50,11 +51,14 @@ const PERSONAS = [
 
 export default function OnboardingPage() {
   const router = useRouter();
+  const supabase = useMemo(() => createClient(), []);
 
   const [step, setStep] = useState(1);
   const [generating, setGenerating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [generatedImage, setGeneratedImage] = useState('');
+  const [inspirationImageUrl, setInspirationImageUrl] = useState('');
+  const [inspirationStatus, setInspirationStatus] = useState('');
   const [companionName, setCompanionName] = useState('AlyraX');
   const [selectedPersonaIndex, setSelectedPersonaIndex] = useState(0);
 
@@ -105,13 +109,52 @@ export default function OnboardingPage() {
 
   const buildPrompt = () => buildPromptFromDraft(getDraft());
 
+  const uploadInspirationImage = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+
+    setInspirationStatus('Uploading inspiration');
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const extension = file.name.split('.').pop()?.toLowerCase() || 'png';
+      const fileName = `${user.id}/inspiration/${Date.now()}.${extension}`;
+      const { data, error } = await supabase.storage
+        .from('companions')
+        .upload(fileName, file, {
+          contentType: file.type || 'image/png',
+          upsert: true,
+        });
+
+      if (error) throw error;
+
+      const { data: urlData } = supabase.storage
+        .from('companions')
+        .getPublicUrl(data.path);
+
+      setInspirationImageUrl(urlData.publicUrl);
+      setInspirationStatus('Inspiration saved');
+    } catch (error) {
+      console.error('Inspiration upload failed:', error);
+      setInspirationStatus('Inspiration upload failed');
+    }
+  };
+
   const generateFromPrompt = async (prompt: string) => {
     setGenerating(true);
     try {
       const response = await fetch('/api/generate-companion', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ description: prompt, style: 'portrait' }),
+        body: JSON.stringify({
+          description: prompt,
+          style: 'portrait',
+          reference_image_url: inspirationImageUrl || undefined,
+          reference_strength: inspirationImageUrl ? 0.82 : undefined,
+          reference_mode: inspirationImageUrl ? 'inspiration' : undefined,
+        }),
       });
       const data = await response.json();
       if (data.image_url) {
@@ -146,6 +189,7 @@ export default function OnboardingPage() {
           eyeColor,
           vibe,
           ageRange,
+          inspirationImageUrl,
         }),
       });
 
@@ -180,6 +224,33 @@ export default function OnboardingPage() {
         {step === 1 && (
           <div className="flex flex-col gap-5">
             <h2 className="text-xl font-bold">Design your companion</h2>
+
+            <div className="border border-gray-800 bg-black/40 rounded-xl p-4">
+              <label className="text-xs uppercase text-gray-500 tracking-widest mb-2 block">
+                Inspiration Image
+              </label>
+              <div className="flex items-center gap-3">
+                <label className="cursor-pointer border border-gray-700 text-gray-300 px-3 py-2 rounded-lg text-sm hover:border-gray-500 transition">
+                  Choose Image
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={uploadInspirationImage}
+                    className="hidden"
+                  />
+                </label>
+                <span className="text-xs text-gray-500">
+                  {inspirationStatus || 'Used for loose inspiration only'}
+                </span>
+              </div>
+              {inspirationImageUrl && (
+                <img
+                  src={inspirationImageUrl}
+                  alt="Inspiration"
+                  className="mt-3 h-24 w-20 object-cover rounded-lg border border-gray-700"
+                />
+              )}
+            </div>
 
             {/* Body Type */}
             <div>

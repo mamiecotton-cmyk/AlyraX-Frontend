@@ -15,6 +15,7 @@ export async function POST(req: NextRequest) {
       eyeColor,
       vibe,
       ageRange,
+      inspirationImageUrl,
     } = await req.json();
 
     if (!companionName || !imageUrl || typeof personaIndex !== 'number') {
@@ -57,6 +58,7 @@ export async function POST(req: NextRequest) {
           eyeColor,
           vibe,
           ageRange,
+          inspirationImageUrl,
         }),
       })
       .select('id')
