@@ -74,9 +74,6 @@ function buildPrompt(guided: GuidedPrompt) {
   const wardrobe = normalizeWardrobe(guided.wardrobe);
 
   return [
-    'adult woman only',
-    'preserve the selected companion identity exactly',
-    'keep the same face, age, ethnicity, hair, body size, and body proportions as the companion',
     guided.action && `required visible action: ${guided.action}`,
     guided.location && `specific location: ${guided.location}`,
     `specific wardrobe: ${wardrobe}`,
@@ -85,7 +82,7 @@ function buildPrompt(guided: GuidedPrompt) {
     guided.lighting && `lighting: ${guided.lighting}`,
     guided.details && `scene details: ${guided.details}`,
     'natural hands and natural feet, anatomically correct toes, grounded feet, uncropped subject',
-    'do not change identity, do not invent a different woman, do not alter age, face, body type, or proportions',
+    'use the anchored reference image as the only source of truth for the subject',
   ].filter(Boolean).join(', ');
 }
 
@@ -256,9 +253,9 @@ export default function CreatePage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         description: [
-          'use only the selected companion profile image as the source for identity, face, age, hair, body size, and body proportions',
-          'private full-body character reference, no clothing, neutral standing pose, front-facing, arms slightly away from body',
-          'plain studio background, head to toe visible, feet visible, natural posture, do not reinterpret the woman from text',
+          'use the anchored reference image as the only source of truth for the subject',
+          'full-body character anchor, nude, neutral standing pose, front-facing, arms slightly away from body',
+          'plain studio background, head to toe visible, feet visible, natural posture',
         ].join(', '),
         style: 'fullbody',
         num_inference_steps: Math.max(steps, 30),

@@ -71,16 +71,16 @@ export async function POST(req: NextRequest) {
 
     const { width, height, composition, negative } = getImageSettings(style);
 
-    const identityInstruction = reference_image_url && reference_mode === 'inspiration'
-      ? 'adult woman, use the companion as visual inspiration only'
+    const referenceInstruction = reference_image_url && reference_mode === 'inspiration'
+      ? 'use the anchored reference image for visual inspiration'
       : reference_image_url
-        ? 'adult woman, preserve the companion identity exactly, same face, age, ethnicity, hair, body size, and body proportions'
-        : 'adult woman, consistent identity, realistic face and body proportions';
+        ? 'use the anchored reference image as the only source of truth for the subject'
+        : '';
 
     const qualityTags = 'hyper-realistic, professional studio lighting, sharp focus, realistic skin texture, premium detail';
 
     const prompt = [
-      identityInstruction,
+      referenceInstruction,
       description,
       composition,
       'natural hands, natural feet, anatomically correct toes, grounded feet',
