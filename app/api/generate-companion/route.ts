@@ -40,14 +40,14 @@ export async function POST(req: NextRequest) {
       guidance_scale = 3.5,
       seed = -1,
       reference_image_url,
-      reference_strength = 0.42,
+      reference_strength = 0.25,
     } = await req.json();
 
     const { width, height, composition, negative } = getImageSettings(style);
 
     const qualityTags = 'photorealistic, highly detailed, professional photography, sharp focus, beautiful studio lighting, 8k uhd, masterpiece';
 
-    const prompt = `${qualityTags}, ${description}, ${composition}, required action must be clearly visible, preserve the selected companion identity, preserve body type and proportions across the whole pack`;
+    const prompt = `${qualityTags}, ${description}, ${composition}, required action must be clearly visible, the selected companion image is the source of truth for the woman, preserve exact identity, face, body size, and body proportions across the whole pack, only interpret requested scene/action/background or additional people`;
 
     // Submit job async
     const imageEndpointId = process.env.RUNPOD_IMAGE_ENDPOINT_ID;

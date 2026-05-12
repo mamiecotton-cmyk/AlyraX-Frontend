@@ -26,7 +26,6 @@ type GeneratedImage = {
 type GuidedPrompt = {
   location: string;
   action: string;
-  bodyType: string;
   wardrobe: string;
   mood: string;
   camera: string;
@@ -45,7 +44,6 @@ const packSizes: PackSize[] = [1, 5, 10, 20];
 const initialGuidedPrompt: GuidedPrompt = {
   location: '',
   action: '',
-  bodyType: '',
   wardrobe: '',
   mood: '',
   camera: 'editorial photography, natural proportions, premium detail',
@@ -57,16 +55,15 @@ function buildPrompt(companion: Companion | null, guided: GuidedPrompt) {
   const identity = companion?.prompt_used || companion?.name || '';
 
   return [
-    identity && `same companion as the selected anchor image, preserve her face, age, ethnicity, hairstyle, body type, and overall identity: ${identity}`,
+    identity && `exact same woman as the selected anchor image, preserve her face, age, ethnicity, hairstyle, body size, body proportions, and overall identity without reinterpretation: ${identity}`,
     guided.action && `required visible action: ${guided.action}`,
-    guided.bodyType && `non-negotiable body type: ${guided.bodyType}, keep this exact body type in every image`,
     guided.location && `specific location: ${guided.location}`,
     guided.wardrobe && `specific wardrobe: ${guided.wardrobe}`,
     guided.mood && `expression and mood: ${guided.mood}`,
     guided.camera && `camera and framing: ${guided.camera}`,
     guided.lighting && `lighting: ${guided.lighting}`,
     guided.details && `scene details: ${guided.details}`,
-    'do not change the companion into a different person, do not slim or alter her body type, action must be clearly visible, uncropped subject, cohesive character consistency, high-end image pack quality',
+    'the anchor image is the source of truth for the woman, do not invent a new woman, do not slim her, do not alter her body size, only interpret requested scene/action/background or additional people, action must be clearly visible, uncropped subject, cohesive character consistency',
   ].filter(Boolean).join(', ');
 }
 
@@ -180,7 +177,7 @@ export default function CreatePage() {
         guidance_scale: guidance,
         seed: imageSeed,
         reference_image_url: selectedCompanion?.image_url,
-        reference_strength: 0.42,
+        reference_strength: 0.25,
       }),
     });
     const data = await response.json();
@@ -337,15 +334,6 @@ export default function CreatePage() {
                   value={guided.wardrobe}
                   onChange={(event) => updateGuided('wardrobe', event.target.value)}
                   placeholder="Designer suit"
-                  className="h-11 w-full border border-zinc-800 bg-black px-3 text-sm outline-none placeholder:text-zinc-700 focus:border-red-500"
-                />
-              </label>
-              <label className="block">
-                <span className="mb-2 block text-xs uppercase tracking-[0.2em] text-zinc-500">Body Type</span>
-                <input
-                  value={guided.bodyType}
-                  onChange={(event) => updateGuided('bodyType', event.target.value)}
-                  placeholder="Plus sized, curvy"
                   className="h-11 w-full border border-zinc-800 bg-black px-3 text-sm outline-none placeholder:text-zinc-700 focus:border-red-500"
                 />
               </label>
