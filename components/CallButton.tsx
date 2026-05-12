@@ -10,6 +10,7 @@ export default function CallButton({
   companionName,
   personaName,
   personaTagline,
+  promptUsed,
   userName,
   lastMemory,
 }: {
@@ -19,6 +20,7 @@ export default function CallButton({
   companionName?: string | null;
   personaName?: string | null;
   personaTagline?: string | null;
+  promptUsed?: string | null;
   userName?: string | null;
   lastMemory?: CompanionMemory | null;
 }) {
@@ -78,6 +80,7 @@ export default function CallButton({
         companionName: companionName || undefined,
         personaName: personaName || undefined,
         personaTagline: personaTagline || undefined,
+        promptUsed: promptUsed || undefined,
         userName: userName || undefined,
         lastMemory: lastMemory?.summary || lastMemory?.lastUserMessage || undefined,
       };

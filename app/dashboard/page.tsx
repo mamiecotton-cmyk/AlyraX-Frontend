@@ -19,6 +19,7 @@ type Companion = {
   id: string;
   name: string;
   image_url: string;
+  prompt_used?: string | null;
   persona_id: string;
   personas: {
     name: string;
@@ -753,6 +754,7 @@ export default function DashboardPage() {
               companionName={companion?.name}
               personaName={companion?.personas?.name}
               personaTagline={companion?.personas?.tagline}
+              promptUsed={companion?.prompt_used}
               userName={userName}
               lastMemory={lastMemory}
             />

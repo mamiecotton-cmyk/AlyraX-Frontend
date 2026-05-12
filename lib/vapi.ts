@@ -11,6 +11,7 @@ type StartOptions = {
     companionName?: string;
     personaName?: string;
     personaTagline?: string;
+    promptUsed?: string;
     userName?: string;
     lastMemory?: string;
   };
@@ -240,6 +241,7 @@ class DeepgramVoiceClient {
     if (values.companionName) llmUrl.searchParams.set('companionName', values.companionName);
     if (values.personaName) llmUrl.searchParams.set('personaName', values.personaName);
     if (values.personaTagline) llmUrl.searchParams.set('personaTagline', values.personaTagline);
+    if (values.promptUsed) llmUrl.searchParams.set('promptUsed', values.promptUsed.slice(0, 1000));
     if (values.userName) llmUrl.searchParams.set('userName', values.userName);
     if (values.lastMemory) llmUrl.searchParams.set('lastMemory', values.lastMemory.slice(0, 500));
 

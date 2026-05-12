@@ -3,7 +3,19 @@ import { createClient } from '@/lib/supabase-server';
 
 export async function POST(req: NextRequest) {
   try {
-    const { companionName, imageUrl, promptUsed, personaIndex } = await req.json();
+    const {
+      companionName,
+      imageUrl,
+      promptUsed,
+      personaIndex,
+      bodyType,
+      ethnicity,
+      hairColor,
+      hairStyle,
+      eyeColor,
+      vibe,
+      ageRange,
+    } = await req.json();
 
     if (!companionName || !imageUrl || typeof personaIndex !== 'number') {
       return NextResponse.json({ error: 'Missing companion data' }, { status: 400 });
@@ -36,7 +48,16 @@ export async function POST(req: NextRequest) {
         persona_id: selectedPersona.id,
         name: companionName,
         image_url: imageUrl,
-        prompt_used: promptUsed,
+        prompt_used: JSON.stringify({
+          prompt: promptUsed,
+          bodyType,
+          ethnicity,
+          hairColor,
+          hairStyle,
+          eyeColor,
+          vibe,
+          ageRange,
+        }),
       })
       .select('id')
       .single();

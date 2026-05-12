@@ -126,6 +126,13 @@ export default function OnboardingPage() {
           imageUrl: generatedImage,
           promptUsed: buildPrompt(),
           personaIndex: selectedPersonaIndex,
+          bodyType,
+          ethnicity,
+          hairColor,
+          hairStyle,
+          eyeColor,
+          vibe,
+          ageRange,
         }),
       });
 
