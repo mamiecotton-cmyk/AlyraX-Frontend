@@ -721,7 +721,10 @@ export default function DashboardPage() {
             </div>
           )}
 
-          <button onClick={(e) => { e.stopPropagation(); router.push('/onboarding'); }} className="text-xs text-yellow-500 hover:text-yellow-400 transition">Add Persona</button>
+          <div className="flex gap-4">
+            <button onClick={(e) => { e.stopPropagation(); router.push('/create'); }} className="text-xs text-red-400 hover:text-red-300 transition">Create Media</button>
+            <button onClick={(e) => { e.stopPropagation(); router.push('/onboarding'); }} className="text-xs text-yellow-500 hover:text-yellow-400 transition">Add Persona</button>
+          </div>
 
           <div className="flex gap-2">
             {[

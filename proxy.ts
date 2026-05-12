@@ -15,7 +15,7 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL('/verify', request.url))
   }
 
-  const protectedPaths = ['/dashboard', '/call', '/credits']
+  const protectedPaths = ['/dashboard', '/call', '/credits', '/create']
   const isProtected = protectedPaths.some((p) => pathname.startsWith(p))
 
   // --- Supabase session refresh + auth guard ---

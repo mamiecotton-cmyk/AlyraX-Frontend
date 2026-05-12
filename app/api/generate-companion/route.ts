@@ -2,6 +2,35 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export const maxDuration = 300;
 
+function getImageSettings(style: string) {
+  const baseNegative = 'ugly, deformed, blurry, low quality, cartoon, anime, bad anatomy, watermark, text, extra limbs, missing limbs, mutated hands, poorly drawn face';
+
+  if (style === 'fullbody') {
+    return {
+      width: 768,
+      height: 1024,
+      composition: 'full body shot, standing elegantly, head to toe visible, neutral studio background',
+      negative: `${baseNegative}, cropped head, cropped face, cropped feet, cropped legs, out of frame, close-up, extreme close-up`,
+    };
+  }
+
+  if (style === 'fullscreen') {
+    return {
+      width: 1024,
+      height: 1792,
+      composition: 'full screen vertical cinematic scene, entire frame composed for a phone screen, subject clearly visible with environmental detail',
+      negative: `${baseNegative}, tiny subject, empty frame, cropped head, cropped face, awkward framing, horizontal crop`,
+    };
+  }
+
+  return {
+    width: 512,
+    height: 1024,
+    composition: 'front-facing waist-up portrait, centered subject, looking directly at camera, face clearly visible, shoulders chest and waist visible, seductive elegant pose, hands naturally visible near torso, vertical profile image, enough room around upper body for animation',
+    negative: `${baseNegative}, side profile, back view, turned away, full body, extreme close-up, cropped head, cropped face, cropped shoulders, cropped torso, cropped arms, out of frame`,
+  };
+}
+
 export async function POST(req: NextRequest) {
   try {
     const {
@@ -12,14 +41,9 @@ export async function POST(req: NextRequest) {
       seed = -1,
     } = await req.json();
 
-    const width = style === 'fullbody' ? 768 : 512;
-    const height = 1024;
+    const { width, height, composition, negative } = getImageSettings(style);
 
     const qualityTags = 'photorealistic, highly detailed, professional photography, sharp focus, beautiful studio lighting, 8k uhd, masterpiece';
-    const composition = style === 'fullbody'
-      ? 'full body shot, standing elegantly, neutral studio background'
-      : 'front-facing waist-up portrait, centered subject, looking directly at camera, face clearly visible, shoulders chest and waist visible, seductive elegant pose, hands naturally visible near torso, vertical profile image, enough room around upper body for animation';
-    const negative = 'ugly, deformed, blurry, low quality, cartoon, anime, bad anatomy, watermark, text, extra limbs, missing limbs, mutated hands, poorly drawn face, side profile, back view, turned away, full body, extreme close-up, cropped head, cropped face, cropped shoulders, cropped torso, cropped arms, out of frame';
 
     const prompt = `${qualityTags}, ${composition}, ${description}`;
 
