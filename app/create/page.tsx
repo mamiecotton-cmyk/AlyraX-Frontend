@@ -14,6 +14,13 @@ type Companion = {
   prompt_used?: string | null;
 };
 
+type CompanionMetadata = {
+  prompt?: string;
+  fullBodyAnchorUrl?: string;
+  nudeAnchorUrl?: string;
+  bodyReferenceUrl?: string;
+};
+
 type GeneratedImage = {
   id: string;
   image_url: string;
@@ -52,7 +59,8 @@ const initialGuidedPrompt: GuidedPrompt = {
 };
 
 function buildPrompt(companion: Companion | null, guided: GuidedPrompt) {
-  const identity = companion?.prompt_used || companion?.name || '';
+  const metadata = parseCompanionMetadata(companion?.prompt_used);
+  const identity = metadata.prompt || companion?.name || '';
 
   return [
     identity && `exact same woman as the selected anchor image, preserve her face, age, ethnicity, hairstyle, body size, body proportions, and overall identity without reinterpretation: ${identity}`,
@@ -65,6 +73,29 @@ function buildPrompt(companion: Companion | null, guided: GuidedPrompt) {
     guided.details && `scene details: ${guided.details}`,
     'the anchor image is the source of truth for the woman, do not invent a new woman, do not slim her, do not alter her body size, only interpret requested scene/action/background or additional people, action must be clearly visible, uncropped subject, cohesive character consistency',
   ].filter(Boolean).join(', ');
+}
+
+function parseCompanionMetadata(promptUsed?: string | null): CompanionMetadata {
+  if (!promptUsed) return {};
+
+  try {
+    const parsed = JSON.parse(promptUsed) as CompanionMetadata;
+    return parsed && typeof parsed === 'object' ? parsed : { prompt: promptUsed };
+  } catch {
+    return { prompt: promptUsed };
+  }
+}
+
+function getCompanionAnchorUrl(companion: Companion | null, style: ImageStyle) {
+  if (!companion) return undefined;
+  const metadata = parseCompanionMetadata(companion.prompt_used);
+  const fullBodyAnchor = metadata.fullBodyAnchorUrl || metadata.nudeAnchorUrl || metadata.bodyReferenceUrl;
+
+  if (style === 'fullbody' || style === 'fullscreen') {
+    return fullBodyAnchor || companion.image_url;
+  }
+
+  return companion.image_url;
 }
 
 export default function CreatePage() {
@@ -176,7 +207,7 @@ export default function CreatePage() {
         num_inference_steps: steps,
         guidance_scale: guidance,
         seed: imageSeed,
-        reference_image_url: selectedCompanion?.image_url,
+        reference_image_url: getCompanionAnchorUrl(selectedCompanion, style),
         reference_strength: 0.25,
       }),
     });
@@ -308,6 +339,12 @@ export default function CreatePage() {
                 ))}
               </select>
             </label>
+
+            <div className="border border-zinc-800 bg-black px-3 py-2 text-xs text-zinc-500">
+              {getCompanionAnchorUrl(selectedCompanion, style) === selectedCompanion?.image_url
+                ? 'Using profile image as anchor'
+                : 'Using private full-body character anchor'}
+            </div>
 
             <div className="grid grid-cols-2 gap-3">
               <label className="block">
