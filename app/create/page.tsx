@@ -1,22 +1,36 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase';
 
 type ImageStyle = 'portrait' | 'fullbody' | 'fullscreen';
+type PackSize = 1 | 5 | 10 | 20;
 
 type Companion = {
   id: string;
   name: string;
   image_url: string;
+  prompt_used?: string | null;
 };
 
 type GeneratedImage = {
+  id: string;
   image_url: string;
   seed?: number;
   width?: number;
   height?: number;
+  prompt: string;
+};
+
+type GuidedPrompt = {
+  location: string;
+  action: string;
+  wardrobe: string;
+  mood: string;
+  camera: string;
+  lighting: string;
+  details: string;
 };
 
 const styleOptions: Array<{ key: ImageStyle; label: string; size: string }> = [
@@ -25,25 +39,71 @@ const styleOptions: Array<{ key: ImageStyle; label: string; size: string }> = [
   { key: 'fullscreen', label: 'Full Screen', size: '1024 x 1792' },
 ];
 
+const packSizes: PackSize[] = [1, 5, 10, 20];
+
+const initialGuidedPrompt: GuidedPrompt = {
+  location: '',
+  action: '',
+  wardrobe: '',
+  mood: '',
+  camera: 'editorial photography, natural proportions, premium detail',
+  lighting: 'cinematic soft key light, realistic skin texture',
+  details: '',
+};
+
+function buildPrompt(companion: Companion | null, guided: GuidedPrompt) {
+  const identity = companion?.prompt_used
+    ? `Companion identity: ${companion.prompt_used}`
+    : companion?.name
+      ? `Companion identity: ${companion.name}`
+      : '';
+
+  return [
+    identity,
+    guided.location && `Location: ${guided.location}`,
+    guided.action && `Action: ${guided.action}`,
+    guided.wardrobe && `Wardrobe: ${guided.wardrobe}`,
+    guided.mood && `Mood: ${guided.mood}`,
+    guided.camera && `Camera: ${guided.camera}`,
+    guided.lighting && `Lighting: ${guided.lighting}`,
+    guided.details && `Additional details: ${guided.details}`,
+    'cohesive character consistency, tasteful composition, high-end image pack quality',
+  ].filter(Boolean).join(', ');
+}
+
 export default function CreatePage() {
   const router = useRouter();
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   const [userId, setUserId] = useState<string | null>(null);
-  const [companion, setCompanion] = useState<Companion | null>(null);
+  const [companions, setCompanions] = useState<Companion[]>([]);
+  const [selectedCompanionId, setSelectedCompanionId] = useState('');
+  const [guided, setGuided] = useState<GuidedPrompt>(initialGuidedPrompt);
   const [prompt, setPrompt] = useState('');
   const [videoPrompt, setVideoPrompt] = useState('');
   const [style, setStyle] = useState<ImageStyle>('portrait');
+  const [packSize, setPackSize] = useState<PackSize>(1);
   const [steps, setSteps] = useState(20);
   const [guidance, setGuidance] = useState(3.5);
   const [seed, setSeed] = useState('');
   const [lastSeed, setLastSeed] = useState<number | null>(null);
-  const [generatedImage, setGeneratedImage] = useState<GeneratedImage | null>(null);
+  const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>([]);
+  const [selectedImageId, setSelectedImageId] = useState('');
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [imageStatus, setImageStatus] = useState('');
   const [videoStatus, setVideoStatus] = useState('');
   const [error, setError] = useState('');
+
+  const selectedCompanion = useMemo(
+    () => companions.find(item => item.id === selectedCompanionId) || companions[0] || null,
+    [companions, selectedCompanionId],
+  );
+
+  const selectedImage = useMemo(
+    () => generatedImages.find(image => image.id === selectedImageId) || generatedImages[0] || null,
+    [generatedImages, selectedImageId],
+  );
 
   useEffect(() => {
     let active = true;
@@ -57,29 +117,37 @@ export default function CreatePage() {
       }
 
       setUserId(user.id);
-      const activeCompanionId = user.user_metadata?.active_companion_id;
-      let companionQuery = supabase
+      const { data } = await supabase
         .from('companions')
-        .select('id, name, image_url')
+        .select('id, name, image_url, prompt_used')
         .eq('user_id', user.id);
 
-      if (activeCompanionId) companionQuery = companionQuery.eq('id', activeCompanionId);
-
-      const { data } = await companionQuery.limit(1).maybeSingle();
       if (!active) return;
 
-      if (!data) {
+      if (!data || data.length === 0) {
         router.push('/onboarding');
         return;
       }
 
-      setCompanion(data);
+      const activeCompanionId = user.user_metadata?.active_companion_id;
+      setCompanions(data);
+      setSelectedCompanionId(activeCompanionId || data[0].id);
       setLoading(false);
     }
 
     loadData();
     return () => { active = false; };
   }, [router, supabase]);
+
+  function updateGuided(key: keyof GuidedPrompt, value: string) {
+    setGuided(current => ({ ...current, [key]: value }));
+  }
+
+  function generatePromptFromFields() {
+    const nextPrompt = buildPrompt(selectedCompanion, guided);
+    setPrompt(nextPrompt);
+    return nextPrompt;
+  }
 
   async function pollVideo(predictionId: string) {
     for (let attempt = 0; attempt < 120; attempt++) {
@@ -99,36 +167,64 @@ export default function CreatePage() {
     throw new Error('Video generation timed out');
   }
 
-  async function generateImage() {
-    if (!prompt.trim()) return;
+  async function generateOneImage(basePrompt: string, index: number): Promise<GeneratedImage> {
+    const baseSeed = seed.trim() ? Number(seed) : -1;
+    const imageSeed = baseSeed >= 0 ? baseSeed + index : -1;
+
+    const response = await fetch('/api/generate-companion', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        description: basePrompt,
+        style,
+        num_inference_steps: steps,
+        guidance_scale: guidance,
+        seed: imageSeed,
+      }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Image generation failed');
+
+    return {
+      id: `${Date.now()}-${index}-${data.seed ?? imageSeed}`,
+      image_url: data.image_url,
+      seed: data.seed,
+      width: data.width,
+      height: data.height,
+      prompt: basePrompt,
+    };
+  }
+
+  async function generateImagePack() {
+    const basePrompt = prompt.trim() || generatePromptFromFields();
+    if (!basePrompt.trim()) return;
+
     setError('');
     setVideoUrl(null);
-    setImageStatus('Generating image');
-    setGeneratedImage(null);
+    setGeneratedImages([]);
+    setSelectedImageId('');
+    setImageStatus(`Generating 0/${packSize}`);
+
+    const results: GeneratedImage[] = [];
+    let nextIndex = 0;
+    const workerCount = Math.min(2, packSize);
 
     try {
-      const response = await fetch('/api/generate-companion', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          description: prompt.trim(),
-          style,
-          num_inference_steps: steps,
-          guidance_scale: guidance,
-          seed: seed.trim() ? Number(seed) : -1,
-        }),
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Image generation failed');
+      async function worker() {
+        while (nextIndex < packSize) {
+          const currentIndex = nextIndex;
+          nextIndex += 1;
+          const image = await generateOneImage(basePrompt, currentIndex);
+          results[currentIndex] = image;
+          setGeneratedImages(results.filter(Boolean));
+          setSelectedImageId(current => current || image.id);
+          if (typeof image.seed === 'number') setLastSeed(image.seed);
+          setImageStatus(`Generating ${results.filter(Boolean).length}/${packSize}`);
+        }
+      }
 
-      setGeneratedImage({
-        image_url: data.image_url,
-        seed: data.seed,
-        width: data.width,
-        height: data.height,
-      });
-      if (typeof data.seed === 'number') setLastSeed(data.seed);
-      setImageStatus('Image ready');
+      await Promise.all(Array.from({ length: workerCount }, () => worker()));
+      setImageStatus(packSize === 1 ? 'Image ready' : `${packSize} images ready`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Image generation failed');
       setImageStatus('');
@@ -136,7 +232,10 @@ export default function CreatePage() {
   }
 
   async function generateVideo() {
-    if (!generatedImage?.image_url || !userId || !companion || !prompt.trim()) return;
+    if (!selectedImage?.image_url || !userId || !selectedCompanion) return;
+    const scenePrompt = (videoPrompt || selectedImage.prompt || prompt).trim();
+    if (!scenePrompt) return;
+
     setError('');
     setVideoUrl(null);
     setVideoStatus('Starting video');
@@ -147,13 +246,13 @@ export default function CreatePage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           userId,
-          companionId: companion.id,
-          userMessage: (videoPrompt || prompt).trim(),
-          frameUrl: generatedImage.image_url,
+          companionId: selectedCompanion.id,
+          userMessage: scenePrompt,
+          frameUrl: selectedImage.image_url,
           wardrobeState: 'clothed',
           conversationHistory: [
-            { role: 'user', content: prompt.trim() },
-            { role: 'assistant', content: (videoPrompt || prompt).trim() },
+            { role: 'user', content: selectedImage.prompt },
+            { role: 'assistant', content: scenePrompt },
           ],
         }),
       });
@@ -178,12 +277,14 @@ export default function CreatePage() {
     );
   }
 
-  const canGenerateImage = prompt.trim().length > 0 && imageStatus !== 'Generating image';
-  const canGenerateVideo = Boolean(generatedImage?.image_url && userId && companion && videoStatus !== 'Starting video' && !videoStatus.startsWith('Rendering'));
+  const isGeneratingImages = imageStatus.startsWith('Generating');
+  const isGeneratingVideo = videoStatus === 'Starting video' || videoStatus.startsWith('Rendering');
+  const canGenerateImage = !isGeneratingImages;
+  const canGenerateVideo = Boolean(selectedImage?.image_url && userId && selectedCompanion && !isGeneratingVideo);
 
   return (
     <main className="min-h-screen bg-zinc-950 text-zinc-100">
-      <div className="mx-auto grid min-h-screen w-full max-w-7xl grid-cols-1 lg:grid-cols-[420px_1fr]">
+      <div className="mx-auto grid min-h-screen w-full max-w-7xl grid-cols-1 lg:grid-cols-[460px_1fr]">
         <section className="border-b border-zinc-800/80 bg-zinc-950 px-5 py-5 lg:border-b-0 lg:border-r">
           <div className="mb-6 flex items-center justify-between">
             <button
@@ -193,19 +294,109 @@ export default function CreatePage() {
             >
               Dashboard
             </button>
-            <span className="text-xs text-red-300">{companion?.name}</span>
+            <span className="text-xs text-red-300">{selectedCompanion?.name}</span>
           </div>
 
           <div className="space-y-5">
-            <div>
-              <label className="mb-2 block text-xs font-bold uppercase tracking-[0.2em] text-zinc-500">
-                Prompt
+            <label className="block">
+              <span className="mb-2 block text-xs font-bold uppercase tracking-[0.2em] text-zinc-500">Companion</span>
+              <select
+                value={selectedCompanionId}
+                onChange={(event) => setSelectedCompanionId(event.target.value)}
+                className="h-11 w-full border border-zinc-800 bg-black px-3 text-sm outline-none focus:border-red-500"
+              >
+                {companions.map(item => (
+                  <option key={item.id} value={item.id}>{item.name}</option>
+                ))}
+              </select>
+            </label>
+
+            <div className="grid grid-cols-2 gap-3">
+              <label className="block">
+                <span className="mb-2 block text-xs uppercase tracking-[0.2em] text-zinc-500">Location</span>
+                <input
+                  value={guided.location}
+                  onChange={(event) => updateGuided('location', event.target.value)}
+                  placeholder="Luxury hotel suite"
+                  className="h-11 w-full border border-zinc-800 bg-black px-3 text-sm outline-none placeholder:text-zinc-700 focus:border-red-500"
+                />
               </label>
+              <label className="block">
+                <span className="mb-2 block text-xs uppercase tracking-[0.2em] text-zinc-500">Action</span>
+                <input
+                  value={guided.action}
+                  onChange={(event) => updateGuided('action', event.target.value)}
+                  placeholder="Looking into camera"
+                  className="h-11 w-full border border-zinc-800 bg-black px-3 text-sm outline-none placeholder:text-zinc-700 focus:border-red-500"
+                />
+              </label>
+              <label className="block">
+                <span className="mb-2 block text-xs uppercase tracking-[0.2em] text-zinc-500">Wardrobe</span>
+                <input
+                  value={guided.wardrobe}
+                  onChange={(event) => updateGuided('wardrobe', event.target.value)}
+                  placeholder="Designer suit"
+                  className="h-11 w-full border border-zinc-800 bg-black px-3 text-sm outline-none placeholder:text-zinc-700 focus:border-red-500"
+                />
+              </label>
+              <label className="block">
+                <span className="mb-2 block text-xs uppercase tracking-[0.2em] text-zinc-500">Mood</span>
+                <input
+                  value={guided.mood}
+                  onChange={(event) => updateGuided('mood', event.target.value)}
+                  placeholder="Confident"
+                  className="h-11 w-full border border-zinc-800 bg-black px-3 text-sm outline-none placeholder:text-zinc-700 focus:border-red-500"
+                />
+              </label>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <label className="block">
+                <span className="mb-2 block text-xs uppercase tracking-[0.2em] text-zinc-500">Camera</span>
+                <input
+                  value={guided.camera}
+                  onChange={(event) => updateGuided('camera', event.target.value)}
+                  className="h-11 w-full border border-zinc-800 bg-black px-3 text-sm outline-none focus:border-red-500"
+                />
+              </label>
+              <label className="block">
+                <span className="mb-2 block text-xs uppercase tracking-[0.2em] text-zinc-500">Lighting</span>
+                <input
+                  value={guided.lighting}
+                  onChange={(event) => updateGuided('lighting', event.target.value)}
+                  className="h-11 w-full border border-zinc-800 bg-black px-3 text-sm outline-none focus:border-red-500"
+                />
+              </label>
+            </div>
+
+            <label className="block">
+              <span className="mb-2 block text-xs uppercase tracking-[0.2em] text-zinc-500">Details</span>
+              <input
+                value={guided.details}
+                onChange={(event) => updateGuided('details', event.target.value)}
+                placeholder="Mahogany desk, city lights, polished styling"
+                className="h-11 w-full border border-zinc-800 bg-black px-3 text-sm outline-none placeholder:text-zinc-700 focus:border-red-500"
+              />
+            </label>
+
+            <div>
+              <div className="mb-2 flex items-center justify-between">
+                <label className="block text-xs font-bold uppercase tracking-[0.2em] text-zinc-500">
+                  Prompt
+                </label>
+                <button
+                  type="button"
+                  onClick={generatePromptFromFields}
+                  className="text-xs font-semibold uppercase tracking-[0.18em] text-red-300 transition hover:text-red-200"
+                >
+                  Generate Prompt
+                </button>
+              </div>
               <textarea
                 value={prompt}
                 onChange={(event) => setPrompt(event.target.value)}
-                rows={8}
-                placeholder="Luxury mahogany office, sharp designer suit, confident posture, professional lighting"
+                rows={7}
+                placeholder="Generated prompt appears here"
                 className="w-full resize-none border border-zinc-800 bg-black px-4 py-3 text-sm text-zinc-100 outline-none transition placeholder:text-zinc-700 focus:border-red-500"
               />
             </div>
@@ -224,6 +415,23 @@ export default function CreatePage() {
                 >
                   <span className="block text-sm font-semibold">{option.label}</span>
                   <span className="mt-2 block text-[11px] text-zinc-500">{option.size}</span>
+                </button>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-4 gap-2">
+              {packSizes.map(size => (
+                <button
+                  key={size}
+                  type="button"
+                  onClick={() => setPackSize(size)}
+                  className={`h-11 border text-sm font-bold transition ${
+                    packSize === size
+                      ? 'border-red-500 bg-red-950/30 text-white'
+                      : 'border-zinc-800 bg-black text-zinc-500 hover:border-zinc-600'
+                  }`}
+                >
+                  {size}
                 </button>
               ))}
             </div>
@@ -280,10 +488,10 @@ export default function CreatePage() {
             <button
               type="button"
               disabled={!canGenerateImage}
-              onClick={generateImage}
+              onClick={generateImagePack}
               className="h-12 w-full bg-red-600 text-sm font-bold uppercase tracking-[0.25em] text-white transition hover:bg-red-500 disabled:cursor-not-allowed disabled:bg-zinc-800 disabled:text-zinc-500"
             >
-              {imageStatus === 'Generating image' ? 'Generating' : 'Generate Image'}
+              {isGeneratingImages ? imageStatus : `Generate ${packSize === 1 ? 'Image' : 'Pack'}`}
             </button>
 
             <div>
@@ -305,7 +513,7 @@ export default function CreatePage() {
               onClick={generateVideo}
               className="h-12 w-full border border-yellow-500/60 bg-yellow-500/10 text-sm font-bold uppercase tracking-[0.25em] text-yellow-200 transition hover:bg-yellow-500/20 disabled:cursor-not-allowed disabled:border-zinc-800 disabled:bg-zinc-900 disabled:text-zinc-600"
             >
-              {videoStatus && videoStatus !== 'Video ready' ? 'Rendering' : 'Generate Video'}
+              {isGeneratingVideo ? 'Rendering' : 'Generate Video'}
             </button>
 
             {(imageStatus || videoStatus || error) && (
@@ -316,33 +524,65 @@ export default function CreatePage() {
           </div>
         </section>
 
-        <section className="relative flex min-h-[70vh] items-center justify-center bg-black p-5">
-          {generatedImage?.image_url ? (
-            <>
-              <img
-                src={generatedImage.image_url}
-                alt="Generated"
-                className={`max-h-[calc(100dvh-40px)] w-full object-contain ${
-                  style === 'fullscreen' ? 'h-[calc(100dvh-40px)] object-cover' : ''
-                }`}
-              />
-              {videoUrl && (
-                <video
-                  src={videoUrl}
-                  className="absolute inset-0 h-full w-full bg-black object-contain"
-                  controls
-                  autoPlay
-                  playsInline
+        <section className="flex min-h-[70vh] flex-col bg-black">
+          <div className="relative flex min-h-[58vh] flex-1 items-center justify-center p-5">
+            {selectedImage?.image_url ? (
+              <>
+                <img
+                  src={selectedImage.image_url}
+                  alt="Generated"
+                  className={`max-h-[calc(100dvh-210px)] w-full object-contain ${
+                    style === 'fullscreen' ? 'h-[calc(100dvh-210px)] object-cover' : ''
+                  }`}
                 />
-              )}
-              <div className="absolute bottom-5 left-5 right-5 flex flex-wrap items-center justify-between gap-2 bg-black/70 px-4 py-3 text-xs text-zinc-400 backdrop-blur">
-                <span>{generatedImage.width} x {generatedImage.height}</span>
-                <span>Seed {generatedImage.seed ?? lastSeed ?? 'Random'}</span>
+                {videoUrl && (
+                  <video
+                    src={videoUrl}
+                    className="absolute inset-0 h-full w-full bg-black object-contain"
+                    controls
+                    autoPlay
+                    playsInline
+                  />
+                )}
+                <div className="absolute bottom-5 left-5 right-5 flex flex-wrap items-center justify-between gap-2 bg-black/70 px-4 py-3 text-xs text-zinc-400 backdrop-blur">
+                  <span>{selectedImage.width} x {selectedImage.height}</span>
+                  <span>Seed {selectedImage.seed ?? lastSeed ?? 'Random'}</span>
+                </div>
+              </>
+            ) : (
+              <div className="flex h-full min-h-[55vh] w-full items-center justify-center border border-dashed border-zinc-800 text-center">
+                <p className="max-w-xs text-sm text-zinc-600">Generated media appears here.</p>
               </div>
-            </>
-          ) : (
-            <div className="flex h-full min-h-[60vh] w-full items-center justify-center border border-dashed border-zinc-800 text-center">
-              <p className="max-w-xs text-sm text-zinc-600">Generated media appears here.</p>
+            )}
+          </div>
+
+          {generatedImages.length > 0 && (
+            <div className="border-t border-zinc-900 bg-zinc-950 p-4">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5">
+                {generatedImages.map((image, index) => (
+                  <button
+                    key={image.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedImageId(image.id);
+                      setVideoUrl(null);
+                    }}
+                    className={`group border bg-black p-1 text-left transition ${
+                      selectedImage?.id === image.id ? 'border-red-500' : 'border-zinc-800 hover:border-zinc-600'
+                    }`}
+                  >
+                    <img
+                      src={image.image_url}
+                      alt={`Generated ${index + 1}`}
+                      className="aspect-[3/4] w-full object-cover"
+                    />
+                    <div className="flex items-center justify-between gap-2 px-1 py-2 text-[11px] text-zinc-500">
+                      <span>#{index + 1}</span>
+                      <span>{image.seed ?? 'Random'}</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
             </div>
           )}
         </section>
