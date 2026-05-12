@@ -211,56 +211,47 @@ export default function CreatePage() {
     updateLocalCompanionAnchor(anchorUrl);
   }
 
-  async function generateFullBodyAnchor() {
-    if (!selectedCompanion) return;
+  async function createFullBodyAnchor() {
+    if (!selectedCompanion) return undefined;
 
-    setError('');
-    setAnchorStatus('Generating anchor');
+    setAnchorStatus('Preparing character anchor');
 
-    try {
-      const metadata = parseCompanionMetadata(selectedCompanion.prompt_used);
-      const identity = metadata.prompt || selectedCompanion.name;
-      const response = await fetch('/api/generate-companion', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          description: [
-            `exact same woman as the selected companion profile image: ${identity}`,
-            'private full-body character reference, no clothing, neutral standing pose, front-facing, arms slightly away from body',
-            'plain studio background, head to toe visible, feet visible, natural posture, preserve exact body size and proportions',
-          ].join(', '),
-          style: 'fullbody',
-          num_inference_steps: Math.max(steps, 30),
-          guidance_scale: guidance,
-          seed: -1,
-          reference_image_url: selectedCompanion.image_url,
-          reference_strength: 0.35,
-        }),
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Anchor generation failed');
+    const metadata = parseCompanionMetadata(selectedCompanion.prompt_used);
+    const identity = metadata.prompt || selectedCompanion.name;
+    const response = await fetch('/api/generate-companion', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        description: [
+          `exact same woman as the selected companion profile image: ${identity}`,
+          'private full-body character reference, no clothing, neutral standing pose, front-facing, arms slightly away from body',
+          'plain studio background, head to toe visible, feet visible, natural posture, preserve exact body size and proportions',
+        ].join(', '),
+        style: 'fullbody',
+        num_inference_steps: Math.max(steps, 30),
+        guidance_scale: guidance,
+        seed: -1,
+        reference_image_url: selectedCompanion.image_url,
+        reference_strength: 0.35,
+      }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Anchor generation failed');
 
-      await saveFullBodyAnchor(data.image_url);
-      setAnchorStatus('Full-body anchor generated and saved');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Anchor generation failed');
-      setAnchorStatus('');
-    }
+    await saveFullBodyAnchor(data.image_url);
+    setAnchorStatus('Character anchor ready');
+    return data.image_url as string;
   }
 
-  async function useSelectedImageAsAnchor() {
-    if (!selectedImage?.image_url) return;
+  async function getReferenceImageForPack() {
+    if (!selectedCompanion) return undefined;
+    if (style === 'portrait') return selectedCompanion.image_url;
 
-    setError('');
-    setAnchorStatus('Saving selected image as anchor');
+    const metadata = parseCompanionMetadata(selectedCompanion.prompt_used);
+    const fullBodyAnchor = metadata.fullBodyAnchorUrl || metadata.nudeAnchorUrl || metadata.bodyReferenceUrl;
+    if (fullBodyAnchor) return fullBodyAnchor;
 
-    try {
-      await saveFullBodyAnchor(selectedImage.image_url);
-      setAnchorStatus('Selected image saved as anchor');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Anchor save failed');
-      setAnchorStatus('');
-    }
+    return createFullBodyAnchor();
   }
 
   async function pollVideo(predictionId: string) {
@@ -281,7 +272,7 @@ export default function CreatePage() {
     throw new Error('Video generation timed out');
   }
 
-  async function generateOneImage(basePrompt: string, index: number): Promise<GeneratedImage> {
+  async function generateOneImage(basePrompt: string, index: number, referenceImageUrl?: string): Promise<GeneratedImage> {
     const baseSeed = seed.trim() ? Number(seed) : -1;
     const imageSeed = baseSeed >= 0 ? baseSeed + index : -1;
 
@@ -294,7 +285,7 @@ export default function CreatePage() {
         num_inference_steps: steps,
         guidance_scale: guidance,
         seed: imageSeed,
-        reference_image_url: getCompanionAnchorUrl(selectedCompanion, style),
+        reference_image_url: referenceImageUrl,
         reference_strength: 0.25,
       }),
     });
@@ -326,11 +317,12 @@ export default function CreatePage() {
     const workerCount = Math.min(2, packSize);
 
     try {
+      const referenceImageUrl = await getReferenceImageForPack();
       async function worker() {
         while (nextIndex < packSize) {
           const currentIndex = nextIndex;
           nextIndex += 1;
-          const image = await generateOneImage(basePrompt, currentIndex);
+          const image = await generateOneImage(basePrompt, currentIndex, referenceImageUrl);
           results[currentIndex] = image;
           setGeneratedImages(results.filter(Boolean));
           setSelectedImageId(current => current || image.id);
@@ -340,6 +332,7 @@ export default function CreatePage() {
       }
 
       await Promise.all(Array.from({ length: workerCount }, () => worker()));
+      setAnchorStatus('');
       setImageStatus(packSize === 1 ? 'Image ready' : `${packSize} images ready`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Image generation failed');
@@ -431,24 +424,6 @@ export default function CreatePage() {
               {getCompanionAnchorUrl(selectedCompanion, style) === selectedCompanion?.image_url
                 ? 'Using profile image as anchor'
                 : 'Using private full-body character anchor'}
-            </div>
-
-            <div className="grid grid-cols-1 gap-2 border border-zinc-800 bg-black p-3 sm:grid-cols-2">
-              <button
-                type="button"
-                onClick={generateFullBodyAnchor}
-                className="h-11 border border-zinc-800 px-3 text-xs font-semibold uppercase tracking-[0.16em] text-zinc-400 transition hover:border-zinc-600 hover:text-zinc-100"
-              >
-                Generate Anchor
-              </button>
-              <button
-                type="button"
-                disabled={!selectedImage}
-                onClick={useSelectedImageAsAnchor}
-                className="h-11 border border-zinc-800 px-3 text-xs font-semibold uppercase tracking-[0.16em] text-zinc-400 transition hover:border-zinc-600 hover:text-zinc-100 disabled:cursor-not-allowed disabled:text-zinc-700"
-              >
-                Use Selected
-              </button>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
