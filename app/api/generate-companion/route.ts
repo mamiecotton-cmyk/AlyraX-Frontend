@@ -4,7 +4,13 @@ export const maxDuration = 300;
 
 export async function POST(req: NextRequest) {
   try {
-    const { description, style = 'portrait' } = await req.json();
+    const {
+      description,
+      style = 'portrait',
+      num_inference_steps = 20,
+      guidance_scale = 3.5,
+      seed = -1,
+    } = await req.json();
 
     const width = style === 'fullbody' ? 768 : 512;
     const height = 1024;
@@ -33,11 +39,11 @@ export async function POST(req: NextRequest) {
           input: {
             prompt,
             negative_prompt: negative,
-            num_inference_steps: 20,
-            guidance_scale: 3.5,
+            num_inference_steps,
+            guidance_scale,
             width,
             height,
-            seed: -1,
+            seed,
           }
         }),
       }
@@ -60,7 +66,7 @@ export async function POST(req: NextRequest) {
       await new Promise(resolve => setTimeout(resolve, 5000));
 
       const statusResponse = await fetch(
-      `https://api.runpod.ai/v2/${imageEndpointId}/status/${jobId}`,
+        `https://api.runpod.ai/v2/${imageEndpointId}/status/${jobId}`,
         {
           headers: {
             'Authorization': `Bearer ${process.env.RUNPOD_API_KEY}`,
@@ -82,6 +88,9 @@ export async function POST(req: NextRequest) {
 
       if (statusData.status === 'COMPLETED') {
         const imageBase64 = statusData.output?.image;
+        const outputSeed = statusData.output?.seed;
+        const outputWidth = statusData.output?.width ?? width;
+        const outputHeight = statusData.output?.height ?? height;
 
         if (!imageBase64) {
           return NextResponse.json({ error: 'No image returned' }, { status: 500 });
@@ -110,12 +119,18 @@ export async function POST(req: NextRequest) {
           return NextResponse.json({
             image_url: urlData.publicUrl,
             success: true,
+            seed: outputSeed,
+            width: outputWidth,
+            height: outputHeight,
           });
         }
 
         return NextResponse.json({
           image_url: `data:image/png;base64,${imageBase64}`,
           success: true,
+          seed: outputSeed,
+          width: outputWidth,
+          height: outputHeight,
         });
       }
 
