@@ -1,6 +1,6 @@
 'use client';
 
-import { type ChangeEvent, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase';
 
@@ -209,38 +209,6 @@ export default function CreatePage() {
     if (!response.ok) throw new Error(data.error || 'Anchor save failed');
 
     updateLocalCompanionAnchor(anchorUrl);
-  }
-
-  async function uploadFullBodyAnchor(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    event.target.value = '';
-    if (!file || !userId || !selectedCompanion) return;
-
-    setError('');
-    setAnchorStatus('Uploading anchor');
-
-    try {
-      const extension = file.name.split('.').pop()?.toLowerCase() || 'png';
-      const fileName = `${userId}/anchors/${selectedCompanion.id}-${Date.now()}.${extension}`;
-      const { data, error: uploadError } = await supabase.storage
-        .from('companions')
-        .upload(fileName, file, {
-          contentType: file.type || 'image/png',
-          upsert: true,
-        });
-
-      if (uploadError) throw uploadError;
-
-      const { data: urlData } = supabase.storage
-        .from('companions')
-        .getPublicUrl(data.path);
-
-      await saveFullBodyAnchor(urlData.publicUrl);
-      setAnchorStatus('Full-body anchor saved');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Anchor upload failed');
-      setAnchorStatus('');
-    }
   }
 
   async function generateFullBodyAnchor() {
@@ -465,16 +433,7 @@ export default function CreatePage() {
                 : 'Using private full-body character anchor'}
             </div>
 
-            <div className="grid grid-cols-1 gap-2 border border-zinc-800 bg-black p-3 sm:grid-cols-3">
-              <label className="flex h-11 cursor-pointer items-center justify-center border border-zinc-800 px-3 text-center text-xs font-semibold uppercase tracking-[0.16em] text-zinc-400 transition hover:border-zinc-600 hover:text-zinc-100">
-                Upload Anchor
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={uploadFullBodyAnchor}
-                  className="hidden"
-                />
-              </label>
+            <div className="grid grid-cols-1 gap-2 border border-zinc-800 bg-black p-3 sm:grid-cols-2">
               <button
                 type="button"
                 onClick={generateFullBodyAnchor}
