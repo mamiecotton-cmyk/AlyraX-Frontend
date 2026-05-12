@@ -16,8 +16,8 @@ function getImageSettings(style: string) {
 
   if (style === 'fullscreen') {
     return {
-      width: 1024,
-      height: 1024,
+      width: 768,
+      height: 1344,
       composition: 'full screen vertical cinematic scene, entire subject visible inside the frame, phone screen composition, subject clearly visible with environmental detail, no cropping',
       negative: `${baseNegative}, tiny subject, empty frame, cropped head, cropped face, cropped body, cropped feet, awkward framing, horizontal crop, out of frame`,
     };
