@@ -10,6 +10,18 @@ const VIBES = ['Elegant', 'Mysterious', 'Playful', 'Bold', 'Sweet', 'Edgy'];
 const AGE_RANGES = ['20s', '30s', '40s', '50s', '60s', '70s', '80s'];
 const ETHNICITIES = ['Black', 'White', 'Latina', 'Asian', 'Middle Eastern', 'Mixed', 'Other'];
 
+function getAgePrompt(ageRange: string) {
+  if (!ageRange) return '';
+  if (ageRange === '20s') return 'adult woman in her 20s, clearly age 25-29, not teenage';
+  if (ageRange === '30s') return 'adult woman in her 30s, clearly age 30-39';
+  if (ageRange === '40s') return 'mature adult woman in her 40s, clearly age 40-49, not younger';
+  if (ageRange === '50s') return 'mature adult woman in her 50s, clearly age 50-59, age-appropriate face, not 20s or 30s';
+  if (ageRange === '60s') return 'older adult woman in her 60s, clearly age 60-69, age-appropriate face, not younger';
+  if (ageRange === '70s') return 'older adult woman in her 70s, clearly age 70-79, age-appropriate face, not younger';
+  if (ageRange === '80s') return 'elderly adult woman in her 80s, clearly age 80-89, age-appropriate face, not younger';
+  return `adult woman in her ${ageRange}`;
+}
+
 const PERSONAS = [
   {
     id: null as string | null,
@@ -68,12 +80,13 @@ export default function OnboardingPage() {
   }) => {
     const parts = [];
     if (draft.bodyType) parts.push(`${draft.bodyType.toLowerCase()} body type`);
+    if (draft.ageRange) parts.push(getAgePrompt(draft.ageRange));
     if (draft.ethnicity) parts.push(`${draft.ethnicity.toLowerCase()} woman`);
     if (draft.hairColor && draft.hairStyle) parts.push(`${draft.hairColor.toLowerCase()} ${draft.hairStyle.toLowerCase()} hair`);
     if (draft.eyeColor) parts.push(`${draft.eyeColor.toLowerCase()} eyes`);
     if (draft.vibe) parts.push(`${draft.vibe.toLowerCase()} style`);
-    if (draft.ageRange) parts.push(`${draft.ageRange}`);
     if (draft.freeText) parts.push(draft.freeText);
+    parts.push('portrait must match the selected age range, do not make her look younger than requested');
     return parts.join(', ');
   };
 
