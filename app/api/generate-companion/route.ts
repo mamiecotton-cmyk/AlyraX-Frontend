@@ -9,7 +9,7 @@ function getImageSettings(style: string) {
     return {
       width: 768,
       height: 1024,
-      composition: 'full body shot, standing elegantly, head to toe visible, neutral studio background',
+      composition: 'full body shot, head to toe visible, entire body fully in frame, feet visible, no cropping, neutral studio background',
       negative: `${baseNegative}, cropped head, cropped face, cropped feet, cropped legs, out of frame, close-up, extreme close-up`,
     };
   }
@@ -18,8 +18,8 @@ function getImageSettings(style: string) {
     return {
       width: 1024,
       height: 1792,
-      composition: 'full screen vertical cinematic scene, entire frame composed for a phone screen, subject clearly visible with environmental detail',
-      negative: `${baseNegative}, tiny subject, empty frame, cropped head, cropped face, awkward framing, horizontal crop`,
+      composition: 'full screen vertical cinematic scene, entire subject visible inside the frame, phone screen composition, subject clearly visible with environmental detail, no cropping',
+      negative: `${baseNegative}, tiny subject, empty frame, cropped head, cropped face, cropped body, cropped feet, awkward framing, horizontal crop, out of frame`,
     };
   }
 
@@ -40,14 +40,14 @@ export async function POST(req: NextRequest) {
       guidance_scale = 3.5,
       seed = -1,
       reference_image_url,
-      reference_strength = 0.72,
+      reference_strength = 0.42,
     } = await req.json();
 
     const { width, height, composition, negative } = getImageSettings(style);
 
     const qualityTags = 'photorealistic, highly detailed, professional photography, sharp focus, beautiful studio lighting, 8k uhd, masterpiece';
 
-    const prompt = `${qualityTags}, ${description}, ${composition}, required action must be clearly visible, preserve the selected companion identity`;
+    const prompt = `${qualityTags}, ${description}, ${composition}, required action must be clearly visible, preserve the selected companion identity, preserve body type and proportions across the whole pack`;
 
     // Submit job async
     const imageEndpointId = process.env.RUNPOD_IMAGE_ENDPOINT_ID;
