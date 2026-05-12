@@ -45,12 +45,6 @@ function clampEndWardrobeState(value: unknown, fallback: WardrobeState): Wardrob
   return fallback;
 }
 
-function nextWardrobeState(start: WardrobeState): WardrobeState {
-  if (start === 'clothed') return 'partial';
-  if (start === 'partial') return 'nude';
-  return 'nude';
-}
-
 function sanitizePrompts(prompts: string[], wardrobeState: WardrobeState): string[] {
   const cleaned = prompts
     .map(prompt => prompt.replace(/\s+/g, ' ').trim())
@@ -63,56 +57,6 @@ function sanitizePrompts(prompts: string[], wardrobeState: WardrobeState): strin
 
 function hasNudeLeak(prompts: string[], wardrobeState: WardrobeState): boolean {
   return wardrobeState === 'nude' && prompts.some(prompt => NUDE_LEAK_REGEX.test(prompt));
-}
-
-function buildFallbackScenePlan(
-  userMessage: string,
-  wardrobeState: WardrobeState,
-): VideoScenePlan {
-  const endWardrobeState = nextWardrobeState(wardrobeState);
-
-  if (wardrobeState === 'nude') {
-    return {
-      prompts: [
-        'She shifts closer to camera, turns her hips slowly, hands tracing over bare skin',
-        'She walks forward, changes framing, arches her back, keeps confident eye contact',
-        'She turns sideways, runs her hands over her chest and thighs, breathing harder',
-        'She settles into a closer frame, moving with slow deliberate confidence',
-      ],
-      onWait1: 'I am moving closer for you now, slow and deliberate.',
-      onWait2: 'Almost there. I am keeping my eyes on you while I change the angle.',
-      onMid: 'Watch me move for you.',
-      endWardrobeState,
-    };
-  }
-
-  if (wardrobeState === 'partial') {
-    return {
-      prompts: [
-        'She shifts her weight, turns toward camera, revealing more skin with each step',
-        'She walks closer, changes framing, hands moving slowly over her body',
-        'She turns her hips, lets the scene progress until her body is fully revealed',
-        'She settles into a closer frame, confident and exposed by the end',
-      ],
-      onWait1: 'I am coming closer and letting the moment build.',
-      onWait2: 'Almost ready. I am changing the angle so you can see me better.',
-      onMid: 'Keep your eyes on me.',
-      endWardrobeState,
-    };
-  }
-
-  return {
-    prompts: [
-      'She shifts in place, turns toward camera, beginning a slow teasing reveal',
-      'She walks closer, changes framing, hands moving with deliberate confidence',
-      'She turns her shoulders and hips, letting the scene become more intimate',
-      'She ends closer to camera, partially revealed, steady eye contact',
-    ],
-    onWait1: 'I am starting slow for you, letting the camera catch every little change.',
-    onWait2: 'Almost ready. I am moving closer and making the frame more intimate.',
-    onMid: 'Stay with me.',
-    endWardrobeState,
-  };
 }
 
 function extractJsonObject(content: string): Record<string, unknown> | null {
@@ -129,35 +73,33 @@ function extractJsonObject(content: string): Record<string, unknown> | null {
 
 function parseScenePlan(
   content: string,
-  userMessage: string,
   wardrobeState: WardrobeState,
-): VideoScenePlan {
-  const fallback = buildFallbackScenePlan(userMessage, wardrobeState);
+): VideoScenePlan | null {
   const parsed = extractJsonObject(content);
-  if (!parsed) return fallback;
+  if (!parsed) return null;
 
   const rawPrompts = Array.isArray(parsed.prompts)
     ? parsed.prompts.filter((prompt): prompt is string => typeof prompt === 'string')
     : [];
   const prompts = sanitizePrompts(rawPrompts, wardrobeState);
-  if (prompts.length < 3 || prompts.length > 6) return fallback;
+  if (prompts.length < 3 || prompts.length > 6) return null;
 
   const onWait1 = typeof parsed.onWait1 === 'string' && parsed.onWait1.trim()
     ? parsed.onWait1.trim()
-    : fallback.onWait1;
+    : '';
   const onWait2 = typeof parsed.onWait2 === 'string' && parsed.onWait2.trim()
     ? parsed.onWait2.trim()
-    : fallback.onWait2;
+    : '';
   const onMid = typeof parsed.onMid === 'string' && parsed.onMid.trim()
     ? parsed.onMid.trim()
-    : fallback.onMid;
+    : '';
 
   return {
     prompts,
     onWait1,
     onWait2,
     onMid,
-    endWardrobeState: clampEndWardrobeState(parsed.endWardrobeState, fallback.endWardrobeState),
+    endWardrobeState: clampEndWardrobeState(parsed.endWardrobeState, wardrobeState),
   };
 }
 
@@ -312,7 +254,11 @@ async function generateVideoScenePlan(
 
       console.log(`${tag} euryale plan accepted on attempt ${attempt + 1}`);
       trace?.push(`euryale-success-attempt-${attempt + 1}`);
-      return parseScenePlan(content, userMessage, wardrobeState);
+      const plan = parseScenePlan(content, wardrobeState);
+      if (plan) return plan;
+
+      trace?.push('accepted-plan-parse-failed');
+      retryReason = 'accepted plan failed final parsing';
     } catch (error) {
       console.error(`${tag} euryale exception on attempt ${attempt + 1}:`, error);
       trace?.push(`euryale-exception-attempt-${attempt + 1}`);
@@ -320,9 +266,9 @@ async function generateVideoScenePlan(
     }
   }
 
-  console.warn(`${tag} falling back to buildFallbackScenePlan after all attempts exhausted`);
-  trace?.push('using-fallback');
-  return buildFallbackScenePlan(userMessage, wardrobeState);
+  console.warn(`${tag} scene planning failed after all attempts; no fallback prompts will be submitted`);
+  trace?.push('scene-plan-failed-no-fallback');
+  throw new Error('Scene planning failed');
 }
 
 async function submitAtlasVideo(imageUrl: string, prompts: string[], requestId?: string): Promise<string> {

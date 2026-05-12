@@ -143,19 +143,28 @@ export default function DashboardPage() {
   useEffect(() => { currentVideoUrlRef.current = currentVideoUrl; }, [currentVideoUrl]);
 
   function buildSceneIntent(): string {
-    const history = conversationHistoryRef.current.slice(-8);
+    const history = conversationHistoryRef.current.slice(-12);
     const metaPhrases = [
       'where is', "don't see", 'next video', 'are you there',
       'still there', 'hello', 'you there', "i can't see", 'not working',
       'i am', 'yes', 'yeah', 'ok', 'okay',
     ];
-    const meaningful = history
+    const meaningfulUser = history
       .filter(m => m.role === 'user')
       .map(m => m.content.trim())
       .filter(m => m.length > 5 && !metaPhrases.some(p => m.toLowerCase().includes(p)))
       .slice(-3)
       .join('. ');
-    return meaningful || lastUserMessageRef.current || 'continue the scene';
+    const latestCompanionNarration = [...history]
+      .reverse()
+      .find(m => m.role === 'assistant' && m.content.trim().length > 5)
+      ?.content.trim();
+
+    if (meaningfulUser && latestCompanionNarration) {
+      return `User wants: ${meaningfulUser}. Companion just narrated: ${latestCompanionNarration}`;
+    }
+
+    return meaningfulUser || latestCompanionNarration || lastUserMessageRef.current || 'continue the scene';
   }
 
   async function pollVideoResult(predictionId: string): Promise<string> {
