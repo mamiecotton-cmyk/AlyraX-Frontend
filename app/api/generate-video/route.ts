@@ -6,7 +6,7 @@ export const maxDuration = 300;
 const ATLAS_API_KEY = process.env.ATLAS_CLOUD_API_KEY;
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 const ATLAS_MODEL = 'atlascloud/wan-2.2-turbo-spicy/infinite-image-to-video';
-const OPENROUTER_MODEL = 'sao10k/l3-euryale-70b';
+const OPENROUTER_MODEL = 'sao10k/l3.3-euryale-70b';
 const NUDE_LEAK_REGEX = /\b(clothing|shirt|dress|top|panties|bra|fabric|sleeves|undressing|removes)\b/i;
 
 type WardrobeState = 'clothed' | 'partial' | 'nude';
@@ -187,9 +187,6 @@ async function askEuryaleForScenePlan(
     },
     body: JSON.stringify({
       model: OPENROUTER_MODEL,
-      provider: {
-        ignore: ['novita'],
-      },
       max_tokens: 650,
       temperature: 0.45,
       stream: false,
