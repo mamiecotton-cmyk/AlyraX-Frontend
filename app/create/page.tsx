@@ -59,16 +59,31 @@ const initialGuidedPrompt: GuidedPrompt = {
   details: '',
 };
 
+function normalizeWardrobe(wardrobe: string) {
+  const normalized = wardrobe.trim().toLowerCase();
+  if (!normalized || ['none', 'nude', 'naked', 'no clothing', 'no clothes'].includes(normalized)) {
+    return 'nude';
+  }
+
+  return wardrobe.trim();
+}
+
 function buildPrompt(guided: GuidedPrompt) {
+  const wardrobe = normalizeWardrobe(guided.wardrobe);
+
   return [
+    'adult woman only',
+    'preserve the selected companion identity exactly',
+    'keep the same face, age, ethnicity, hair, body size, and body proportions as the companion',
     guided.action && `required visible action: ${guided.action}`,
     guided.location && `specific location: ${guided.location}`,
-    guided.wardrobe && `specific wardrobe: ${guided.wardrobe}`,
+    `specific wardrobe: ${wardrobe}`,
     guided.mood && `expression and mood: ${guided.mood}`,
     guided.camera && `camera and framing: ${guided.camera}`,
     guided.lighting && `lighting: ${guided.lighting}`,
     guided.details && `scene details: ${guided.details}`,
-    'the reference image is the only source of truth for the woman, do not infer or rewrite age, ethnicity, face, hair, body size, or body proportions from text, only interpret requested wardrobe, action, location, camera, lighting, background, and additional people, action must be clearly visible, uncropped subject',
+    'natural hands and natural feet, anatomically correct toes, grounded feet, uncropped subject',
+    'do not change identity, do not invent a different woman, do not alter age, face, body type, or proportions',
   ].filter(Boolean).join(', ');
 }
 

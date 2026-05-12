@@ -3,7 +3,32 @@ import { NextRequest, NextResponse } from 'next/server';
 export const maxDuration = 300;
 
 function getImageSettings(style: string) {
-  const baseNegative = 'ugly, deformed, blurry, low quality, cartoon, anime, bad anatomy, watermark, text, extra limbs, missing limbs, mutated hands, poorly drawn face';
+  const baseNegative = [
+    'ugly',
+    'deformed',
+    'blurry',
+    'low quality',
+    'cartoon',
+    'anime',
+    'bad anatomy',
+    'watermark',
+    'text',
+    'extra limbs',
+    'missing limbs',
+    'mutated hands',
+    'poorly drawn face',
+    'different person',
+    'changed identity',
+    'wrong age',
+    'wrong face',
+    'deformed feet',
+    'mutated feet',
+    'bad toes',
+    'extra toes',
+    'missing toes',
+    'twisted ankles',
+    'floating feet',
+  ].join(', ');
 
   if (style === 'fullbody') {
     return {
@@ -46,18 +71,21 @@ export async function POST(req: NextRequest) {
 
     const { width, height, composition, negative } = getImageSettings(style);
 
-    // Optimized: Reduced fluff, focused on high-token impact
-    const qualityTags = 'hyper-realistic, 8k uhd, professional studio lighting, sharp focus, masterpiece';
-
-    // Condensed reference logic
-    const refPrefix = reference_image_url && reference_mode === 'inspiration'
-      ? 'inspired by reference image aesthetic, '
+    const identityInstruction = reference_image_url && reference_mode === 'inspiration'
+      ? 'adult woman, use the companion as visual inspiration only'
       : reference_image_url
-        ? 'identity from reference image, '
-        : '';
+        ? 'adult woman, preserve the companion identity exactly, same face, age, ethnicity, hair, body size, and body proportions'
+        : 'adult woman, consistent identity, realistic face and body proportions';
 
-    // Final consolidated prompt
-    const prompt = `${qualityTags}, ${refPrefix}${description}, ${composition}`;
+    const qualityTags = 'hyper-realistic, professional studio lighting, sharp focus, realistic skin texture, premium detail';
+
+    const prompt = [
+      identityInstruction,
+      description,
+      composition,
+      'natural hands, natural feet, anatomically correct toes, grounded feet',
+      qualityTags,
+    ].filter(Boolean).join(', ');
 
     // Submit job async
     const imageEndpointId = process.env.RUNPOD_IMAGE_ENDPOINT_ID;
