@@ -46,14 +46,18 @@ export async function POST(req: NextRequest) {
 
     const { width, height, composition, negative } = getImageSettings(style);
 
-    const qualityTags = 'photorealistic, highly detailed, professional photography, sharp focus, beautiful studio lighting, 8k uhd, masterpiece';
-    const referenceInstruction = reference_image_url && reference_mode === 'inspiration'
-      ? 'use the reference image only as loose visual inspiration for aesthetic, pose, mood, or styling; do not clone the person, do not preserve exact identity, and follow the requested companion traits in the prompt'
-      : reference_image_url
-        ? 'the reference image is the only source of truth for the woman, do not infer or rewrite age, ethnicity, face, hair, body size, or body proportions from text, only interpret requested wardrobe, action, location, camera, lighting, background, and additional people'
-      : 'follow all requested character traits in the prompt, including age range, ethnicity, hair, eyes, body type, and style';
+    // Optimized: Reduced fluff, focused on high-token impact
+    const qualityTags = 'hyper-realistic, 8k uhd, professional studio lighting, sharp focus, masterpiece';
 
-    const prompt = `${qualityTags}, ${description}, ${composition}, required action must be clearly visible, ${referenceInstruction}`;
+    // Condensed reference logic
+    const refPrefix = reference_image_url && reference_mode === 'inspiration'
+      ? 'inspired by reference image aesthetic, '
+      : reference_image_url
+        ? 'identity from reference image, '
+        : '';
+
+    // Final consolidated prompt
+    const prompt = `${qualityTags}, ${refPrefix}${description}, ${composition}`;
 
     // Submit job async
     const imageEndpointId = process.env.RUNPOD_IMAGE_ENDPOINT_ID;

@@ -13,14 +13,14 @@ const ETHNICITIES = ['Black', 'White', 'Latina', 'Asian', 'Middle Eastern', 'Mix
 
 function getAgePrompt(ageRange: string) {
   if (!ageRange) return '';
-  if (ageRange === '20s') return 'adult woman in her 20s, clearly age 25-29, not teenage';
-  if (ageRange === '30s') return 'adult woman in her 30s, clearly age 30-39';
-  if (ageRange === '40s') return 'mature adult woman in her 40s, clearly age 40-49, not younger';
-  if (ageRange === '50s') return 'mature adult woman in her 50s, clearly age 50-59, age-appropriate face, not 20s or 30s';
-  if (ageRange === '60s') return 'older adult woman in her 60s, clearly age 60-69, age-appropriate face, not younger';
-  if (ageRange === '70s') return 'older adult woman in her 70s, clearly age 70-79, age-appropriate face, not younger';
-  if (ageRange === '80s') return 'elderly adult woman in her 80s, clearly age 80-89, age-appropriate face, not younger';
-  return `adult woman in her ${ageRange}`;
+  if (ageRange === '20s') return 'age 25-29';
+  if (ageRange === '30s') return 'age 30-39';
+  if (ageRange === '40s') return 'mature, age 40-49';
+  if (ageRange === '50s') return 'mature, age 50-59';
+  if (ageRange === '60s') return 'age 60-69';
+  if (ageRange === '70s') return 'age 70-79';
+  if (ageRange === '80s') return 'age 80-89';
+  return `age ${ageRange}`;
 }
 
 const PERSONAS = [
@@ -83,14 +83,14 @@ export default function OnboardingPage() {
     freeText: string;
   }) => {
     const parts = [];
-    if (draft.bodyType) parts.push(`${draft.bodyType.toLowerCase()} body type`);
-    if (draft.ageRange) parts.push(getAgePrompt(draft.ageRange));
+    // Use compact keywords instead of full sentences
     if (draft.ethnicity) parts.push(`${draft.ethnicity.toLowerCase()} woman`);
+    if (draft.ageRange) parts.push(getAgePrompt(draft.ageRange));
+    if (draft.bodyType) parts.push(`${draft.bodyType.toLowerCase()} body`);
     if (draft.hairColor && draft.hairStyle) parts.push(`${draft.hairColor.toLowerCase()} ${draft.hairStyle.toLowerCase()} hair`);
     if (draft.eyeColor) parts.push(`${draft.eyeColor.toLowerCase()} eyes`);
     if (draft.vibe) parts.push(`${draft.vibe.toLowerCase()} style`);
     if (draft.freeText) parts.push(draft.freeText);
-    parts.push('portrait must match the selected age range, do not make her look younger than requested');
     return parts.join(', ');
   };
 
