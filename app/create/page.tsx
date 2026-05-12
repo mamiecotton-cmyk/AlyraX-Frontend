@@ -37,6 +37,7 @@ export default function CreatePage() {
   const [steps, setSteps] = useState(20);
   const [guidance, setGuidance] = useState(3.5);
   const [seed, setSeed] = useState('');
+  const [lastSeed, setLastSeed] = useState<number | null>(null);
   const [generatedImage, setGeneratedImage] = useState<GeneratedImage | null>(null);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -126,7 +127,7 @@ export default function CreatePage() {
         width: data.width,
         height: data.height,
       });
-      if (typeof data.seed === 'number') setSeed(String(data.seed));
+      if (typeof data.seed === 'number') setLastSeed(data.seed);
       setImageStatus('Image ready');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Image generation failed');
@@ -257,11 +258,24 @@ export default function CreatePage() {
                   value={seed}
                   inputMode="numeric"
                   onChange={(event) => setSeed(event.target.value)}
-                  placeholder="-1"
+                  placeholder="Random"
                   className="h-11 w-full border border-zinc-800 bg-black px-3 text-sm outline-none placeholder:text-zinc-700 focus:border-red-500"
                 />
               </label>
             </div>
+
+            {lastSeed !== null && (
+              <div className="flex items-center justify-between border border-zinc-800 bg-black px-3 py-2 text-xs text-zinc-500">
+                <span>Last seed {lastSeed}</span>
+                <button
+                  type="button"
+                  onClick={() => setSeed(String(lastSeed))}
+                  className="font-semibold uppercase tracking-[0.18em] text-red-300 transition hover:text-red-200"
+                >
+                  Use Seed
+                </button>
+              </div>
+            )}
 
             <button
               type="button"
@@ -323,7 +337,7 @@ export default function CreatePage() {
               )}
               <div className="absolute bottom-5 left-5 right-5 flex flex-wrap items-center justify-between gap-2 bg-black/70 px-4 py-3 text-xs text-zinc-400 backdrop-blur">
                 <span>{generatedImage.width} x {generatedImage.height}</span>
-                <span>Seed {generatedImage.seed ?? (seed || '-1')}</span>
+                <span>Seed {generatedImage.seed ?? lastSeed ?? 'Random'}</span>
               </div>
             </>
           ) : (
