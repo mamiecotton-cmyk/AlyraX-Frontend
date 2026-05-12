@@ -16,6 +16,7 @@ type Companion = {
 
 type CompanionMetadata = {
   prompt?: string;
+  portraitAnchorUrl?: string;
   fullBodyAnchorUrl?: string;
   nudeAnchorUrl?: string;
   bodyReferenceUrl?: string;
@@ -89,13 +90,14 @@ function parseCompanionMetadata(promptUsed?: string | null): CompanionMetadata {
 function getCompanionAnchorUrl(companion: Companion | null, style: ImageStyle) {
   if (!companion) return undefined;
   const metadata = parseCompanionMetadata(companion.prompt_used);
+  const portraitAnchor = metadata.portraitAnchorUrl || companion.image_url;
   const fullBodyAnchor = metadata.fullBodyAnchorUrl || metadata.nudeAnchorUrl || metadata.bodyReferenceUrl;
 
   if (style === 'fullbody' || style === 'fullscreen') {
     return fullBodyAnchor || companion.image_url;
   }
 
-  return companion.image_url;
+  return portraitAnchor;
 }
 
 export default function CreatePage() {
@@ -194,7 +196,22 @@ export default function CreatePage() {
     )));
   }
 
-  async function saveFullBodyAnchor(anchorUrl: string) {
+  function updateLocalPortraitAnchor(anchorUrl: string) {
+    if (!selectedCompanion) return;
+    const metadata = parseCompanionMetadata(selectedCompanion.prompt_used);
+    const nextPromptUsed = JSON.stringify({
+      ...metadata,
+      portraitAnchorUrl: anchorUrl,
+    });
+
+    setCompanions(current => current.map(item => (
+      item.id === selectedCompanion.id
+        ? { ...item, prompt_used: nextPromptUsed }
+        : item
+    )));
+  }
+
+  async function saveCompanionAnchor(anchorUrl: string, anchorType: 'portrait' | 'fullBody') {
     if (!selectedCompanion) return;
 
     const response = await fetch('/api/companion/anchor', {
@@ -202,13 +219,18 @@ export default function CreatePage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         companionId: selectedCompanion.id,
-        fullBodyAnchorUrl: anchorUrl,
+        anchorType,
+        anchorUrl,
       }),
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || 'Anchor save failed');
 
-    updateLocalCompanionAnchor(anchorUrl);
+    if (anchorType === 'portrait') {
+      updateLocalPortraitAnchor(anchorUrl);
+    } else {
+      updateLocalCompanionAnchor(anchorUrl);
+    }
   }
 
   async function createFullBodyAnchor() {
@@ -238,16 +260,23 @@ export default function CreatePage() {
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || 'Anchor generation failed');
 
-    await saveFullBodyAnchor(data.image_url);
+    await saveCompanionAnchor(data.image_url, 'fullBody');
     setAnchorStatus('Character anchor ready');
     return data.image_url as string;
   }
 
   async function getReferenceImageForPack() {
     if (!selectedCompanion) return undefined;
-    if (style === 'portrait') return selectedCompanion.image_url;
-
     const metadata = parseCompanionMetadata(selectedCompanion.prompt_used);
+
+    if (style === 'portrait') {
+      const portraitAnchor = metadata.portraitAnchorUrl || selectedCompanion.image_url;
+      if (!metadata.portraitAnchorUrl && selectedCompanion.image_url) {
+        await saveCompanionAnchor(selectedCompanion.image_url, 'portrait');
+      }
+      return portraitAnchor;
+    }
+
     const fullBodyAnchor = metadata.fullBodyAnchorUrl || metadata.nudeAnchorUrl || metadata.bodyReferenceUrl;
     if (fullBodyAnchor) return fullBodyAnchor;
 
@@ -421,9 +450,11 @@ export default function CreatePage() {
             </label>
 
             <div className="border border-zinc-800 bg-black px-3 py-2 text-xs text-zinc-500">
-              {getCompanionAnchorUrl(selectedCompanion, style) === selectedCompanion?.image_url
-                ? 'Using profile image as anchor'
-                : 'Using private full-body character anchor'}
+              {style === 'portrait'
+                ? 'Using portrait character anchor'
+                : getCompanionAnchorUrl(selectedCompanion, style) === selectedCompanion?.image_url
+                  ? 'Preparing full-body character anchor when needed'
+                  : 'Using private full-body character anchor'}
             </div>
 
             <div className="grid grid-cols-2 gap-3">
