@@ -52,22 +52,18 @@ const initialGuidedPrompt: GuidedPrompt = {
 };
 
 function buildPrompt(companion: Companion | null, guided: GuidedPrompt) {
-  const identity = companion?.prompt_used
-    ? `Companion identity: ${companion.prompt_used}`
-    : companion?.name
-      ? `Companion identity: ${companion.name}`
-      : '';
+  const identity = companion?.prompt_used || companion?.name || '';
 
   return [
-    identity,
-    guided.location && `Location: ${guided.location}`,
-    guided.action && `Action: ${guided.action}`,
-    guided.wardrobe && `Wardrobe: ${guided.wardrobe}`,
-    guided.mood && `Mood: ${guided.mood}`,
-    guided.camera && `Camera: ${guided.camera}`,
-    guided.lighting && `Lighting: ${guided.lighting}`,
-    guided.details && `Additional details: ${guided.details}`,
-    'cohesive character consistency, tasteful composition, high-end image pack quality',
+    identity && `same companion as the selected anchor image, preserve her face, age, ethnicity, hairstyle, body type, and overall identity: ${identity}`,
+    guided.action && `required visible action: ${guided.action}`,
+    guided.location && `specific location: ${guided.location}`,
+    guided.wardrobe && `specific wardrobe: ${guided.wardrobe}`,
+    guided.mood && `expression and mood: ${guided.mood}`,
+    guided.camera && `camera and framing: ${guided.camera}`,
+    guided.lighting && `lighting: ${guided.lighting}`,
+    guided.details && `scene details: ${guided.details}`,
+    'do not change the companion into a different person, action must be clearly visible, cohesive character consistency, high-end image pack quality',
   ].filter(Boolean).join(', ');
 }
 
@@ -180,6 +176,8 @@ export default function CreatePage() {
         num_inference_steps: steps,
         guidance_scale: guidance,
         seed: imageSeed,
+        reference_image_url: selectedCompanion?.image_url,
+        reference_strength: 0.72,
       }),
     });
     const data = await response.json();

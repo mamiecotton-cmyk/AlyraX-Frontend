@@ -39,13 +39,15 @@ export async function POST(req: NextRequest) {
       num_inference_steps = 20,
       guidance_scale = 3.5,
       seed = -1,
+      reference_image_url,
+      reference_strength = 0.72,
     } = await req.json();
 
     const { width, height, composition, negative } = getImageSettings(style);
 
     const qualityTags = 'photorealistic, highly detailed, professional photography, sharp focus, beautiful studio lighting, 8k uhd, masterpiece';
 
-    const prompt = `${qualityTags}, ${composition}, ${description}`;
+    const prompt = `${qualityTags}, ${description}, ${composition}, required action must be clearly visible, preserve the selected companion identity`;
 
     // Submit job async
     const imageEndpointId = process.env.RUNPOD_IMAGE_ENDPOINT_ID;
@@ -68,6 +70,8 @@ export async function POST(req: NextRequest) {
             width,
             height,
             seed,
+            reference_image_url,
+            reference_strength,
           }
         }),
       }
