@@ -7,7 +7,26 @@ const ATLAS_API_KEY = process.env.ATLAS_CLOUD_API_KEY;
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 const ATLAS_MODEL = 'atlascloud/wan-2.2-turbo-spicy/infinite-image-to-video';
 const OPENROUTER_MODEL = 'sao10k/l3.3-euryale-70b';
-const NUDE_LEAK_REGEX = /\b(clothing|shirt|dress|top|panties|bra|fabric|sleeves|undressing|removes)\b/i;
+const SCENE_PLAN_SCHEMA = {
+  type: 'object',
+  properties: {
+    prompts: {
+      type: 'array',
+      minItems: 3,
+      maxItems: 6,
+      items: { type: 'string' },
+    },
+    continuityState: {
+      type: 'string',
+      enum: ['start', 'middle', 'complete'],
+    },
+    onWait1: { type: 'string' },
+    onWait2: { type: 'string' },
+    onMid: { type: 'string' },
+  },
+  required: ['prompts', 'continuityState', 'onWait1', 'onWait2', 'onMid'],
+  additionalProperties: false,
+};
 
 type WardrobeState = 'clothed' | 'partial' | 'nude';
 
@@ -42,21 +61,17 @@ function normalizeWardrobeState(value: unknown): WardrobeState {
 
 function clampEndWardrobeState(value: unknown, fallback: WardrobeState): WardrobeState {
   if (value === 'clothed' || value === 'partial' || value === 'nude') return value;
+  if (value === 'start') return 'clothed';
+  if (value === 'middle') return 'partial';
+  if (value === 'complete') return 'nude';
   return fallback;
 }
 
-function sanitizePrompts(prompts: string[], wardrobeState: WardrobeState): string[] {
-  const cleaned = prompts
+function sanitizePrompts(prompts: string[]): string[] {
+  return prompts
     .map(prompt => prompt.replace(/\s+/g, ' ').trim())
     .filter(Boolean)
     .slice(0, 6);
-
-  if (wardrobeState !== 'nude') return cleaned;
-  return cleaned.filter(prompt => !NUDE_LEAK_REGEX.test(prompt));
-}
-
-function hasNudeLeak(prompts: string[], wardrobeState: WardrobeState): boolean {
-  return wardrobeState === 'nude' && prompts.some(prompt => NUDE_LEAK_REGEX.test(prompt));
 }
 
 function extractJsonObject(content: string): Record<string, unknown> | null {
@@ -81,7 +96,7 @@ function parseScenePlan(
   const rawPrompts = Array.isArray(parsed.prompts)
     ? parsed.prompts.filter((prompt): prompt is string => typeof prompt === 'string')
     : [];
-  const prompts = sanitizePrompts(rawPrompts, wardrobeState);
+  const prompts = sanitizePrompts(rawPrompts);
   if (prompts.length < 3 || prompts.length > 6) return null;
 
   const onWait1 = typeof parsed.onWait1 === 'string' && parsed.onWait1.trim()
@@ -99,7 +114,7 @@ function parseScenePlan(
     onWait1,
     onWait2,
     onMid,
-    endWardrobeState: clampEndWardrobeState(parsed.endWardrobeState, wardrobeState),
+    endWardrobeState: clampEndWardrobeState(parsed.continuityState, wardrobeState),
   };
 }
 
@@ -113,11 +128,11 @@ async function askEuryaleForScenePlan(
   if (!OPENROUTER_API_KEY) return null;
 
   const recentHistory = conversationHistory.slice(-12);
-  const wardrobeInstruction = wardrobeState === 'nude'
-    ? 'Current wardrobe state: nude. She must remain nude. Do not mention clothing, shirt, dress, top, panties, bra, fabric, sleeves, undressing, or removes.'
+  const continuityInstruction = wardrobeState === 'nude'
+    ? 'Internal continuity state: complete. Let the anchor image define the visible starting point and preserve visual continuity.'
     : wardrobeState === 'partial'
-      ? 'Current wardrobe state: partial. Continue naturally and choose whether this clip ends partial or nude.'
-      : 'Current wardrobe state: clothed. Begin the visual progression naturally and choose whether this clip ends clothed or partial.';
+      ? 'Internal continuity state: middle. Let the anchor image define the visible starting point and continue the narrated action naturally.'
+      : 'Internal continuity state: start. Let the anchor image define the visible starting point and begin the narrated action naturally.';
 
   const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
     method: 'POST',
@@ -132,24 +147,34 @@ async function askEuryaleForScenePlan(
       max_tokens: 650,
       temperature: 0.45,
       stream: false,
+      response_format: {
+        type: 'json_schema',
+        json_schema: {
+          name: 'video_scene_plan',
+          strict: true,
+          schema: SCENE_PLAN_SCHEMA,
+        },
+      },
       messages: [
         {
           role: 'system',
           content: `You write adult image-to-video prompts for a consenting adult character.
 
-Base the next clip on the user's latest request, the last 6 conversation exchanges, and the current wardrobe state.
-${wardrobeInstruction}
+Base the next clip on the user's latest request, the companion's latest narrated audio transcript, the last 6 conversation exchanges, and the anchor image.
+${continuityInstruction}
 ${retryReason ? `Regenerate because the previous draft failed validation: ${retryReason}` : ''}
 
+You are a JSON scene planner, not the companion. Do not answer as dialogue. Do not write a sentence to the user.
 Movement license: she can shift, turn, walk, change framing, move closer or farther, and adjust the camera relationship naturally.
 Do not use identity boilerplate. Do not write "same adult woman in source image". Do not lock the pose or require exact pose matching.
-Prompts should be visual motion beats only, 3-6 strings, max 28 words each, no location changes.
-Return an endWardrobeState of "clothed", "partial", or "nude" so the next clip can continue from that state.
+Prompts should be visual motion beats only, 3-6 strings, max 28 words each, no location changes. Let the video model infer visible details from the anchor image.
+Describe actions, motion, framing, expression, and camera relationship without labeling the visible state.
+Return continuityState as "start", "middle", or "complete" so the next clip can continue internally.
 Dirty talk lines are first person, present tense, concise, and matched to the user's request.
 ${getPersonaVoice(personaName)}
 
 Return ONLY valid JSON:
-{"prompts":["p1","p2","p3"],"endWardrobeState":"partial","onWait1":"1-2 sentences max 40 words","onWait2":"1-2 sentences max 40 words","onMid":"1 sentence max 15 words"}`,
+{"prompts":["p1","p2","p3"],"continuityState":"middle","onWait1":"1-2 sentences max 40 words","onWait2":"1-2 sentences max 40 words","onMid":"1 sentence max 15 words"}`,
         },
         ...recentHistory,
         {
@@ -237,13 +262,6 @@ async function generateVideoScenePlan(
       const rawPrompts = Array.isArray(parsedJson?.prompts)
         ? parsedJson.prompts.filter((prompt): prompt is string => typeof prompt === 'string')
         : [];
-
-      if (hasNudeLeak(rawPrompts, wardrobeState)) {
-        retryReason = 'nude prompt contained a banned wardrobe word';
-        console.warn(`${tag} validation failed: ${retryReason}`);
-        trace?.push('nude-leak-detected');
-        continue;
-      }
 
       if (rawPrompts.length < 3 || rawPrompts.length > 6) {
         retryReason = `prompt count was ${rawPrompts.length}, expected 3-6`;
