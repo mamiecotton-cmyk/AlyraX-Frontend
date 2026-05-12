@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase';
 
 type ImageStyle = 'portrait' | 'fullbody' | 'fullscreen';
-type PackSize = 1 | 5 | 10 | 20;
+type PackSize = 1 | 5 | 10 | 20 | 30;
 
 type Companion = {
   id: string;
@@ -42,12 +42,12 @@ type GuidedPrompt = {
 };
 
 const styleOptions: Array<{ key: ImageStyle; label: string; size: string }> = [
-  { key: 'portrait', label: 'Portrait', size: '512 x 1024' },
-  { key: 'fullbody', label: 'Full Body', size: '768 x 1024' },
-  { key: 'fullscreen', label: 'Full Screen', size: '1024 x 1792' },
+  { key: 'portrait', label: 'Portrait', size: '768 x 1024' },
+  { key: 'fullbody', label: 'Full Body', size: '832 x 1216' },
+  { key: 'fullscreen', label: 'Full Screen', size: '1024 x 1024' },
 ];
 
-const packSizes: PackSize[] = [1, 5, 10, 20];
+const packSizes: PackSize[] = [1, 5, 10, 20, 30];
 
 const initialGuidedPrompt: GuidedPrompt = {
   location: '',
