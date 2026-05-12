@@ -59,12 +59,8 @@ const initialGuidedPrompt: GuidedPrompt = {
   details: '',
 };
 
-function buildPrompt(companion: Companion | null, guided: GuidedPrompt) {
-  const metadata = parseCompanionMetadata(companion?.prompt_used);
-  const identity = metadata.prompt || companion?.name || '';
-
+function buildPrompt(guided: GuidedPrompt) {
   return [
-    identity && `exact same woman as the selected anchor image, preserve her face, age, ethnicity, hairstyle, body size, body proportions, and overall identity without reinterpretation: ${identity}`,
     guided.action && `required visible action: ${guided.action}`,
     guided.location && `specific location: ${guided.location}`,
     guided.wardrobe && `specific wardrobe: ${guided.wardrobe}`,
@@ -72,7 +68,7 @@ function buildPrompt(companion: Companion | null, guided: GuidedPrompt) {
     guided.camera && `camera and framing: ${guided.camera}`,
     guided.lighting && `lighting: ${guided.lighting}`,
     guided.details && `scene details: ${guided.details}`,
-    'the anchor image is the source of truth for the woman, do not invent a new woman, do not slim her, do not alter her body size, only interpret requested scene/action/background or additional people, action must be clearly visible, uncropped subject, cohesive character consistency',
+    'the reference image is the only source of truth for the woman, do not infer or rewrite age, ethnicity, face, hair, body size, or body proportions from text, only interpret requested wardrobe, action, location, camera, lighting, background, and additional people, action must be clearly visible, uncropped subject',
   ].filter(Boolean).join(', ');
 }
 
@@ -174,7 +170,7 @@ export default function CreatePage() {
   }
 
   function generatePromptFromFields() {
-    const nextPrompt = buildPrompt(selectedCompanion, guided);
+    const nextPrompt = buildPrompt(guided);
     setPrompt(nextPrompt);
     return nextPrompt;
   }
@@ -238,16 +234,14 @@ export default function CreatePage() {
 
     setAnchorStatus('Preparing character anchor');
 
-    const metadata = parseCompanionMetadata(selectedCompanion.prompt_used);
-    const identity = metadata.prompt || selectedCompanion.name;
     const response = await fetch('/api/generate-companion', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         description: [
-          `exact same woman as the selected companion profile image: ${identity}`,
+          'use only the selected companion profile image as the source for identity, face, age, hair, body size, and body proportions',
           'private full-body character reference, no clothing, neutral standing pose, front-facing, arms slightly away from body',
-          'plain studio background, head to toe visible, feet visible, natural posture, preserve exact body size and proportions',
+          'plain studio background, head to toe visible, feet visible, natural posture, do not reinterpret the woman from text',
         ].join(', '),
         style: 'fullbody',
         num_inference_steps: Math.max(steps, 30),
@@ -477,11 +471,11 @@ export default function CreatePage() {
                 />
               </label>
               <label className="block">
-                <span className="mb-2 block text-xs uppercase tracking-[0.2em] text-zinc-500">Wardrobe</span>
+                <span className="mb-2 block text-xs uppercase tracking-[0.2em] text-zinc-500">Wardrobe Only</span>
                 <input
                   value={guided.wardrobe}
                   onChange={(event) => updateGuided('wardrobe', event.target.value)}
-                  placeholder="Designer suit"
+                  placeholder="Designer suit, lingerie, no clothing"
                   className="h-11 w-full border border-zinc-800 bg-black px-3 text-sm outline-none placeholder:text-zinc-700 focus:border-red-500"
                 />
               </label>
