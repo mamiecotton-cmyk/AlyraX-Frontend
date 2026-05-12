@@ -31,6 +31,8 @@ type GeneratedImage = {
   prompt: string;
 };
 
+type ImageResult = GeneratedImage | undefined;
+
 type GuidedPrompt = {
   location: string;
   action: string;
@@ -350,28 +352,44 @@ export default function CreatePage() {
     setSelectedImageId('');
     setImageStatus(`Generating 0/${packSize}`);
 
-    const results: GeneratedImage[] = [];
-    let nextIndex = 0;
-    const workerCount = Math.min(2, packSize);
+    const results: ImageResult[] = Array.from({ length: packSize });
+    const failedIndexes: number[] = [];
 
     try {
       const referenceImageUrl = await getReferenceImageForPack();
-      async function worker() {
-        while (nextIndex < packSize) {
-          const currentIndex = nextIndex;
-          nextIndex += 1;
-          const image = await generateOneImage(basePrompt, currentIndex, referenceImageUrl);
-          results[currentIndex] = image;
-          setGeneratedImages(results.filter(Boolean));
+
+      for (let index = 0; index < packSize; index += 1) {
+        let image: GeneratedImage | undefined;
+
+        for (let attempt = 1; attempt <= 2; attempt += 1) {
+          try {
+            setImageStatus(`Generating ${results.filter(Boolean).length}/${packSize} · image ${index + 1}`);
+            image = await generateOneImage(basePrompt, index, referenceImageUrl);
+            break;
+          } catch (err) {
+            if (attempt === 2) {
+              console.error(`Image ${index + 1} failed after retry`, err);
+              failedIndexes.push(index + 1);
+            }
+          }
+        }
+
+        if (image) {
+          results[index] = image;
+          const completedImages = results.filter((item): item is GeneratedImage => Boolean(item));
+          setGeneratedImages(completedImages);
           setSelectedImageId(current => current || image.id);
           if (typeof image.seed === 'number') setLastSeed(image.seed);
-          setImageStatus(`Generating ${results.filter(Boolean).length}/${packSize}`);
+          setImageStatus(`Generating ${completedImages.length}/${packSize}`);
         }
       }
 
-      await Promise.all(Array.from({ length: workerCount }, () => worker()));
       setAnchorStatus('');
-      setImageStatus(packSize === 1 ? 'Image ready' : `${packSize} images ready`);
+      const completedImages = results.filter(Boolean).length;
+      setImageStatus(packSize === 1 ? 'Image ready' : `${completedImages}/${packSize} images ready`);
+      if (failedIndexes.length > 0) {
+        setError(`Generated ${completedImages}/${packSize}. Failed images: ${failedIndexes.join(', ')}.`);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Image generation failed');
       setImageStatus('');
