@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { type ChangeEvent, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase';
 
@@ -120,6 +120,7 @@ export default function CreatePage() {
   const [loading, setLoading] = useState(true);
   const [imageStatus, setImageStatus] = useState('');
   const [videoStatus, setVideoStatus] = useState('');
+  const [anchorStatus, setAnchorStatus] = useState('');
   const [error, setError] = useState('');
 
   const selectedCompanion = useMemo(
@@ -174,6 +175,124 @@ export default function CreatePage() {
     const nextPrompt = buildPrompt(selectedCompanion, guided);
     setPrompt(nextPrompt);
     return nextPrompt;
+  }
+
+  function updateLocalCompanionAnchor(anchorUrl: string) {
+    if (!selectedCompanion) return;
+    const metadata = parseCompanionMetadata(selectedCompanion.prompt_used);
+    const nextPromptUsed = JSON.stringify({
+      ...metadata,
+      fullBodyAnchorUrl: anchorUrl,
+      nudeAnchorUrl: anchorUrl,
+      bodyReferenceUrl: anchorUrl,
+    });
+
+    setCompanions(current => current.map(item => (
+      item.id === selectedCompanion.id
+        ? { ...item, prompt_used: nextPromptUsed }
+        : item
+    )));
+  }
+
+  async function saveFullBodyAnchor(anchorUrl: string) {
+    if (!selectedCompanion) return;
+
+    const response = await fetch('/api/companion/anchor', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        companionId: selectedCompanion.id,
+        fullBodyAnchorUrl: anchorUrl,
+      }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Anchor save failed');
+
+    updateLocalCompanionAnchor(anchorUrl);
+  }
+
+  async function uploadFullBodyAnchor(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file || !userId || !selectedCompanion) return;
+
+    setError('');
+    setAnchorStatus('Uploading anchor');
+
+    try {
+      const extension = file.name.split('.').pop()?.toLowerCase() || 'png';
+      const fileName = `${userId}/anchors/${selectedCompanion.id}-${Date.now()}.${extension}`;
+      const { data, error: uploadError } = await supabase.storage
+        .from('companions')
+        .upload(fileName, file, {
+          contentType: file.type || 'image/png',
+          upsert: true,
+        });
+
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage
+        .from('companions')
+        .getPublicUrl(data.path);
+
+      await saveFullBodyAnchor(urlData.publicUrl);
+      setAnchorStatus('Full-body anchor saved');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Anchor upload failed');
+      setAnchorStatus('');
+    }
+  }
+
+  async function generateFullBodyAnchor() {
+    if (!selectedCompanion) return;
+
+    setError('');
+    setAnchorStatus('Generating anchor');
+
+    try {
+      const metadata = parseCompanionMetadata(selectedCompanion.prompt_used);
+      const identity = metadata.prompt || selectedCompanion.name;
+      const response = await fetch('/api/generate-companion', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          description: [
+            `exact same woman as the selected companion profile image: ${identity}`,
+            'private full-body character reference, no clothing, neutral standing pose, front-facing, arms slightly away from body',
+            'plain studio background, head to toe visible, feet visible, natural posture, preserve exact body size and proportions',
+          ].join(', '),
+          style: 'fullbody',
+          num_inference_steps: Math.max(steps, 30),
+          guidance_scale: guidance,
+          seed: -1,
+          reference_image_url: selectedCompanion.image_url,
+          reference_strength: 0.35,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Anchor generation failed');
+
+      await saveFullBodyAnchor(data.image_url);
+      setAnchorStatus('Full-body anchor generated and saved');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Anchor generation failed');
+      setAnchorStatus('');
+    }
+  }
+
+  async function useSelectedImageAsAnchor() {
+    if (!selectedImage?.image_url) return;
+
+    setError('');
+    setAnchorStatus('Saving selected image as anchor');
+
+    try {
+      await saveFullBodyAnchor(selectedImage.image_url);
+      setAnchorStatus('Selected image saved as anchor');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Anchor save failed');
+      setAnchorStatus('');
+    }
   }
 
   async function pollVideo(predictionId: string) {
@@ -344,6 +463,33 @@ export default function CreatePage() {
               {getCompanionAnchorUrl(selectedCompanion, style) === selectedCompanion?.image_url
                 ? 'Using profile image as anchor'
                 : 'Using private full-body character anchor'}
+            </div>
+
+            <div className="grid grid-cols-1 gap-2 border border-zinc-800 bg-black p-3 sm:grid-cols-3">
+              <label className="flex h-11 cursor-pointer items-center justify-center border border-zinc-800 px-3 text-center text-xs font-semibold uppercase tracking-[0.16em] text-zinc-400 transition hover:border-zinc-600 hover:text-zinc-100">
+                Upload Anchor
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={uploadFullBodyAnchor}
+                  className="hidden"
+                />
+              </label>
+              <button
+                type="button"
+                onClick={generateFullBodyAnchor}
+                className="h-11 border border-zinc-800 px-3 text-xs font-semibold uppercase tracking-[0.16em] text-zinc-400 transition hover:border-zinc-600 hover:text-zinc-100"
+              >
+                Generate Anchor
+              </button>
+              <button
+                type="button"
+                disabled={!selectedImage}
+                onClick={useSelectedImageAsAnchor}
+                className="h-11 border border-zinc-800 px-3 text-xs font-semibold uppercase tracking-[0.16em] text-zinc-400 transition hover:border-zinc-600 hover:text-zinc-100 disabled:cursor-not-allowed disabled:text-zinc-700"
+              >
+                Use Selected
+              </button>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -551,9 +697,9 @@ export default function CreatePage() {
               {isGeneratingVideo ? 'Rendering' : 'Generate Video'}
             </button>
 
-            {(imageStatus || videoStatus || error) && (
+            {(imageStatus || videoStatus || anchorStatus || error) && (
               <div className="min-h-10 border border-zinc-800 bg-black px-3 py-2 text-xs text-zinc-500">
-                {error || videoStatus || imageStatus}
+                {error || videoStatus || anchorStatus || imageStatus}
               </div>
             )}
           </div>
