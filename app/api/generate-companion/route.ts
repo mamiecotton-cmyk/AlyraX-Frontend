@@ -63,27 +63,11 @@ function clampNumber(value: unknown, fallback: number, min: number, max: number)
 }
 
 function getPoseInstruction(style: string) {
-  const shared = [
-    'Pose must be simple, readable, and physically possible.',
-    'Face, chest, shoulders, pelvis, knees, and toes should face the same general direction unless a mild three-quarter turn is requested.',
-    'Shoulders must be correctly attached to the torso, level with the collarbones, and never rotated backward.',
-    'Torso and hips must align naturally; no impossible spinal twist, no backward shoulders, no reversed elbows or knees.',
-    'Arms stay visible at the sides or naturally in front of the body; do not hide arms behind the back.',
-  ];
-
   if (style === 'portrait') {
-    return [
-      ...shared,
-      'Use a relaxed front-facing or slight three-quarter portrait pose with natural shoulders.',
-    ].join(' ');
+    return 'natural shoulders, relaxed portrait pose';
   }
 
-  return [
-    ...shared,
-    'Use a stable front-facing or slight three-quarter standing pose.',
-    'Both legs must connect naturally to the hips; both feet should point forward or slightly outward and rest on the ground.',
-    'If the requested action is complex, simplify it into the nearest natural human pose.',
-  ].join(' ');
+  return 'natural pose, correct shoulders, aligned torso and hips, grounded feet';
 }
 
 export async function POST(req: NextRequest) {
@@ -95,7 +79,8 @@ export async function POST(req: NextRequest) {
       num_inference_steps = 28,
       guidance_scale = 7.0,
       reference_image_url,
-      reference_strength = 0.35,
+      reference_strength = 0.23,
+      denoise_strength,
       reference_mode = 'identity',
       companionId,
     } = body;
@@ -132,22 +117,14 @@ export async function POST(req: NextRequest) {
     const safeSteps = Math.round(clampNumber(num_inference_steps, 28, 18, 40));
     const safeGuidance = clampNumber(guidance_scale, 7.0, 4.0, 9.0);
 
-    const referenceInstruction = reference_image_url
-      ? reference_mode === 'inspiration'
-        ? 'Use the uploaded reference image as visual inspiration only.'
-        : 'Use the anchored reference image as the only source of truth for the subject identity. Preserve the same face, age, body proportions, skin tone, hair, and recognizable features from the reference image.'
+    const referenceInstruction = reference_image_url && reference_mode !== 'inspiration'
+      ? 'same person as reference image'
       : '';
 
     const poseInstruction = getPoseInstruction(style);
-    const anatomyInstruction = [
-      'Photorealistic human anatomy with natural proportions.',
-      'Arms, hands, legs, ankles, and feet must be physically plausible.',
-      'No reversed limbs, no twisted joints, no extra limbs, no missing limbs.',
-      'Hands have five fingers per hand; feet have natural toes and rest on the ground when visible.',
-      'If wardrobe is nude, treat it as a non-sexual editorial figure reference with neutral posture and clear anatomy.',
-    ].join(' ');
+    const anatomyInstruction = 'realistic anatomy, correct hands, correct feet, no extra limbs';
 
-    const qualityTags = 'editorial photorealism, realistic skin texture, sharp natural focus, coherent lighting, premium camera detail';
+    const qualityTags = 'photorealistic, realistic skin texture, sharp natural focus';
 
     const prompt = [
       referenceInstruction,
@@ -181,6 +158,7 @@ export async function POST(req: NextRequest) {
             seed,
             reference_image_url,
             reference_strength,
+            denoise_strength,
           }
         }),
       }
