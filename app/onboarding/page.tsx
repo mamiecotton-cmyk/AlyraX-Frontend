@@ -13,13 +13,13 @@ const ETHNICITIES = ['Black', 'White', 'Latina', 'Asian', 'Middle Eastern', 'Mix
 
 function getAgePrompt(ageRange: string) {
   if (!ageRange) return '';
-  if (ageRange === '20s') return 'age 25-29';
-  if (ageRange === '30s') return 'age 30-39';
-  if (ageRange === '40s') return 'mature, age 40-49';
-  if (ageRange === '50s') return 'mature, age 50-59';
-  if (ageRange === '60s') return 'age 60-69';
-  if (ageRange === '70s') return 'age 70-79';
-  if (ageRange === '80s') return 'age 80-89';
+  if (ageRange === '20s') return 'age 20s';
+  if (ageRange === '30s') return 'age 30s';
+  if (ageRange === '40s') return 'age 40s';
+  if (ageRange === '50s') return 'age 50s';
+  if (ageRange === '60s') return 'age 60s';
+  if (ageRange === '70s') return 'age 70s';
+  if (ageRange === '80s') return 'age 80s';
   return `age ${ageRange}`;
 }
 
@@ -57,6 +57,7 @@ export default function OnboardingPage() {
   const [generating, setGenerating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [generatedImage, setGeneratedImage] = useState('');
+  const [generatedSeed, setGeneratedSeed] = useState<number | null>(null);
   const [inspirationImageUrl, setInspirationImageUrl] = useState('');
   const [inspirationStatus, setInspirationStatus] = useState('');
   const [companionName, setCompanionName] = useState('AlyraX');
@@ -82,16 +83,17 @@ export default function OnboardingPage() {
     ageRange: string;
     freeText: string;
   }) => {
-    const parts = [];
-    // Use compact keywords instead of full sentences
-    if (draft.ethnicity) parts.push(`${draft.ethnicity.toLowerCase()} woman`);
+    const parts: string[] = [];
+    if (draft.ethnicity) parts.push(draft.ethnicity.toLowerCase());
     if (draft.ageRange) parts.push(getAgePrompt(draft.ageRange));
-    if (draft.bodyType) parts.push(`${draft.bodyType.toLowerCase()} body`);
+    if (draft.bodyType) parts.push(draft.bodyType.toLowerCase());
     if (draft.hairColor && draft.hairStyle) parts.push(`${draft.hairColor.toLowerCase()} ${draft.hairStyle.toLowerCase()} hair`);
+    else if (draft.hairColor) parts.push(`${draft.hairColor.toLowerCase()} hair`);
+    else if (draft.hairStyle) parts.push(`${draft.hairStyle.toLowerCase()} hair`);
     if (draft.eyeColor) parts.push(`${draft.eyeColor.toLowerCase()} eyes`);
-    if (draft.vibe) parts.push(`${draft.vibe.toLowerCase()} style`);
+    if (draft.vibe) parts.push(draft.vibe.toLowerCase());
     if (draft.freeText) parts.push(draft.freeText);
-    return parts.join(', ');
+    return parts.filter(Boolean).join(', ');
   };
 
   const getDraft = () => ({
@@ -159,6 +161,7 @@ export default function OnboardingPage() {
       const data = await response.json();
       if (data.image_url) {
         setGeneratedImage(data.image_url);
+        setGeneratedSeed(typeof data.seed === 'number' ? data.seed : null);
         setStep(3);
       }
     } catch (error) {
@@ -181,6 +184,7 @@ export default function OnboardingPage() {
           companionName,
           imageUrl: generatedImage,
           promptUsed: buildPrompt(),
+          generationSeed: generatedSeed,
           personaIndex: selectedPersonaIndex,
           bodyType,
           ethnicity,

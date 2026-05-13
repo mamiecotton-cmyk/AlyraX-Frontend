@@ -16,6 +16,7 @@ export async function POST(req: NextRequest) {
       vibe,
       ageRange,
       inspirationImageUrl,
+      generationSeed,
     } = await req.json();
 
     if (!companionName || !imageUrl || typeof personaIndex !== 'number') {
@@ -59,6 +60,7 @@ export async function POST(req: NextRequest) {
           vibe,
           ageRange,
           inspirationImageUrl,
+          generation_seed: typeof generationSeed === 'number' ? generationSeed : null,
         }),
       })
       .select('id')

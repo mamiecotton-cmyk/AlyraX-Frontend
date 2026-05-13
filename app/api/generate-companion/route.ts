@@ -34,7 +34,7 @@ function getImageSettings(style: string) {
     return {
       width: 832,
       height: 1216,
-      composition: 'full body shot, head to toe visible, entire body fully in frame, feet visible, no cropping, neutral studio background',
+      composition: 'full body, head-to-toe, neutral background',
       negative: `${baseNegative}, cropped head, cropped face, cropped feet, cropped legs, out of frame, close-up, extreme close-up`,
     };
   }
@@ -43,7 +43,7 @@ function getImageSettings(style: string) {
     return {
       width: 768,
       height: 1344,
-      composition: 'full screen vertical cinematic scene, entire subject visible inside the frame, phone screen composition, subject clearly visible with environmental detail, no cropping',
+      composition: 'full scene vertical, subject visible, environmental detail',
       negative: `${baseNegative}, tiny subject, empty frame, cropped head, cropped face, cropped body, cropped feet, awkward framing, horizontal crop, out of frame`,
     };
   }
@@ -51,7 +51,7 @@ function getImageSettings(style: string) {
   return {
     width: 768,
     height: 1024,
-    composition: 'front-facing waist-up portrait, centered subject, looking directly at camera, face clearly visible, shoulders chest and waist visible, seductive elegant pose, hands naturally visible near torso, vertical profile image, enough room around upper body for animation',
+    composition: 'waist-up portrait, centered, face visible, shoulders visible',
     negative: `${baseNegative}, side profile, back view, turned away, full body, extreme close-up, cropped head, cropped face, cropped shoulders, cropped torso, cropped arms, out of frame`,
   };
 }
@@ -67,23 +67,54 @@ export async function POST(req: NextRequest) {
       reference_image_url,
       reference_strength = 0.25,
       reference_mode = 'identity',
+      companionId,
     } = await req.json();
+
+    // If a companionId is provided, prefer its stored generation seed (DNA lock)
+    if (companionId) {
+      try {
+        const { createClient } = await import('@/lib/supabase-server');
+        const supabase = await createClient();
+        const { data: companionRow } = await supabase
+          .from('companions')
+          .select('prompt_used')
+          .eq('id', companionId)
+          .maybeSingle();
+
+        if (companionRow?.prompt_used) {
+          try {
+            const meta = JSON.parse(companionRow.prompt_used);
+            if (meta && typeof meta.generation_seed === 'number' && !Number.isNaN(meta.generation_seed)) {
+              // override seed with stored generation seed
+              // downstream uses seed as-is; keep adding offsets client-side if generating multi-image packs
+              // set seed variable to stored value
+              // @ts-ignore
+              seed = meta.generation_seed;
+            }
+          } catch (e) {
+            // ignore parse errors
+          }
+        }
+      } catch (e) {
+        console.warn('Failed to read companion seed for DNA lock:', e);
+      }
+    }
 
     const { width, height, composition, negative } = getImageSettings(style);
 
-    const referenceInstruction = reference_image_url && reference_mode === 'inspiration'
-      ? 'use the anchored reference image for visual inspiration'
-      : reference_image_url
-        ? 'use the anchored reference image as the only source of truth for the subject'
-        : '';
+    const referenceInstruction = reference_image_url
+      ? reference_mode === 'inspiration'
+        ? 'reference: inspiration image'
+        : 'reference: exact subject'
+      : '';
 
-    const qualityTags = 'hyper-realistic, professional studio lighting, sharp focus, realistic skin texture, premium detail';
+    const qualityTags = '8k, photorealistic, sharp focus, cinematic lighting';
 
     const prompt = [
       referenceInstruction,
       description,
       composition,
-      'natural hands, natural feet, anatomically correct toes, grounded feet',
+      'natural hands, correct anatomy',
       qualityTags,
     ].filter(Boolean).join(', ');
 

@@ -56,8 +56,8 @@ const initialGuidedPrompt: GuidedPrompt = {
   action: '',
   wardrobe: '',
   mood: '',
-  camera: 'editorial photography, natural proportions, premium detail',
-  lighting: 'cinematic soft key light, realistic skin texture',
+  camera: 'editorial, natural proportions, premium detail',
+  lighting: 'cinematic soft key, realistic skin',
   details: '',
 };
 
@@ -74,15 +74,15 @@ function buildPrompt(guided: GuidedPrompt) {
   const wardrobe = normalizeWardrobe(guided.wardrobe);
 
   return [
-    guided.action && `required visible action: ${guided.action}`,
-    guided.location && `specific location: ${guided.location}`,
-    `specific wardrobe: ${wardrobe}`,
-    guided.mood && `expression and mood: ${guided.mood}`,
-    guided.camera && `camera and framing: ${guided.camera}`,
-    guided.lighting && `lighting: ${guided.lighting}`,
-    guided.details && `scene details: ${guided.details}`,
-    'natural hands and natural feet, anatomically correct toes, grounded feet, uncropped subject',
-    'use the anchored reference image as the only source of truth for the subject',
+    guided.action && `${guided.action}`,
+    guided.location && `${guided.location}`,
+    `${wardrobe}`,
+    guided.mood && `${guided.mood}`,
+    guided.camera && `${guided.camera}`,
+    guided.lighting && `${guided.lighting}`,
+    guided.details && `${guided.details}`,
+    'natural hands, correct anatomy, uncropped',
+    'reference: exact subject',
   ].filter(Boolean).join(', ');
 }
 
@@ -253,7 +253,7 @@ export default function CreatePage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         description: [
-          'use the anchored reference image as the only source of truth for the subject',
+          'reference: exact subject',
           'full-body character anchor, nude, neutral standing pose, front-facing, arms slightly away from body',
           'plain studio background, head to toe visible, feet visible, natural posture',
         ].join(', '),
@@ -261,6 +261,7 @@ export default function CreatePage() {
         num_inference_steps: Math.max(steps, 30),
         guidance_scale: guidance,
         seed: -1,
+        companionId: selectedCompanion.id,
         reference_image_url: selectedCompanion.image_url,
         reference_strength: 0.35,
       }),
@@ -310,7 +311,14 @@ export default function CreatePage() {
   }
 
   async function generateOneImage(basePrompt: string, index: number, referenceImageUrl?: string): Promise<GeneratedImage> {
-    const baseSeed = seed.trim() ? Number(seed) : -1;
+    // Prefer companion's stored generation seed for DNA lock when available
+    let baseSeed = seed.trim() ? Number(seed) : -1;
+    if (selectedCompanion) {
+      const metadata = parseCompanionMetadata(selectedCompanion.prompt_used);
+      if (metadata && typeof metadata.generation_seed === 'number' && !Number.isNaN(metadata.generation_seed)) {
+        baseSeed = metadata.generation_seed;
+      }
+    }
     const imageSeed = baseSeed >= 0 ? baseSeed + index : -1;
 
     const response = await fetch('/api/generate-companion', {
@@ -322,6 +330,7 @@ export default function CreatePage() {
         num_inference_steps: steps,
         guidance_scale: guidance,
         seed: imageSeed,
+        companionId: selectedCompanion?.id,
         reference_image_url: referenceImageUrl,
         reference_strength: 0.25,
       }),
