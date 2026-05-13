@@ -92,8 +92,8 @@ export async function POST(req: NextRequest) {
     const {
       description,
       style = 'portrait',
-      num_inference_steps = 8,
-      guidance_scale = 1.0,
+      num_inference_steps = 28,
+      guidance_scale = 7.0,
       reference_image_url,
       reference_strength = 0.25,
       reference_mode = 'identity',
@@ -128,8 +128,8 @@ export async function POST(req: NextRequest) {
     }
 
     const { width, height, composition, negative } = getImageSettings(style);
-    const safeSteps = Math.round(clampNumber(num_inference_steps, 8, 4, 12));
-    const safeGuidance = clampNumber(guidance_scale, 1.0, 0.8, 1.6);
+    const safeSteps = Math.round(clampNumber(num_inference_steps, 28, 18, 40));
+    const safeGuidance = clampNumber(guidance_scale, 7.0, 4.0, 9.0);
 
     const referenceInstruction = reference_image_url
       ? reference_mode === 'inspiration'

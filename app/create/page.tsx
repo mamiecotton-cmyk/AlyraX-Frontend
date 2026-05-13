@@ -156,8 +156,8 @@ export default function CreatePage() {
   const [videoPrompt, setVideoPrompt] = useState('');
   const [style, setStyle] = useState<ImageStyle>('portrait');
   const [packSize, setPackSize] = useState<PackSize>(1);
-  const [steps, setSteps] = useState(8);
-  const [guidance, setGuidance] = useState(1.0);
+  const [steps, setSteps] = useState(28);
+  const [guidance, setGuidance] = useState(7.0);
   const [seed, setSeed] = useState('');
   const [lastSeed, setLastSeed] = useState<number | null>(null);
   const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>([]);
@@ -294,8 +294,8 @@ export default function CreatePage() {
           'No backward shoulders, no impossible spinal twist, no reversed limbs, no twisted joints, no extra limbs, no missing limbs, natural hands and natural feet.',
         ].join(', '),
         style: 'fullbody',
-        num_inference_steps: Math.max(steps, 8),
-        guidance_scale: 1.0,
+        num_inference_steps: Math.max(steps, 28),
+        guidance_scale: 7.0,
         seed: -1,
         companionId: selectedCompanion.id,
         reference_image_url: selectedCompanion.image_url,
@@ -363,8 +363,8 @@ export default function CreatePage() {
       body: JSON.stringify({
         description: basePrompt,
         style,
-        num_inference_steps: Math.max(4, Math.min(12, steps)),
-        guidance_scale: Math.max(0.8, Math.min(1.6, guidance)),
+        num_inference_steps: Math.max(18, Math.min(40, steps)),
+        guidance_scale: Math.max(4.0, Math.min(9.0, guidance)),
         seed: imageSeed,
         companionId: selectedCompanion?.id,
         reference_image_url: referenceImageUrl,
@@ -656,8 +656,8 @@ export default function CreatePage() {
                 <span className="mb-2 block text-xs uppercase tracking-[0.2em] text-zinc-500">Steps</span>
                 <input
                   value={steps}
-                  min={4}
-                  max={12}
+                  min={18}
+                  max={40}
                   type="number"
                   onChange={(event) => setSteps(Number(event.target.value))}
                   className="h-11 w-full border border-zinc-800 bg-black px-3 text-sm outline-none focus:border-red-500"
@@ -667,8 +667,8 @@ export default function CreatePage() {
                 <span className="mb-2 block text-xs uppercase tracking-[0.2em] text-zinc-500">Guidance</span>
                 <input
                   value={guidance}
-                  min={0.8}
-                  max={1.6}
+                  min={4}
+                  max={9}
                   step={0.1}
                   type="number"
                   onChange={(event) => setGuidance(Number(event.target.value))}
