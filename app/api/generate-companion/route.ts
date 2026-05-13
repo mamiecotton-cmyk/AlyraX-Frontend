@@ -34,7 +34,7 @@ function getImageSettings(style: string) {
     return {
       width: 832,
       height: 1216,
-      composition: 'full body, head-to-toe, neutral background',
+      composition: 'full-body vertical portrait, head-to-toe visible, face visible, both arms visible, both legs visible, both feet grounded, balanced natural standing posture, neutral studio background',
       negative: `${baseNegative}, cropped head, cropped face, cropped feet, cropped legs, out of frame, close-up, extreme close-up`,
     };
   }
@@ -43,7 +43,7 @@ function getImageSettings(style: string) {
     return {
       width: 768,
       height: 1344,
-      composition: 'full scene vertical, subject visible, environmental detail',
+      composition: 'vertical full-scene image, subject clearly visible, full body in frame when possible, physically plausible pose, coherent environment, no cropped limbs',
       negative: `${baseNegative}, tiny subject, empty frame, cropped head, cropped face, cropped body, cropped feet, awkward framing, horizontal crop, out of frame`,
     };
   }
@@ -51,9 +51,15 @@ function getImageSettings(style: string) {
   return {
     width: 768,
     height: 1024,
-    composition: 'waist-up portrait, centered, face visible, shoulders visible',
+    composition: 'waist-up portrait, centered, face visible, shoulders visible, natural neck and shoulders, relaxed natural arms',
     negative: `${baseNegative}, side profile, back view, turned away, full body, extreme close-up, cropped head, cropped face, cropped shoulders, cropped torso, cropped arms, out of frame`,
   };
+}
+
+function clampNumber(value: unknown, fallback: number, min: number, max: number) {
+  const number = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(number)) return fallback;
+  return Math.min(max, Math.max(min, number));
 }
 
 export async function POST(req: NextRequest) {
@@ -62,8 +68,8 @@ export async function POST(req: NextRequest) {
     const {
       description,
       style = 'portrait',
-      num_inference_steps = 20,
-      guidance_scale = 3.5,
+      num_inference_steps = 8,
+      guidance_scale = 1.0,
       reference_image_url,
       reference_strength = 0.25,
       reference_mode = 'identity',
@@ -86,13 +92,9 @@ export async function POST(req: NextRequest) {
           try {
             const meta = JSON.parse(companionRow.prompt_used);
             if (meta && typeof meta.generation_seed === 'number' && !Number.isNaN(meta.generation_seed)) {
-              // override seed with stored generation seed
-              // downstream uses seed as-is; keep adding offsets client-side if generating multi-image packs
-              // set seed variable to stored value
-              // @ts-ignore
               seed = meta.generation_seed;
             }
-          } catch (e) {
+          } catch {
             // ignore parse errors
           }
         }
@@ -102,20 +104,30 @@ export async function POST(req: NextRequest) {
     }
 
     const { width, height, composition, negative } = getImageSettings(style);
+    const safeSteps = Math.round(clampNumber(num_inference_steps, 8, 4, 12));
+    const safeGuidance = clampNumber(guidance_scale, 1.0, 0.8, 1.6);
 
     const referenceInstruction = reference_image_url
       ? reference_mode === 'inspiration'
-        ? 'reference: inspiration image'
-        : 'reference: exact subject'
+        ? 'Use the uploaded reference image as visual inspiration only.'
+        : 'Use the anchored reference image as the only source of truth for the subject identity. Preserve the same face, age, body proportions, skin tone, hair, and recognizable features from the reference image.'
       : '';
 
-    const qualityTags = '8k, photorealistic, sharp focus, cinematic lighting';
+    const anatomyInstruction = [
+      'Photorealistic human anatomy with natural proportions.',
+      'Arms, hands, legs, ankles, and feet must be physically plausible.',
+      'No reversed limbs, no twisted joints, no extra limbs, no missing limbs.',
+      'Hands have five fingers per hand; feet have natural toes and rest on the ground when visible.',
+      'Pose must be stable, balanced, and possible for a real human body.',
+    ].join(' ');
+
+    const qualityTags = 'editorial photorealism, realistic skin texture, sharp natural focus, coherent lighting, premium camera detail';
 
     const prompt = [
       referenceInstruction,
       description,
       composition,
-      'natural hands, correct anatomy',
+      anatomyInstruction,
       qualityTags,
     ].filter(Boolean).join(', ');
 
@@ -135,8 +147,8 @@ export async function POST(req: NextRequest) {
           input: {
             prompt,
             negative_prompt: negative,
-            num_inference_steps,
-            guidance_scale,
+            num_inference_steps: safeSteps,
+            guidance_scale: safeGuidance,
             width,
             height,
             seed,

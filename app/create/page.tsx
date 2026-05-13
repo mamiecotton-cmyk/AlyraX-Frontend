@@ -57,8 +57,8 @@ const initialGuidedPrompt: GuidedPrompt = {
   action: '',
   wardrobe: '',
   mood: '',
-  camera: 'editorial, natural proportions, premium detail',
-  lighting: 'cinematic soft key, realistic skin',
+  camera: 'editorial photorealism, natural proportions, premium camera detail',
+  lighting: 'soft cinematic key light, realistic skin texture, coherent shadows',
   details: '',
 };
 
@@ -75,15 +75,19 @@ function buildPrompt(guided: GuidedPrompt) {
   const wardrobe = normalizeWardrobe(guided.wardrobe);
 
   return [
-    guided.action && `${guided.action}`,
-    guided.location && `${guided.location}`,
-    `${wardrobe}`,
-    guided.mood && `${guided.mood}`,
-    guided.camera && `${guided.camera}`,
-    guided.lighting && `${guided.lighting}`,
-    guided.details && `${guided.details}`,
-    'natural hands, correct anatomy, uncropped',
-    'reference: exact subject',
+    'Use the anchored reference image as the only source of truth for the subject identity.',
+    guided.action && `Required action or pose: ${guided.action}`,
+    guided.location && `Location: ${guided.location}`,
+    `Wardrobe: ${wardrobe}`,
+    guided.mood && `Expression and mood: ${guided.mood}`,
+    guided.camera && `Camera style: ${guided.camera}`,
+    guided.lighting && `Lighting: ${guided.lighting}`,
+    guided.details && `Scene details: ${guided.details}`,
+    'Photorealistic human anatomy with natural proportions.',
+    'Arms, hands, legs, ankles, and feet must be physically plausible and oriented correctly.',
+    'No reversed limbs, no twisted joints, no extra limbs, no missing limbs.',
+    'Hands have five fingers per hand; visible feet are grounded with natural toes.',
+    'Subject remains fully coherent and uncropped for the requested framing.',
   ].filter(Boolean).join(', ');
 }
 
@@ -123,8 +127,8 @@ export default function CreatePage() {
   const [videoPrompt, setVideoPrompt] = useState('');
   const [style, setStyle] = useState<ImageStyle>('portrait');
   const [packSize, setPackSize] = useState<PackSize>(1);
-  const [steps, setSteps] = useState(20);
-  const [guidance, setGuidance] = useState(3.5);
+  const [steps, setSteps] = useState(8);
+  const [guidance, setGuidance] = useState(1.0);
   const [seed, setSeed] = useState('');
   const [lastSeed, setLastSeed] = useState<number | null>(null);
   const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>([]);
@@ -254,13 +258,14 @@ export default function CreatePage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         description: [
-          'reference: exact subject',
-          'full-body character anchor, nude, neutral standing pose, front-facing, arms slightly away from body',
-          'plain studio background, head to toe visible, feet visible, natural posture',
+          'Use the anchored reference image as the only source of truth for the subject identity.',
+          'Full-body character anchor, nude, neutral standing pose, front-facing, arms relaxed slightly away from body.',
+          'Plain studio background, head-to-toe visible, both feet visible and grounded, natural body proportions, physically plausible posture.',
+          'No reversed limbs, no twisted joints, no extra limbs, no missing limbs, natural hands and natural feet.',
         ].join(', '),
         style: 'fullbody',
-        num_inference_steps: Math.max(steps, 30),
-        guidance_scale: guidance,
+        num_inference_steps: Math.max(steps, 8),
+        guidance_scale: 1.0,
         seed: -1,
         companionId: selectedCompanion.id,
         reference_image_url: selectedCompanion.image_url,
@@ -328,8 +333,8 @@ export default function CreatePage() {
       body: JSON.stringify({
         description: basePrompt,
         style,
-        num_inference_steps: steps,
-        guidance_scale: guidance,
+        num_inference_steps: Math.max(4, Math.min(12, steps)),
+        guidance_scale: Math.max(0.8, Math.min(1.6, guidance)),
         seed: imageSeed,
         companionId: selectedCompanion?.id,
         reference_image_url: referenceImageUrl,
@@ -621,8 +626,8 @@ export default function CreatePage() {
                 <span className="mb-2 block text-xs uppercase tracking-[0.2em] text-zinc-500">Steps</span>
                 <input
                   value={steps}
-                  min={10}
-                  max={40}
+                  min={4}
+                  max={12}
                   type="number"
                   onChange={(event) => setSteps(Number(event.target.value))}
                   className="h-11 w-full border border-zinc-800 bg-black px-3 text-sm outline-none focus:border-red-500"
@@ -632,8 +637,8 @@ export default function CreatePage() {
                 <span className="mb-2 block text-xs uppercase tracking-[0.2em] text-zinc-500">Guidance</span>
                 <input
                   value={guidance}
-                  min={1}
-                  max={8}
+                  min={0.8}
+                  max={1.6}
                   step={0.1}
                   type="number"
                   onChange={(event) => setGuidance(Number(event.target.value))}
