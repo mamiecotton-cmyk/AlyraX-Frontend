@@ -110,19 +110,6 @@ function parseCompanionMetadata(promptUsed?: string | null): CompanionMetadata {
   }
 }
 
-function getCompanionAnchorUrl(companion: Companion | null, style: ImageStyle) {
-  if (!companion) return undefined;
-  const metadata = parseCompanionMetadata(companion.prompt_used);
-  const portraitAnchor = metadata.portraitAnchorUrl || companion.image_url;
-  const fullBodyAnchor = metadata.fullBodyAnchorUrl || metadata.nudeAnchorUrl || metadata.bodyReferenceUrl;
-
-  if (style === 'fullbody' || style === 'fullscreen') {
-    return fullBodyAnchor || companion.image_url;
-  }
-
-  return portraitAnchor;
-}
-
 export default function CreatePage() {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
@@ -146,7 +133,6 @@ export default function CreatePage() {
   const [loading, setLoading] = useState(true);
   const [imageStatus, setImageStatus] = useState('');
   const [videoStatus, setVideoStatus] = useState('');
-  const [anchorStatus, setAnchorStatus] = useState('');
   const [error, setError] = useState('');
 
   const selectedCompanion = useMemo(
@@ -204,23 +190,6 @@ export default function CreatePage() {
     return nextPrompt;
   }
 
-  function updateLocalCompanionAnchor(anchorUrl: string) {
-    if (!selectedCompanion) return;
-    const metadata = parseCompanionMetadata(selectedCompanion.prompt_used);
-    const nextPromptUsed = JSON.stringify({
-      ...metadata,
-      fullBodyAnchorUrl: anchorUrl,
-      nudeAnchorUrl: anchorUrl,
-      bodyReferenceUrl: anchorUrl,
-    });
-
-    setCompanions(current => current.map(item => (
-      item.id === selectedCompanion.id
-        ? { ...item, prompt_used: nextPromptUsed }
-        : item
-    )));
-  }
-
   function updateLocalPortraitAnchor(anchorUrl: string) {
     if (!selectedCompanion) return;
     const metadata = parseCompanionMetadata(selectedCompanion.prompt_used);
@@ -236,7 +205,7 @@ export default function CreatePage() {
     )));
   }
 
-  async function saveCompanionAnchor(anchorUrl: string, anchorType: 'portrait' | 'fullBody') {
+  async function saveCompanionAnchor(anchorUrl: string) {
     if (!selectedCompanion) return;
 
     const response = await fetch('/api/companion/anchor', {
@@ -244,69 +213,26 @@ export default function CreatePage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         companionId: selectedCompanion.id,
-        anchorType,
+        anchorType: 'portrait',
         anchorUrl,
       }),
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || 'Anchor save failed');
 
-    if (anchorType === 'portrait') {
-      updateLocalPortraitAnchor(anchorUrl);
-    } else {
-      updateLocalCompanionAnchor(anchorUrl);
-    }
-  }
-
-  async function createFullBodyAnchor() {
-    if (!selectedCompanion) return undefined;
-
-    setAnchorStatus('Preparing character anchor');
-
-    const response = await fetch('/api/generate-companion', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        description: [
-          'Use the anchored reference image as the only source of truth for the subject identity.',
-          'Full-body character anchor, nude, non-sexual editorial figure reference, neutral standing pose, front-facing or mild three-quarter view.',
-          'Shoulders level with the collarbones, chest and pelvis aligned, torso and hips facing the same direction, arms relaxed slightly away from body.',
-          'Plain studio background, head-to-toe visible, both feet visible and grounded, natural body proportions, physically plausible posture.',
-          'No backward shoulders, no impossible spinal twist, no reversed limbs, no twisted joints, no extra limbs, no missing limbs, natural hands and natural feet.',
-        ].join(', '),
-        style: 'fullbody',
-        num_inference_steps: Math.max(steps, 28),
-        guidance_scale: 7.0,
-        seed: -1,
-        companionId: selectedCompanion.id,
-        reference_image_url: selectedCompanion.image_url,
-        reference_strength: 0.35,
-      }),
-    });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.error || 'Anchor generation failed');
-
-    await saveCompanionAnchor(data.image_url, 'fullBody');
-    setAnchorStatus('Character anchor ready');
-    return data.image_url as string;
+    updateLocalPortraitAnchor(anchorUrl);
   }
 
   async function getReferenceImageForPack() {
     if (!selectedCompanion) return undefined;
     const metadata = parseCompanionMetadata(selectedCompanion.prompt_used);
+    const portraitAnchor = metadata.portraitAnchorUrl || selectedCompanion.image_url;
 
-    if (style === 'portrait') {
-      const portraitAnchor = metadata.portraitAnchorUrl || selectedCompanion.image_url;
-      if (!metadata.portraitAnchorUrl && selectedCompanion.image_url) {
-        await saveCompanionAnchor(selectedCompanion.image_url, 'portrait');
-      }
-      return portraitAnchor;
+    if (!metadata.portraitAnchorUrl && selectedCompanion.image_url) {
+      await saveCompanionAnchor(selectedCompanion.image_url);
     }
 
-    const fullBodyAnchor = metadata.fullBodyAnchorUrl || metadata.nudeAnchorUrl || metadata.bodyReferenceUrl;
-    if (fullBodyAnchor) return fullBodyAnchor;
-
-    return createFullBodyAnchor();
+    return portraitAnchor;
   }
 
   async function pollVideo(predictionId: string) {
@@ -343,7 +269,7 @@ export default function CreatePage() {
         companionId: selectedCompanion?.id,
         reference_image_url: referenceImageUrl,
         reference_strength: selectedCompanion ? 0.23 : 0.25,
-        denoise_strength: selectedCompanion && style !== 'portrait' ? 0.52 : 0.42,
+        denoise_strength: selectedCompanion && style !== 'portrait' ? 0.68 : 0.42,
       }),
     });
     const data = await response.json();
@@ -403,7 +329,6 @@ export default function CreatePage() {
         }
       }
 
-      setAnchorStatus('');
       const completedImages = results.filter(Boolean).length;
       setImageStatus(packSize === 1 ? 'Image ready' : `${completedImages}/${packSize} images ready`);
       if (failedIndexes.length > 0) {
@@ -496,11 +421,7 @@ export default function CreatePage() {
             </label>
 
             <div className="border border-zinc-800 bg-black px-3 py-2 text-xs text-zinc-500">
-              {style === 'portrait'
-                ? 'Using portrait character anchor'
-                : getCompanionAnchorUrl(selectedCompanion, style) === selectedCompanion?.image_url
-                  ? 'Preparing full-body character anchor when needed'
-                  : 'Using private full-body character anchor'}
+              Using portrait character anchor for identity
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -711,9 +632,9 @@ export default function CreatePage() {
               {isGeneratingVideo ? 'Rendering' : 'Generate Video'}
             </button>
 
-            {(imageStatus || videoStatus || anchorStatus || error) && (
+            {(imageStatus || videoStatus || error) && (
               <div className="min-h-10 border border-zinc-800 bg-black px-3 py-2 text-xs text-zinc-500">
-                {error || videoStatus || anchorStatus || imageStatus}
+                {error || videoStatus || imageStatus}
               </div>
             )}
           </div>

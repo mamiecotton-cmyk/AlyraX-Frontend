@@ -138,6 +138,15 @@ export async function POST(req: NextRequest) {
     // Submit job async
     const imageEndpointId = process.env.RUNPOD_IMAGE_ENDPOINT_ID;
     console.log('Using RUNPOD_IMAGE_ENDPOINT_ID:', imageEndpointId);
+    console.log('Submitting image job:', JSON.stringify({
+      style,
+      seed,
+      promptLength: prompt.length,
+      hasReference: Boolean(reference_image_url),
+      referencePreview: typeof reference_image_url === 'string' ? reference_image_url.slice(0, 120) : '',
+      reference_strength,
+      denoise_strength,
+    }));
 
     const runpodResponse = await fetch(
       `https://api.runpod.ai/v2/${imageEndpointId}/run`,
