@@ -95,7 +95,7 @@ export async function POST(req: NextRequest) {
       num_inference_steps = 28,
       guidance_scale = 7.0,
       reference_image_url,
-      reference_strength = 0.25,
+      reference_strength = 0.35,
       reference_mode = 'identity',
       companionId,
     } = body;

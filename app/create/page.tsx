@@ -363,7 +363,7 @@ export default function CreatePage() {
         seed: imageSeed,
         companionId: selectedCompanion?.id,
         reference_image_url: referenceImageUrl,
-        reference_strength: 0.25,
+        reference_strength: selectedCompanion ? 0.35 : 0.25,
       }),
     });
     const data = await response.json();
