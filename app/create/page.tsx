@@ -17,9 +17,6 @@ type Companion = {
 type CompanionMetadata = {
   prompt?: string;
   portraitAnchorUrl?: string;
-  fullBodyAnchorUrl?: string;
-  nudeAnchorUrl?: string;
-  bodyReferenceUrl?: string;
   generation_seed?: number;
 };
 

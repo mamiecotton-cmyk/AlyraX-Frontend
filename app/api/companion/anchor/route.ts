@@ -23,15 +23,15 @@ function parseMetadata(promptUsed?: string | null): CompanionMetadata {
 
 export async function POST(req: NextRequest) {
   try {
-    const { companionId, anchorType = 'fullBody', anchorUrl, fullBodyAnchorUrl } = await req.json();
+    const { companionId, anchorType = 'portrait', anchorUrl, fullBodyAnchorUrl } = await req.json();
     const nextAnchorUrl = anchorUrl || fullBodyAnchorUrl;
 
     if (!companionId || !nextAnchorUrl) {
       return NextResponse.json({ error: 'Missing companionId or anchorUrl' }, { status: 400 });
     }
 
-    if (anchorType !== 'portrait' && anchorType !== 'fullBody') {
-      return NextResponse.json({ error: 'Invalid anchorType' }, { status: 400 });
+    if (anchorType !== 'portrait') {
+      return NextResponse.json({ error: 'Only portrait anchors are supported' }, { status: 400 });
     }
 
     const supabase = await createClient();
@@ -53,18 +53,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Companion not found' }, { status: 404 });
     }
 
-    const metadata = parseMetadata(companion.prompt_used);
-    const nextMetadata = anchorType === 'portrait'
-      ? {
-        ...metadata,
-        portraitAnchorUrl: nextAnchorUrl,
-      }
-      : {
-        ...metadata,
-        fullBodyAnchorUrl: nextAnchorUrl,
-        nudeAnchorUrl: nextAnchorUrl,
-        bodyReferenceUrl: nextAnchorUrl,
-      };
+    const metadataWithoutBodyAnchors = parseMetadata(companion.prompt_used);
+    delete metadataWithoutBodyAnchors.fullBodyAnchorUrl;
+    delete metadataWithoutBodyAnchors.nudeAnchorUrl;
+    delete metadataWithoutBodyAnchors.bodyReferenceUrl;
+    const nextMetadata = {
+      ...metadataWithoutBodyAnchors,
+      portraitAnchorUrl: nextAnchorUrl,
+    };
 
     const { error: updateError } = await supabase
       .from('companions')
