@@ -101,8 +101,9 @@ export async function POST(req: NextRequest) {
     } = body;
     let seed = typeof body.seed === 'number' ? body.seed : -1;
 
-    // If a companionId is provided, prefer its stored generation seed (DNA lock)
-    if (companionId) {
+    // Keep the original companion seed only for unanchored generations.
+    // Anchored img2img generations need fresh/requested seeds so the prompt can actually steer the result.
+    if (companionId && !reference_image_url) {
       try {
         const { createClient } = await import('@/lib/supabase-server');
         const supabase = await createClient();

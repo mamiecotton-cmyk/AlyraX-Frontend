@@ -159,6 +159,7 @@ export default function CreatePage() {
   const [steps, setSteps] = useState(28);
   const [guidance, setGuidance] = useState(7.0);
   const [seed, setSeed] = useState('');
+  const [promptEditedManually, setPromptEditedManually] = useState(false);
   const [lastSeed, setLastSeed] = useState<number | null>(null);
   const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>([]);
   const [selectedImageId, setSelectedImageId] = useState('');
@@ -220,6 +221,7 @@ export default function CreatePage() {
   function generatePromptFromFields() {
     const nextPrompt = buildPrompt(guided, style);
     setPrompt(nextPrompt);
+    setPromptEditedManually(false);
     return nextPrompt;
   }
 
@@ -347,14 +349,7 @@ export default function CreatePage() {
   }
 
   async function generateOneImage(basePrompt: string, index: number, referenceImageUrl?: string): Promise<GeneratedImage> {
-    // Prefer companion's stored generation seed for DNA lock when available
-    let baseSeed = seed.trim() ? Number(seed) : -1;
-    if (selectedCompanion) {
-      const metadata = parseCompanionMetadata(selectedCompanion.prompt_used);
-      if (metadata && typeof metadata.generation_seed === 'number' && !Number.isNaN(metadata.generation_seed)) {
-        baseSeed = metadata.generation_seed;
-      }
-    }
+    const baseSeed = seed.trim() ? Number(seed) : -1;
     const imageSeed = baseSeed >= 0 ? baseSeed + index : -1;
 
     const response = await fetch('/api/generate-companion', {
@@ -385,8 +380,10 @@ export default function CreatePage() {
   }
 
   async function generateImagePack() {
-    const basePrompt = prompt.trim() || generatePromptFromFields();
+    const fieldPrompt = buildPrompt(guided, style);
+    const basePrompt = promptEditedManually && prompt.trim() ? prompt.trim() : fieldPrompt;
     if (!basePrompt.trim()) return;
+    if (!promptEditedManually) setPrompt(fieldPrompt);
 
     setError('');
     setVideoUrl(null);
@@ -609,7 +606,10 @@ export default function CreatePage() {
               </div>
               <textarea
                 value={prompt}
-                onChange={(event) => setPrompt(event.target.value)}
+                onChange={(event) => {
+                  setPrompt(event.target.value);
+                  setPromptEditedManually(true);
+                }}
                 rows={7}
                 placeholder="Generated prompt appears here"
                 className="w-full resize-none border border-zinc-800 bg-black px-4 py-3 text-sm text-zinc-100 outline-none transition placeholder:text-zinc-700 focus:border-red-500"
