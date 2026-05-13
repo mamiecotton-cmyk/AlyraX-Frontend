@@ -20,6 +20,7 @@ type CompanionMetadata = {
   fullBodyAnchorUrl?: string;
   nudeAnchorUrl?: string;
   bodyReferenceUrl?: string;
+  generation_seed?: number;
 };
 
 type GeneratedImage = {
