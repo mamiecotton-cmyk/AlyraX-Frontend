@@ -71,8 +71,35 @@ function normalizeWardrobe(wardrobe: string) {
   return wardrobe.trim();
 }
 
-function buildPrompt(guided: GuidedPrompt) {
+function getPoseInstruction(style: ImageStyle) {
+  const shared = [
+    'Pose must be simple, readable, and physically possible.',
+    'Face, chest, shoulders, pelvis, knees, and toes should face the same general direction unless a mild three-quarter turn is requested.',
+    'Shoulders must be correctly attached to the torso, level with the collarbones, and never rotated backward.',
+    'Torso and hips must align naturally; no impossible spinal twist, no backward shoulders, no reversed elbows or knees.',
+    'Arms stay visible at the sides or naturally in front of the body; do not hide arms behind the back.',
+  ];
+
+  if (style === 'portrait') {
+    return [
+      ...shared,
+      'Use a relaxed front-facing or slight three-quarter portrait pose with natural shoulders.',
+    ].join(' ');
+  }
+
+  return [
+    ...shared,
+    'Use a stable front-facing or slight three-quarter standing pose.',
+    'Both legs must connect naturally to the hips; both feet should point forward or slightly outward and rest on the ground.',
+    'If the requested action is complex, simplify it into the nearest natural human pose.',
+  ].join(' ');
+}
+
+function buildPrompt(guided: GuidedPrompt, style: ImageStyle) {
   const wardrobe = normalizeWardrobe(guided.wardrobe);
+  const nudeInstruction = wardrobe === 'nude'
+    ? 'Treat nude as a non-sexual editorial figure reference with neutral posture and clear anatomy.'
+    : '';
 
   return [
     'Use the anchored reference image as the only source of truth for the subject identity.',
@@ -83,10 +110,12 @@ function buildPrompt(guided: GuidedPrompt) {
     guided.camera && `Camera style: ${guided.camera}`,
     guided.lighting && `Lighting: ${guided.lighting}`,
     guided.details && `Scene details: ${guided.details}`,
+    getPoseInstruction(style),
     'Photorealistic human anatomy with natural proportions.',
     'Arms, hands, legs, ankles, and feet must be physically plausible and oriented correctly.',
     'No reversed limbs, no twisted joints, no extra limbs, no missing limbs.',
     'Hands have five fingers per hand; visible feet are grounded with natural toes.',
+    nudeInstruction,
     'Subject remains fully coherent and uncropped for the requested framing.',
   ].filter(Boolean).join(', ');
 }
@@ -189,7 +218,7 @@ export default function CreatePage() {
   }
 
   function generatePromptFromFields() {
-    const nextPrompt = buildPrompt(guided);
+    const nextPrompt = buildPrompt(guided, style);
     setPrompt(nextPrompt);
     return nextPrompt;
   }
@@ -259,9 +288,10 @@ export default function CreatePage() {
       body: JSON.stringify({
         description: [
           'Use the anchored reference image as the only source of truth for the subject identity.',
-          'Full-body character anchor, nude, neutral standing pose, front-facing, arms relaxed slightly away from body.',
+          'Full-body character anchor, nude, non-sexual editorial figure reference, neutral standing pose, front-facing or mild three-quarter view.',
+          'Shoulders level with the collarbones, chest and pelvis aligned, torso and hips facing the same direction, arms relaxed slightly away from body.',
           'Plain studio background, head-to-toe visible, both feet visible and grounded, natural body proportions, physically plausible posture.',
-          'No reversed limbs, no twisted joints, no extra limbs, no missing limbs, natural hands and natural feet.',
+          'No backward shoulders, no impossible spinal twist, no reversed limbs, no twisted joints, no extra limbs, no missing limbs, natural hands and natural feet.',
         ].join(', '),
         style: 'fullbody',
         num_inference_steps: Math.max(steps, 8),

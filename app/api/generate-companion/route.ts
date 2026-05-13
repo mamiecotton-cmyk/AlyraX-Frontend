@@ -62,6 +62,30 @@ function clampNumber(value: unknown, fallback: number, min: number, max: number)
   return Math.min(max, Math.max(min, number));
 }
 
+function getPoseInstruction(style: string) {
+  const shared = [
+    'Pose must be simple, readable, and physically possible.',
+    'Face, chest, shoulders, pelvis, knees, and toes should face the same general direction unless a mild three-quarter turn is requested.',
+    'Shoulders must be correctly attached to the torso, level with the collarbones, and never rotated backward.',
+    'Torso and hips must align naturally; no impossible spinal twist, no backward shoulders, no reversed elbows or knees.',
+    'Arms stay visible at the sides or naturally in front of the body; do not hide arms behind the back.',
+  ];
+
+  if (style === 'portrait') {
+    return [
+      ...shared,
+      'Use a relaxed front-facing or slight three-quarter portrait pose with natural shoulders.',
+    ].join(' ');
+  }
+
+  return [
+    ...shared,
+    'Use a stable front-facing or slight three-quarter standing pose.',
+    'Both legs must connect naturally to the hips; both feet should point forward or slightly outward and rest on the ground.',
+    'If the requested action is complex, simplify it into the nearest natural human pose.',
+  ].join(' ');
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -113,12 +137,13 @@ export async function POST(req: NextRequest) {
         : 'Use the anchored reference image as the only source of truth for the subject identity. Preserve the same face, age, body proportions, skin tone, hair, and recognizable features from the reference image.'
       : '';
 
+    const poseInstruction = getPoseInstruction(style);
     const anatomyInstruction = [
       'Photorealistic human anatomy with natural proportions.',
       'Arms, hands, legs, ankles, and feet must be physically plausible.',
       'No reversed limbs, no twisted joints, no extra limbs, no missing limbs.',
       'Hands have five fingers per hand; feet have natural toes and rest on the ground when visible.',
-      'Pose must be stable, balanced, and possible for a real human body.',
+      'If wardrobe is nude, treat it as a non-sexual editorial figure reference with neutral posture and clear anatomy.',
     ].join(' ');
 
     const qualityTags = 'editorial photorealism, realistic skin texture, sharp natural focus, coherent lighting, premium camera detail';
@@ -127,6 +152,7 @@ export async function POST(req: NextRequest) {
       referenceInstruction,
       description,
       composition,
+      poseInstruction,
       anatomyInstruction,
       qualityTags,
     ].filter(Boolean).join(', ');
