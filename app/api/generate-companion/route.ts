@@ -58,17 +58,18 @@ function getImageSettings(style: string) {
 
 export async function POST(req: NextRequest) {
   try {
+    const body = await req.json();
     const {
       description,
       style = 'portrait',
       num_inference_steps = 20,
       guidance_scale = 3.5,
-      seed = -1,
       reference_image_url,
       reference_strength = 0.25,
       reference_mode = 'identity',
       companionId,
-    } = await req.json();
+    } = body;
+    let seed = typeof body.seed === 'number' ? body.seed : -1;
 
     // If a companionId is provided, prefer its stored generation seed (DNA lock)
     if (companionId) {
