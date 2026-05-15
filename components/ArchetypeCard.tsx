@@ -115,6 +115,16 @@ export default function ArchetypeCard({ archetype, featured = false, delay = 0, 
         >
           Open Dossier
         </button>
+        <button
+          onClick={(e) => { e.stopPropagation(); router.push(`/admin/profile/${archetype.id}`); }}
+          style={{
+            display: 'block', width: '100%', padding: '7px 0', marginTop: '8px', textAlign: 'center',
+            fontFamily: 'var(--font-mono)', fontSize: '8px', letterSpacing: '0.12em', textTransform: 'uppercase',
+            color: 'var(--ivory-muted)', background: 'transparent', border: '1px solid var(--border-mid)', borderRadius: '2px', cursor: 'pointer'
+          }}
+        >
+          Admin
+        </button>
       </div>
     </article>
   );
