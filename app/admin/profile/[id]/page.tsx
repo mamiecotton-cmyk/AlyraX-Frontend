@@ -13,6 +13,7 @@ export default function ProfileEditPage() {
 
   const [archetype, setArchetype] = useState<Archetype | null>(null);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [images, setImages] = useState<Array<any>>([]);
   const [prompt, setPrompt] = useState('');
   const [saving, setSaving] = useState(false);
   const [generating, setGenerating] = useState(false);
@@ -23,10 +24,13 @@ export default function ProfileEditPage() {
     const a = archetypes.find((x) => x.id === id) || null;
     setArchetype(a);
 
-    // load existing image and saved prompt
-    fetch('/api/archetypes/images')
+    // load existing images and saved prompt
+    fetch(`/api/archetypes/images/list?id=${encodeURIComponent(id)}`)
       .then((r) => r.json())
-      .then(({ images }) => setImageUrl(images?.[id] || null))
+      .then(({ images: list }) => {
+        setImages(list || []);
+        setImageUrl((list && list[0]?.image_url) || null);
+      })
       .catch(() => {});
 
     fetch('/api/archetypes/prompts')
@@ -34,6 +38,81 @@ export default function ProfileEditPage() {
       .then(({ prompts }) => setPrompt(prompts?.[id] || ''))
       .catch(() => {});
   }, [id]);
+
+  // Helpers for image upload/reorder
+  async function uploadFile(file: File) {
+    if (!file || !id) return;
+    try {
+      const fileName = `${id}/${Date.now()}-${file.name}`;
+      const { data, error } = await supabase.storage.from('companions').upload(fileName, file, { contentType: file.type || 'image/png', upsert: true });
+      if (error) throw error;
+      const { data: urlData } = await supabase.storage.from('companions').getPublicUrl(data.path);
+      const publicUrl = urlData.publicUrl;
+
+      // Persist record
+      await fetch('/api/archetypes/images/add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ archetype_id: id, image_url: publicUrl }),
+      });
+
+      setImages((prev) => [...prev, { image_url: publicUrl }]);
+      setMessage('Image uploaded');
+    } catch (err) {
+      console.error('Upload failed', err);
+      setMessage('Upload failed');
+    }
+  }
+
+  function onFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0];
+    if (f) uploadFile(f);
+  }
+
+  async function setAsMain(imageUrlToSet: string) {
+    if (!id) return;
+    setSaving(true);
+    try {
+      await fetch('/api/archetypes/images/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ archetype_id: id, image_url: imageUrlToSet }),
+      });
+      setImageUrl(imageUrlToSet);
+      setMessage('Main image updated');
+    } catch (err) {
+      setMessage('Update failed');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function moveImage(index: number, dir: -1 | 1) {
+    setImages((prev) => {
+      const arr = [...prev];
+      const to = index + dir;
+      if (to < 0 || to >= arr.length) return arr;
+      const tmp = arr[to];
+      arr[to] = arr[index];
+      arr[index] = tmp;
+      return arr;
+    });
+  }
+
+  async function saveOrder() {
+    if (!id) return;
+    const ordering = images.map((it) => it.image_url);
+    try {
+      await fetch('/api/archetypes/images/order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ archetype_id: id, order: ordering }),
+      });
+      setMessage('Order saved');
+    } catch (err) {
+      setMessage('Order save failed');
+    }
+  }
 
   async function savePrompt() {
     if (!id) return;
@@ -88,13 +167,36 @@ export default function ProfileEditPage() {
     <div style={{ padding: 24, maxWidth: 880 }}>
       <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start' }}>
         <div style={{ width: 320 }}>
-          <div style={{ aspectRatio: '3/4', background: '#111', borderRadius: 6, overflow: 'hidden' }}>
+          <div style={{ aspectRatio: '3/4', background: '#111', borderRadius: 6, overflow: 'hidden', marginBottom: 12 }}>
             {imageUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={imageUrl} alt={archetype?.name || 'image'} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             ) : (
-              <div style={{ padding: 16, color: '#888' }}>No image</div>
+              <div style={{ padding: 16, color: '#888' }}>No main image</div>
             )}
+          </div>
+
+          <div style={{ display: 'flex', gap: 8, flexDirection: 'column' }}>
+            <label style={{ fontSize: 12, color: '#aaa' }}>Gallery</label>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {images.length === 0 && <div style={{ color: '#666' }}>No images</div>}
+              {images.map((it, idx) => (
+                <div key={it.id || it.image_url} style={{ width: 72, height: 96, position: 'relative', border: imageUrl === it.image_url ? '2px solid var(--gold)' : '1px solid #222' }}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={it.image_url} alt={`img-${idx}`} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                  <div style={{ position: 'absolute', bottom: 2, left: 2, right: 2, display: 'flex', gap: 4 }}>
+                    <button onClick={() => setAsMain(it.image_url)} style={{ fontSize: 10, padding: '2px 4px' }}>Set Main</button>
+                    <button onClick={() => moveImage(idx, -1)} style={{ fontSize: 10, padding: '2px 4px' }}>↑</button>
+                    <button onClick={() => moveImage(idx, 1)} style={{ fontSize: 10, padding: '2px 4px' }}>↓</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ marginTop: 8 }}>
+              <input type="file" accept="image/*" onChange={onFileChange} />
+              <button onClick={saveOrder} style={{ marginLeft: 8 }}>Save Order</button>
+            </div>
           </div>
         </div>
 
