@@ -56,42 +56,47 @@ export default function AdminProfilePage({ params }: { params: { id: string } })
 
   useEffect(() => {
     async function load() {
-      if (!hardcoded) {
-        const cRes = await fetch('/api/archetypes/custom');
-        const { archetypes: customs } = await cRes.json();
-        const found = customs?.find((c: { id: string }) => c.id === id);
-        if (found) {
-          const { customRowToArchetype } = await import('@/lib/archetypes');
-          setArchetype(customRowToArchetype(found));
-          if (found.prompt_used) setImagePrompt(found.prompt_used);
+      try {
+        if (!hardcoded) {
+          const cRes = await fetch('/api/archetypes/custom');
+          const { archetypes: customs } = await cRes.json();
+          const found = customs?.find((c: { id: string }) => c.id === id);
+          if (found) {
+            const { customRowToArchetype } = await import('@/lib/archetypes');
+            setArchetype(customRowToArchetype(found));
+            if (found.prompt_used) setImagePrompt(found.prompt_used);
+          }
         }
-      }
-      const [gRes, vRes, pRes] = await Promise.all([
-        fetch(`/api/archetypes/gallery?archetype_id=${id}`).then((r) => r.json()),
-        fetch(`/api/archetypes/videos?archetype_id=${id}`).then((r) => r.json()),
-        fetch('/api/archetypes/prompts').then((r) => r.json()),
-      ]);
-      let imgs: GalleryImage[] = gRes.images ?? [];
-      if (imgs.length === 0) {
-        const iRes = await fetch('/api/archetypes/images');
-        const { images } = await iRes.json();
-        if (images?.[id]) {
-          const saveRes = await fetch('/api/archetypes/gallery', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ archetype_id: id, image_url: images[id], is_main: true }) });
-          const saveData = await saveRes.json();
-          if (saveData.image) imgs = [saveData.image];
+        const [gRes, vRes, pRes] = await Promise.all([
+          fetch(`/api/archetypes/gallery?archetype_id=${id}`).then((r) => r.json()),
+          fetch(`/api/archetypes/videos?archetype_id=${id}`).then((r) => r.json()),
+          fetch('/api/archetypes/prompts').then((r) => r.json()),
+        ]);
+        let imgs: GalleryImage[] = gRes.images ?? [];
+        if (imgs.length === 0) {
+          const iRes = await fetch('/api/archetypes/images');
+          const { images } = await iRes.json();
+          if (images?.[id]) {
+            const saveRes = await fetch('/api/archetypes/gallery', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ archetype_id: id, image_url: images[id], is_main: true }) });
+            const saveData = await saveRes.json();
+            if (saveData.image) imgs = [saveData.image];
+          }
         }
+        setGallery(imgs);
+        setVideos(vRes.videos ?? []);
+        // Always rebuild prompt from lib so gender is always correct
+        // Only fall back to saved prompt if archetype isn't found
+        const foundArchetype = archetypes.find((a) => a.id === id);
+        if (foundArchetype) {
+          setImagePrompt(buildArchetypePrompt(foundArchetype));
+        } else if (pRes.prompts?.[id]) {
+          setImagePrompt(pRes.prompts[id]);
+        }
+      } catch (err) {
+        console.error('Error loading admin profile data:', err);
+      } finally {
+        setLoading(false);
       }
-      setGallery(imgs);
-      setVideos(vRes.videos ?? []);
-      // Always rebuild prompt from lib so gender is always correct
-      // Only fall back to saved prompt if archetype isn't found
-      const foundArchetype = archetypes.find((a) => a.id === id);
-      if (foundArchetype) {
-        setImagePrompt(buildArchetypePrompt(foundArchetype));
-      } else if (pRes.prompts?.[id]) {
-        setImagePrompt(pRes.prompts[id]);
-      }
-      setLoading(false);
     }
     load();
   }, [id, hardcoded]);
@@ -99,11 +104,20 @@ export default function AdminProfilePage({ params }: { params: { id: string } })
   // Ensure only admin users can access this page
   useEffect(() => {
     let mounted = true;
-    fetch('/api/auth/me').then((r) => r.json()).then((d) => {
-      if (!mounted) return;
-      if (!d?.user) { router.push('/login'); return; }
-      if (!d?.is_admin) { router.push('/login'); return; }
-    }).catch(() => { if (mounted) router.push('/login'); });
+    async function checkAuth() {
+      try {
+        const r = await fetch('/api/auth/me');
+        const d = await r.json();
+        if (!mounted) return;
+        if (!d?.user) { router.push('/login'); return; }
+        if (!d?.is_admin) { router.push('/login'); return; }
+      } catch (err) {
+        if (mounted) router.push('/login');
+      } finally {
+        // no-op — kept so failures don't silently hang
+      }
+    }
+    checkAuth();
     return () => { mounted = false };
   }, [router]);
 
