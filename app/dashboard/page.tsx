@@ -47,6 +47,7 @@ export default function DashboardPage() {
   const [filter, setFilter]       = useState<Filter>('all');
   const [showCallPanel, setShowCallPanel] = useState(false);
   const [mode, setMode]           = useState<'solo' | 'solo_video'>('solo');
+  const [archetypeImages, setArchetypeImages] = useState<Record<string, string>>({});
 
   // Filtered archetype grid
   const displayArchetypes = useMemo(() => {
@@ -78,6 +79,14 @@ export default function DashboardPage() {
     }
     loadData();
   }, [router, supabase]);
+
+  // Fetch archetype portrait images
+  useEffect(() => {
+    fetch('/api/archetypes/images')
+      .then((r) => r.json())
+      .then(({ images }) => setArchetypeImages(images || {}))
+      .catch(() => {});
+  }, []);
 
   // Vapi listeners
   useEffect(() => {
@@ -468,6 +477,7 @@ export default function DashboardPage() {
                 archetype={archetype}
                 featured={archetype.id === featuredId}
                 delay={i * 0.035}
+                imageUrl={archetypeImages[archetype.id] || null}
               />
             ))}
           </div>

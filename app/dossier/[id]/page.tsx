@@ -1,6 +1,6 @@
 'use client';
 
-import { use, useState } from 'react';
+import { use, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import { archetypes } from '@/lib/archetypes';
@@ -15,6 +15,14 @@ export default function DossierPage({ params }: Props) {
   const archetype = archetypes.find((a) => a.id === id);
 
   const [activeTab, setActiveTab] = useState<'profile' | 'conversation' | 'gallery'>('profile');
+  const [archetypeImage, setArchetypeImage] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch('/api/archetypes/images')
+      .then((r) => r.json())
+      .then(({ images }) => setArchetypeImage(images?.[id] || null))
+      .catch(() => {});
+  }, [id]);
 
   if (!archetype) {
     return (
@@ -135,11 +143,19 @@ export default function DossierPage({ params }: Props) {
                   flexShrink: 0,
                 }}
               >
-                {/* Silhouette placeholder */}
-                <svg width="80" height="130" viewBox="0 0 80 130" fill="none" aria-hidden="true" style={{ opacity: 0.25, zIndex: 0 }}>
-                  <circle cx="40" cy="32" r="22" fill={archetype.accentColor} />
-                  <path d="M8 120 C8 82 72 82 72 120" stroke={archetype.accentColor} strokeWidth="1.5" fill="none" />
-                </svg>
+                {/* Real portrait or silhouette placeholder */}
+                {archetypeImage ? (
+                  <img
+                    src={archetypeImage}
+                    alt={archetype.name}
+                    style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center top', zIndex: 0 }}
+                  />
+                ) : (
+                  <svg width="80" height="130" viewBox="0 0 80 130" fill="none" aria-hidden="true" style={{ opacity: 0.25, zIndex: 0 }}>
+                    <circle cx="40" cy="32" r="22" fill={archetype.accentColor} />
+                    <path d="M8 120 C8 82 72 82 72 120" stroke={archetype.accentColor} strokeWidth="1.5" fill="none" />
+                  </svg>
+                )}
 
                 {/* Corner decorations */}
                 <div style={{ position: 'absolute', top: '10px', left: '10px', width: '16px', height: '16px', borderTop: '1px solid var(--gold)', borderLeft: '1px solid var(--gold)', zIndex: 2 }} />

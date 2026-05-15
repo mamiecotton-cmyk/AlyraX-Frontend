@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, Suspense } from 'react';
+import { useState, useMemo, Suspense, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import ArchetypeCard from '@/components/ArchetypeCard';
@@ -15,6 +15,14 @@ function ArchiveContent() {
 
   const [filter, setFilter] = useState<Filter>(initialGender);
   const [search, setSearch]   = useState('');
+  const [archetypeImages, setArchetypeImages] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    fetch('/api/archetypes/images')
+      .then((r) => r.json())
+      .then(({ images }) => setArchetypeImages(images || {}))
+      .catch(() => {});
+  }, []);
 
   const filtered = useMemo(() => {
     let pool = archetypes;
@@ -150,7 +158,7 @@ function ArchiveContent() {
               }}
             >
               {filtered.map((a, i) => (
-                <ArchetypeCard key={a.id} archetype={a} delay={i * 0.03} />
+                <ArchetypeCard key={a.id} archetype={a} delay={i * 0.03} imageUrl={archetypeImages[a.id] || null} />
               ))}
             </div>
           )}
