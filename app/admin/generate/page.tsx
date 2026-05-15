@@ -403,7 +403,7 @@ export default function AdminGeneratePage() {
                 {/* Clickable image — opens prompt editor drawer */}
                 <div style={{ position: 'relative' }}>
                   <div
-                    onClick={() => setActivePromptId(s.archetype.id)}
+                    onClick={() => router.push(`/admin/profile/${s.archetype.id}`)}
                     role="button"
                     tabIndex={0}
                     aria-label={`Edit prompt for ${s.archetype.name}`}
