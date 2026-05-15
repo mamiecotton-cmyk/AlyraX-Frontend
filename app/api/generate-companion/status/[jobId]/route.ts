@@ -43,25 +43,22 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ jobI
       try {
         const { createClient } = await import('@/lib/supabase-server');
         const supabase = await createClient();
-        const { data: { user } } = await supabase.auth.getUser();
 
-        if (user) {
-          const imageBuffer = Buffer.from(imageBase64, 'base64');
-          const fileName = `${user.id}/${Date.now()}.png`;
+        const imageBuffer = Buffer.from(imageBase64, 'base64');
+        const fileName = `generated/${Date.now()}-${jobId}.png`;
 
-          await supabase.storage
-            .from('companions')
-            .upload(fileName, imageBuffer, {
-              contentType: 'image/png',
-              upsert: true,
-            });
+        const uploadRes = await supabase.storage
+          .from('companions')
+          .upload(fileName, imageBuffer, {
+            contentType: 'image/png',
+            upsert: true,
+          });
 
-          const { data: urlData } = supabase.storage
-            .from('companions')
-            .getPublicUrl(fileName);
-
+        if (uploadRes.error) {
+          console.error('Supabase upload error:', uploadRes.error);
+          // Fall back to returning data URL if upload fails
           return NextResponse.json({
-            image_url: urlData.publicUrl,
+            image_url: `data:image/png;base64,${imageBase64}`,
             success: true,
             seed: outputSeed,
             width: outputWidth,
@@ -70,8 +67,12 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ jobI
           });
         }
 
+        const { data: urlData } = supabase.storage
+          .from('companions')
+          .getPublicUrl(fileName);
+
         return NextResponse.json({
-          image_url: `data:image/png;base64,${imageBase64}`,
+          image_url: urlData.publicUrl,
           success: true,
           seed: outputSeed,
           width: outputWidth,
@@ -80,7 +81,6 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ jobI
         });
       } catch (err) {
         console.error('Error saving completed image:', err);
-        // Return the raw status data to help debugging
         return NextResponse.json({ success: true, raw: statusData });
       }
     }
