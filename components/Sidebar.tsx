@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 
 type NavItem = {
@@ -53,6 +53,7 @@ export default function Sidebar() {
   const router   = useRouter();
   const pathname = usePathname();
   const [expanded, setExpanded] = useState<string[]>(['Identity Sync', 'Active Dossiers', 'The Archive']);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   const toggle = (label: string) => {
     setExpanded((prev) =>
@@ -62,6 +63,16 @@ export default function Sidebar() {
 
   const isActive = (href: string) =>
     pathname === href || pathname.startsWith(href.split('?')[0] + '/');
+
+  // fetch current user admin status
+  useEffect(() => {
+    let mounted = true;
+    fetch('/api/auth/me')
+      .then((r) => r.json())
+      .then((d) => { if (mounted && d?.is_admin) setIsAdmin(true); })
+      .catch(() => {});
+    return () => { mounted = false };
+  }, []);
 
   return (
     <aside
@@ -170,53 +181,59 @@ export default function Sidebar() {
         </div>
       </nav>
 
-      {/* Admin nav */}
-      <div style={{ borderTop: '1px solid var(--border-dark)', paddingTop: '8px' }}>
-        <div style={{ padding: '4px 20px 6px', fontFamily: 'var(--font-mono)', fontSize: '8px', letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--ivory-ghost)' }}>
-          Admin
-        </div>
-        {ADMIN_NAV.map((item) => (
-          <button
-            key={item.label}
-            onClick={() => router.push(item.href)}
-            style={{
-              display: 'flex', alignItems: 'center', gap: '10px',
-              width: '100%', padding: '7px 20px',
-              background: 'none', border: 'none', cursor: 'pointer',
-              color: 'var(--ivory-ghost)', fontSize: '11px',
-              fontFamily: 'var(--font-body)', textAlign: 'left', transition: 'color 0.15s',
-            }}
-            onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.color = 'var(--gold)')}
-            onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.color = 'var(--ivory-ghost)')}
-          >
-            <span style={{ color: 'var(--gold)', fontSize: '10px', opacity: 0.6 }}>{item.icon}</span>
-            {item.label}
-          </button>
-        ))}
-      </div>
+      {/* Admin section removed from main nav — admin link now under Account Settings */}
 
       {/* Bottom nav */}
       <div style={{ borderTop: '1px solid var(--border-dark)', paddingTop: '8px', paddingBottom: '8px' }}>
-        {BOTTOM_NAV.map((item) => (
-          <button
-            key={item.label}
-            onClick={() => item.href === '/auth/signout'
-              ? (window.location.href = item.href)
-              : router.push(item.href)}
-            style={{
-              display: 'flex', alignItems: 'center', gap: '10px',
-              width: '100%', padding: '8px 20px',
-              background: 'none', border: 'none', cursor: 'pointer',
-              color: 'var(--ivory-muted)', fontSize: '11px',
-              fontFamily: 'var(--font-body)', textAlign: 'left', transition: 'color 0.15s',
-            }}
-            onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.color = 'var(--ivory-dim)')}
-            onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.color = 'var(--ivory-muted)')}
-          >
-            <span style={{ color: 'var(--gold)', fontSize: '11px', opacity: 0.5 }}>{item.icon}</span>
-            {item.label}
-          </button>
-        ))}
+        {BOTTOM_NAV.map((item) => {
+          const btn = (
+            <button
+              key={item.label}
+              onClick={() => item.href === '/auth/signout'
+                ? (window.location.href = item.href)
+                : router.push(item.href)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '10px',
+                width: '100%', padding: '8px 20px',
+                background: 'none', border: 'none', cursor: 'pointer',
+                color: 'var(--ivory-muted)', fontSize: '11px',
+                fontFamily: 'var(--font-body)', textAlign: 'left', transition: 'color 0.15s',
+              }}
+              onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.color = 'var(--ivory-dim)')}
+              onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.color = 'var(--ivory-muted)')}
+            >
+              <span style={{ color: 'var(--gold)', fontSize: '11px', opacity: 0.5 }}>{item.icon}</span>
+              {item.label}
+            </button>
+          );
+
+          if (item.href === '/settings') {
+            return (
+              <div key={`wrap-${item.label}`}>
+                {btn}
+                {isAdmin && (
+                  <button
+                    onClick={() => router.push('/admin/archetypes')}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: '10px',
+                      width: '100%', padding: '8px 20px', marginTop: '6px',
+                      background: 'none', border: 'none', cursor: 'pointer',
+                      color: 'var(--ivory-muted)', fontSize: '11px',
+                      fontFamily: 'var(--font-body)', textAlign: 'left', transition: 'color 0.15s',
+                    }}
+                    onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.color = 'var(--ivory-dim)')}
+                    onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.color = 'var(--ivory-muted)')}
+                  >
+                    <span style={{ color: 'var(--gold)', fontSize: '11px', opacity: 0.5 }}>◈</span>
+                    Admin
+                  </button>
+                )}
+              </div>
+            );
+          }
+
+          return btn;
+        })}
       </div>
     </aside>
   );
