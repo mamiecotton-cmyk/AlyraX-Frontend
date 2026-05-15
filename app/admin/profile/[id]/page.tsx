@@ -114,6 +114,27 @@ export default function ProfileEditPage() {
     }
   }
 
+  // Drag & drop handlers
+  function onDragStart(e: React.DragEvent, idx: number) {
+    e.dataTransfer.setData('text/plain', String(idx));
+  }
+
+  function onDragOver(e: React.DragEvent) {
+    e.preventDefault();
+  }
+
+  function onDrop(e: React.DragEvent, idx: number) {
+    e.preventDefault();
+    const from = Number(e.dataTransfer.getData('text/plain'));
+    if (isNaN(from)) return;
+    setImages((prev) => {
+      const arr = [...prev];
+      const [item] = arr.splice(from, 1);
+      arr.splice(idx, 0, item);
+      return arr;
+    });
+  }
+
   async function savePrompt() {
     if (!id) return;
     setSaving(true);
@@ -181,13 +202,18 @@ export default function ProfileEditPage() {
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               {images.length === 0 && <div style={{ color: '#666' }}>No images</div>}
               {images.map((it, idx) => (
-                <div key={it.id || it.image_url} style={{ width: 72, height: 96, position: 'relative', border: imageUrl === it.image_url ? '2px solid var(--gold)' : '1px solid #222' }}>
+                <div
+                  key={it.id || it.image_url}
+                  draggable
+                  onDragStart={(e) => onDragStart(e, idx)}
+                  onDragOver={onDragOver}
+                  onDrop={(e) => onDrop(e, idx)}
+                  style={{ width: 72, height: 96, position: 'relative', border: imageUrl === it.image_url ? '2px solid var(--gold)' : '1px solid #222', cursor: 'grab' }}
+                >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={it.image_url} alt={`img-${idx}`} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                   <div style={{ position: 'absolute', bottom: 2, left: 2, right: 2, display: 'flex', gap: 4 }}>
                     <button onClick={() => setAsMain(it.image_url)} style={{ fontSize: 10, padding: '2px 4px' }}>Set Main</button>
-                    <button onClick={() => moveImage(idx, -1)} style={{ fontSize: 10, padding: '2px 4px' }}>↑</button>
-                    <button onClick={() => moveImage(idx, 1)} style={{ fontSize: 10, padding: '2px 4px' }}>↓</button>
                   </div>
                 </div>
               ))}
