@@ -104,20 +104,10 @@ export default function AdminProfilePage({ params }: { params: { id: string } })
   // Ensure only admin users can access this page
   useEffect(() => {
     let mounted = true;
-    async function checkAuth() {
-      try {
-        const r = await fetch('/api/auth/me');
-        const d = await r.json();
-        if (!mounted) return;
-        if (!d?.user) { router.push('/login'); return; }
-        if (!d?.is_admin) { router.push('/login'); return; }
-      } catch (err) {
-        if (mounted) router.push('/login');
-      } finally {
-        // no-op — kept so failures don't silently hang
-      }
-    }
-    checkAuth();
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!mounted) return;
+      if (!user) router.push('/login');
+    });
     return () => { mounted = false };
   }, [router]);
 
