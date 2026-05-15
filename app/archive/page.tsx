@@ -10,9 +10,10 @@ type Filter = 'all' | 'M' | 'F';
 
 function ArchiveContent() {
   const searchParams = useSearchParams();
-  const initialGender = (searchParams.get('gender') as 'M' | 'F') || 'all';
+  const rawGender = searchParams.get('gender');
+  const initialGender: Filter = (rawGender === 'M' || rawGender === 'F') ? rawGender : 'all';
 
-  const [filter, setFilter] = useState<Filter>(initialGender === 'all' ? 'all' : initialGender);
+  const [filter, setFilter] = useState<Filter>(initialGender);
   const [search, setSearch]   = useState('');
 
   const filtered = useMemo(() => {
