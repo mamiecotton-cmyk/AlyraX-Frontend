@@ -389,7 +389,12 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
                           {secondaryImgs.map((img) => {
                             const origIdx = gallery.findIndex((g) => g.id === img.id);
                             return (
-                              <div style={{ maxHeight: '90px', overflow: 'hidden', borderRadius: '3px' }} key={img.id}>
+                              <div
+                                style={{ height: '90px', overflow: 'hidden', borderRadius: '3px', cursor: 'pointer' }}
+                                key={img.id}
+                                onClick={() => setMainImage(img)}
+                                title="Set as main image"
+                              >
                                 <ImageCard img={img} i={origIdx} isHero={false} />
                               </div>
                             );
