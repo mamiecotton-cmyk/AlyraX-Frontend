@@ -359,9 +359,9 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
 
                 const ImageCard = ({ img, i, isHero }: { img: GalleryImage; i: number; isHero: boolean }) => (
                   <div style={{ background: 'var(--charcoal)', border: `1px solid ${img.is_main ? 'var(--gold)' : 'var(--border-dark)'}`, borderRadius: '3px', overflow: 'hidden' }}>
-                    <div style={{ position: 'relative', overflow: 'hidden', background: archetype.imageGradient, ...(isHero ? { height: '360px', display: 'flex', justifyContent: 'center', alignItems: 'center' } : { aspectRatio: '3/4' }) }}>
-                      <div style={isHero ? { maxWidth: '520px', width: '100%', height: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center' } : undefined}>
-                        <img src={img.image_url} alt="" style={isHero ? { width: 'auto', height: '100%', objectFit: 'contain', objectPosition: 'center center', display: 'block' } : { width: '100%', height: '100%', objectFit: 'contain', objectPosition: 'center center', display: 'block' }} />
+                    <div style={{ position: 'relative', overflow: 'hidden', background: archetype.imageGradient, ...(isHero ? { display: 'flex', justifyContent: 'center', alignItems: 'center', maxHeight: '70vh' } : { aspectRatio: '3/4' }) }}>
+                      <div style={isHero ? { maxWidth: '520px', width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center' } : undefined}>
+                        <img src={img.image_url} alt="" style={isHero ? { width: '100%', height: 'auto', maxHeight: '70vh', objectFit: 'contain', objectPosition: 'center center', display: 'block' } : { width: '100%', height: '100%', objectFit: 'contain', objectPosition: 'center center', display: 'block' }} />
                       </div>
                       {img.is_main && <div style={{ position: 'absolute', top: '8px', left: '8px', fontFamily: 'var(--font-mono)', fontSize: '7px', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--onyx)', background: 'var(--gold)', padding: '3px 8px', borderRadius: '2px' }}>Main</div>}
                       {img.seed && <div style={{ position: 'absolute', bottom: '8px', left: '8px', fontFamily: 'var(--font-mono)', fontSize: '7px', color: 'var(--ivory-ghost)', background: 'rgba(0,0,0,0.75)', padding: '2px 6px', borderRadius: '2px' }}>{img.seed}</div>}
