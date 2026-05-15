@@ -121,11 +121,13 @@ export default function AdminArchetypesPage() {
       .then((r) => r.json())
       .then(({ prompts }: { prompts: Record<string, string> }) => {
         if (!prompts) return;
+        // Update saved/edited prompts and ensure all cards are collapsed by default
         setCards((prev) => prev.map((c) =>
           !c.isCustom && prompts[c.archetype.id]
-            ? { ...c, savedPrompt: prompts[c.archetype.id], editedPrompt: prompts[c.archetype.id] }
-            : c
+            ? { ...c, savedPrompt: prompts[c.archetype.id], editedPrompt: prompts[c.archetype.id], promptOpen: false }
+            : { ...c, promptOpen: false }
         ));
+        setExpandAll(false);
       })
       .catch(() => {});
   }, [checking]);
