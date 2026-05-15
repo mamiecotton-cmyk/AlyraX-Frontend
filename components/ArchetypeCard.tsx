@@ -84,8 +84,18 @@ export default function ArchetypeCard({ archetype, featured = false, delay = 0, 
         <div style={{ fontFamily: 'var(--font-display)', fontSize: '16px', fontWeight: 500, color: 'var(--ivory)', marginBottom: '2px' }}>
           {archetype.name}
         </div>
-        <div style={{ fontFamily: 'var(--font-mono)', fontSize: '8.5px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--ivory-muted)', marginBottom: '8px' }}>
+        <div style={{ fontFamily: 'var(--font-mono)', fontSize: '8.5px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--ivory-muted)', marginBottom: '6px' }}>
           {archetype.archetype}
+        </div>
+        {/* City + Age row — like Secrets.ai */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--ivory-muted)' }}>
+            <span style={{ color: 'var(--gold)', fontSize: '10px' }}>◎</span>
+            {archetype.city}
+          </div>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--ivory-muted)' }}>
+            {archetype.age} years old
+          </div>
         </div>
         <div style={{ fontSize: '11.5px', color: 'var(--ivory-ghost)', fontStyle: 'italic', lineHeight: 1.45, marginBottom: '11px' }}>
           {archetype.vibe}

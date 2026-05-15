@@ -2,7 +2,7 @@
 
 import { use, useEffect, useRef, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { archetypes, type Archetype } from '@/lib/archetypes';
+import { archetypes, type Archetype, buildArchetypePrompt, NEGATIVE_PROMPT } from '@/lib/archetypes';
 import { createClient } from '@/lib/supabase';
 
 type GalleryImage = {
@@ -47,6 +47,7 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
   const [packSize, setPackSize] = useState<PackSize>(1);
   const [seed, setSeed] = useState('');
   const [genImages, setGenImages] = useState(false);
+  const [genderOverride, setGenderOverride] = useState<'M' | 'F' | null>(null);
   const [videoPrompt, setVideoPrompt] = useState('');
   const [videoSourceUrl, setVideoSourceUrl] = useState<string | null>(null);
   const [genVideo, setGenVideo] = useState(false);
@@ -81,11 +82,15 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
         }
       }
       setGallery(imgs);
-      // If loaded gallery has a main image with a seed, prefill the seed input
-      const mainLoaded = imgs.find((g) => g.is_main);
-      if (mainLoaded && typeof mainLoaded.seed === 'number') setSeed(String(mainLoaded.seed));
       setVideos(vRes.videos ?? []);
-      if (pRes.prompts?.[id]) setImagePrompt(pRes.prompts[id]);
+      // Always rebuild prompt from lib so gender is always correct
+      // Only fall back to saved prompt if archetype isn't found
+      const foundArchetype = archetypes.find((a) => a.id === id);
+      if (foundArchetype) {
+        setImagePrompt(buildArchetypePrompt(foundArchetype));
+      } else if (pRes.prompts?.[id]) {
+        setImagePrompt(pRes.prompts[id]);
+      }
       setLoading(false);
     }
     load();
@@ -94,14 +99,16 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
   async function generateImages() {
     if (!imagePrompt.trim()) { setStatus('Add a prompt first.'); return; }
     setGenImages(true);
-    // Prefer the main image's seed if present; otherwise fall back to the manual seed input or random
-    const mainSeed = gallery.find((g) => g.is_main)?.seed ?? null;
-    const baseSeed = mainSeed !== null && mainSeed !== undefined ? mainSeed : (seed.trim() ? Number(seed) : -1);
+    const baseSeed = seed.trim() ? Number(seed) : -1;
     let done = 0;
+    // Build final prompt using gender override if set
+    const effectiveGender = genderOverride ?? archetype?.gender ?? 'M';
+    const foundArch = archetypes.find((a) => a.id === id);
+    const finalPrompt = foundArch ? buildArchetypePrompt(foundArch, effectiveGender) : imagePrompt;
     for (let i = 0; i < packSize; i++) {
       try {
         setStatus(`Generating image ${i + 1} / ${packSize}...`);
-        const res = await fetch('/api/generate-companion', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ description: imagePrompt, style: imageStyle, num_inference_steps: 35, guidance_scale: 7.5, seed: baseSeed >= 0 ? baseSeed + i : -1 }) });
+        const res = await fetch('/api/generate-companion', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ description: finalPrompt, negative_prompt: NEGATIVE_PROMPT, style: imageStyle, num_inference_steps: 35, guidance_scale: 7.5, seed: baseSeed >= 0 ? baseSeed + i : -1 }) });
         const data = await res.json();
         if (!res.ok || !data.image_url) continue;
         const saveRes = await fetch('/api/archetypes/gallery', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ archetype_id: id, image_url: data.image_url, seed: data.seed, style: imageStyle, prompt_used: imagePrompt, is_main: gallery.length === 0 && i === 0 }) });
@@ -134,8 +141,6 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
   async function setMainImage(img: GalleryImage) {
     await fetch(`/api/archetypes/gallery/${img.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ is_main: true, image_url: img.image_url }) });
     setGallery((prev) => prev.map((g) => ({ ...g, is_main: g.id === img.id })));
-    // If the newly selected main image has a seed, populate the seed input so generation can reuse it
-    if (img.seed !== null && img.seed !== undefined) setSeed(String(img.seed));
     setStatus('Main image updated.');
   }
 
@@ -273,7 +278,7 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
 
         {/* IMAGES */}
         {tab === 'images' && (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', alignItems: 'start' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 280px', gap: '20px', alignItems: 'start' }}>
             <div>
               <div style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', letterSpacing: '0.24em', textTransform: 'uppercase', color: 'var(--gold)', marginBottom: '14px' }}>◈ Gallery — {gallery.length} image{gallery.length !== 1 ? 's' : ''}</div>
               {gallery.length === 0 ? (
@@ -311,7 +316,7 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
                     {secondaryImgs.length > 0 && (
                       <div>
                         <div style={{ fontFamily: 'var(--font-mono)', fontSize: '7.5px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--ivory-ghost)', marginBottom: '10px' }}>◈ Other Images</div>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
                           {secondaryImgs.map((img) => {
                             const origIdx = gallery.findIndex((g) => g.id === img.id);
                             return <ImageCard key={img.id} img={img} i={origIdx} isHero={false} />;
@@ -327,6 +332,28 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <div style={{ background: 'var(--charcoal)', border: '1px solid var(--border-dark)', borderRadius: '3px', padding: '18px' }}>
                 <div style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', letterSpacing: '0.24em', textTransform: 'uppercase', color: 'var(--gold)', marginBottom: '12px' }}>◈ Generate</div>
+
+                {/* Gender toggle */}
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: '7.5px', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--ivory-ghost)', marginBottom: '5px' }}>Gender</div>
+                <div style={{ display: 'flex', gap: '4px', marginBottom: '12px' }}>
+                  {(['M', 'F'] as const).map((g) => {
+                    const active = (genderOverride ?? archetype?.gender) === g;
+                    return (
+                      <button
+                        key={g}
+                        onClick={() => {
+                          setGenderOverride(g);
+                          const foundArch = archetypes.find((a) => a.id === id);
+                          if (foundArch) setImagePrompt(buildArchetypePrompt(foundArch, g));
+                        }}
+                        style={{ flex: 1, padding: '8px', border: `1px solid ${active ? 'var(--gold)' : 'var(--border-mid)'}`, background: active ? 'var(--gold-glow)' : 'transparent', borderRadius: '2px', cursor: 'pointer', fontFamily: 'var(--font-mono)', fontSize: '10px', color: active ? 'var(--gold)' : 'var(--ivory-muted)', letterSpacing: '0.1em' }}
+                      >
+                        {g === 'M' ? '♂ Male' : '♀ Female'}
+                      </button>
+                    );
+                  })}
+                </div>
+
                 <div style={{ fontFamily: 'var(--font-mono)', fontSize: '7.5px', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--ivory-ghost)', marginBottom: '5px' }}>Prompt</div>
                 <textarea value={imagePrompt} onChange={(e) => setImagePrompt(e.target.value)} rows={5} placeholder="Describe appearance, setting, mood..." style={{ width: '100%', padding: '10px', background: 'var(--onyx)', border: '1px solid var(--border-mid)', borderRadius: '2px', color: 'var(--ivory)', fontFamily: 'var(--font-mono)', fontSize: '11px', lineHeight: 1.6, resize: 'vertical', outline: 'none', marginBottom: '10px' }} />
                 <div style={{ fontFamily: 'var(--font-mono)', fontSize: '7.5px', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--ivory-ghost)', marginBottom: '5px' }}>Style</div>
@@ -361,7 +388,7 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
 
         {/* VIDEOS */}
         {tab === 'videos' && (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', alignItems: 'start' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: '20px', alignItems: 'start' }}>
             <div>
               <div style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', letterSpacing: '0.24em', textTransform: 'uppercase', color: 'var(--gold)', marginBottom: '14px' }}>▷ Videos — {videos.length} clip{videos.length !== 1 ? 's' : ''}</div>
               {videos.length === 0 ? (
