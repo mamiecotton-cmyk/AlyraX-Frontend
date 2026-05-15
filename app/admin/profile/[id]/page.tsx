@@ -361,7 +361,7 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
                   <div style={{ background: 'var(--charcoal)', border: `1px solid ${img.is_main ? 'var(--gold)' : 'var(--border-dark)'}`, borderRadius: '3px', overflow: 'hidden' }}>
                     <div style={{ position: 'relative', overflow: 'hidden', background: archetype.imageGradient, ...(isHero ? { height: '360px', display: 'flex', justifyContent: 'center', alignItems: 'center' } : { aspectRatio: '3/4' }) }}>
                       <div style={isHero ? { maxWidth: '520px', width: '100%', height: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center' } : undefined}>
-                        <img src={img.image_url} alt="" style={isHero ? { width: 'auto', height: '100%', objectFit: 'contain', objectPosition: 'center center', display: 'block' } : { width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center top', display: 'block' }} />
+                        <img src={img.image_url} alt="" style={isHero ? { width: 'auto', height: '100%', objectFit: 'contain', objectPosition: 'center center', display: 'block' } : { width: '100%', height: '100%', objectFit: 'contain', objectPosition: 'center center', display: 'block' }} />
                       </div>
                       {img.is_main && <div style={{ position: 'absolute', top: '8px', left: '8px', fontFamily: 'var(--font-mono)', fontSize: '7px', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--onyx)', background: 'var(--gold)', padding: '3px 8px', borderRadius: '2px' }}>Main</div>}
                       {img.seed && <div style={{ position: 'absolute', bottom: '8px', left: '8px', fontFamily: 'var(--font-mono)', fontSize: '7px', color: 'var(--ivory-ghost)', background: 'rgba(0,0,0,0.75)', padding: '2px 6px', borderRadius: '2px' }}>{img.seed}</div>}
@@ -392,7 +392,7 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
                             const origIdx = gallery.findIndex((g) => g.id === img.id);
                             return (
                               <div
-                                style={{ height: '90px', overflow: 'hidden', borderRadius: '3px', cursor: 'pointer' }}
+                                style={{ height: '90px', overflow: 'hidden', borderRadius: '3px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--onyx)' }}
                                 key={img.id}
                                 onClick={() => { setViewerImageUrl(img.image_url); setViewerImage(img); }}
                                 title="View image"
@@ -512,8 +512,8 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
                     <div style={{ fontFamily: 'var(--font-mono)', fontSize: '7.5px', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--ivory-ghost)', marginBottom: '6px' }}>Pick from Gallery</div>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '5px' }}>
                       {gallery.map((img) => (
-                        <div key={img.id} onClick={() => setVideoSourceUrl(img.image_url)} style={{ aspectRatio: '3/4', overflow: 'hidden', borderRadius: '2px', cursor: 'pointer', border: `1px solid ${videoSourceUrl === img.image_url ? 'var(--gold)' : 'var(--border-mid)'}`, position: 'relative' }}>
-                          <img src={img.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center top' }} />
+                        <div key={img.id} onClick={() => setVideoSourceUrl(img.image_url)} style={{ aspectRatio: '3/4', overflow: 'hidden', borderRadius: '2px', cursor: 'pointer', border: `1px solid ${videoSourceUrl === img.image_url ? 'var(--gold)' : 'var(--border-mid)'}`, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--onyx)' }}>
+                          <img src={img.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain', objectPosition: 'center center' }} />
                           {img.is_main && <div style={{ position: 'absolute', bottom: '2px', left: '2px', right: '2px', fontFamily: 'var(--font-mono)', fontSize: '6px', textTransform: 'uppercase', color: 'var(--onyx)', background: 'var(--gold)', textAlign: 'center', padding: '1px', borderRadius: '1px' }}>Main</div>}
                         </div>
                       ))}
