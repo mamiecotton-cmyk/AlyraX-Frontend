@@ -11,12 +11,19 @@ export async function GET() {
 
     // Determine admin status from user metadata or environment list
     const metaIsAdmin = Boolean((user.user_metadata as any)?.is_admin)
-    const envAdmins = (process.env.ADMIN_USER_IDS || process.env.ADMIN_IDS || '')
+    const envAdminsRaw = (process.env.ADMIN_USER_IDS || process.env.ADMIN_IDS || '')
       .split(',')
       .map((s) => s.trim())
       .filter(Boolean)
 
-    const isEnvAdmin = envAdmins.length > 0 && user.id && envAdmins.includes(user.id)
+    const envAdminsLower = envAdminsRaw.map((s) => s.toLowerCase())
+
+    const isEnvAdmin =
+      envAdminsRaw.length > 0 && (
+        // allow matching by user id or by email (case-insensitive)
+        (user.id && envAdminsRaw.includes(user.id)) ||
+        (user.email && envAdminsLower.includes(user.email.toLowerCase()))
+      )
 
     const is_admin = metaIsAdmin || isEnvAdmin
 
