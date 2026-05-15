@@ -266,35 +266,55 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
 
         {/* IMAGES */}
         {tab === 'images' && (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: '20px', alignItems: 'start' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 280px', gap: '20px', alignItems: 'start' }}>
             <div>
               <div style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', letterSpacing: '0.24em', textTransform: 'uppercase', color: 'var(--gold)', marginBottom: '14px' }}>◈ Gallery — {gallery.length} image{gallery.length !== 1 ? 's' : ''}</div>
               {gallery.length === 0 ? (
                 <div style={{ padding: '40px', border: '1px dashed var(--border-mid)', borderRadius: '3px', textAlign: 'center', fontFamily: 'var(--font-display)', fontSize: '14px', fontStyle: 'italic', color: 'var(--ivory-ghost)' }}>No images yet.</div>
-              ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(155px, 1fr))', gap: '10px' }}>
-                  {gallery.map((img, i) => (
-                    <div key={img.id} style={{ background: 'var(--charcoal)', border: `1px solid ${img.is_main ? 'var(--gold)' : 'var(--border-dark)'}`, borderRadius: '3px', overflow: 'hidden' }}>
-                      <div style={{ aspectRatio: '3/4', position: 'relative', overflow: 'hidden', background: archetype.imageGradient }}>
-                        <img src={img.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center top', display: 'block' }} />
-                        {img.is_main && <div style={{ position: 'absolute', top: '6px', left: '6px', fontFamily: 'var(--font-mono)', fontSize: '7px', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--onyx)', background: 'var(--gold)', padding: '2px 6px', borderRadius: '2px' }}>Main</div>}
-                        {img.seed && <div style={{ position: 'absolute', bottom: '6px', left: '6px', fontFamily: 'var(--font-mono)', fontSize: '7px', color: 'var(--ivory-ghost)', background: 'rgba(0,0,0,0.7)', padding: '2px 5px', borderRadius: '2px' }}>{img.seed}</div>}
-                      </div>
-                      <div style={{ padding: '8px', display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                        <div style={{ display: 'flex', gap: '4px' }}>
-                          <button onClick={() => moveImage(i, 'up')} disabled={i === 0} style={{ ...BTN_MUTED, padding: '3px 0', flex: 1, textAlign: 'center', opacity: i === 0 ? 0.3 : 1 }}>▲</button>
-                          <button onClick={() => moveImage(i, 'down')} disabled={i === gallery.length - 1} style={{ ...BTN_MUTED, padding: '3px 0', flex: 1, textAlign: 'center', opacity: i === gallery.length - 1 ? 0.3 : 1 }}>▼</button>
-                        </div>
-                        <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-                          {!img.is_main && <button onClick={() => setMainImage(img)} style={{ ...BTN_MUTED, padding: '3px 6px', fontSize: '7.5px', flex: 1 }}>Set Main</button>}
-                          <button onClick={() => { setVideoSourceUrl(img.image_url); setTab('videos'); setStatus('Source frame set.'); }} style={{ ...BTN_MUTED, padding: '3px 6px', fontSize: '7.5px', flex: 1 }}>▷ Video</button>
-                        </div>
-                        <button onClick={() => deleteImage(img)} style={{ ...BTN_DANGER, width: '100%', textAlign: 'center' }}>✕ Delete</button>
-                      </div>
+              ) : (() => {
+                const mainImg = gallery.find((g) => g.is_main) ?? gallery[0];
+                const secondaryImgs = gallery.filter((g) => g.id !== mainImg.id);
+                const mainIdx = gallery.findIndex((g) => g.id === mainImg.id);
+
+                const ImageCard = ({ img, i, isHero }: { img: GalleryImage; i: number; isHero: boolean }) => (
+                  <div style={{ background: 'var(--charcoal)', border: `1px solid ${img.is_main ? 'var(--gold)' : 'var(--border-dark)'}`, borderRadius: '3px', overflow: 'hidden' }}>
+                    <div style={{ aspectRatio: '3/4', position: 'relative', overflow: 'hidden', background: archetype.imageGradient }}>
+                      <img src={img.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center top', display: 'block' }} />
+                      {img.is_main && <div style={{ position: 'absolute', top: '8px', left: '8px', fontFamily: 'var(--font-mono)', fontSize: '7px', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--onyx)', background: 'var(--gold)', padding: '3px 8px', borderRadius: '2px' }}>Main</div>}
+                      {img.seed && <div style={{ position: 'absolute', bottom: '8px', left: '8px', fontFamily: 'var(--font-mono)', fontSize: '7px', color: 'var(--ivory-ghost)', background: 'rgba(0,0,0,0.75)', padding: '2px 6px', borderRadius: '2px' }}>{img.seed}</div>}
                     </div>
-                  ))}
-                </div>
-              )}
+                    <div style={{ padding: isHero ? '10px' : '8px', display: 'flex', flexDirection: isHero ? 'row' : 'column', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
+                      <div style={{ display: 'flex', gap: '4px', flex: isHero ? 0 : 1 }}>
+                        <button onClick={() => moveImage(i, 'up')} disabled={i === 0} style={{ ...BTN_MUTED, padding: '4px 10px', opacity: i === 0 ? 0.3 : 1 }}>▲</button>
+                        <button onClick={() => moveImage(i, 'down')} disabled={i === gallery.length - 1} style={{ ...BTN_MUTED, padding: '4px 10px', opacity: i === gallery.length - 1 ? 0.3 : 1 }}>▼</button>
+                      </div>
+                      {!img.is_main && <button onClick={() => setMainImage(img)} style={{ ...BTN_MUTED, padding: '4px 10px', fontSize: '8px', flex: isHero ? 0 : 1, textAlign: 'center' }}>Set Main</button>}
+                      <button onClick={() => { setVideoSourceUrl(img.image_url); setTab('videos'); setStatus('Source frame set.'); }} style={{ ...BTN_MUTED, padding: '4px 10px', fontSize: '8px', flex: isHero ? 0 : 1, textAlign: 'center' }}>▷ Video</button>
+                      <button onClick={() => deleteImage(img)} style={{ ...BTN_DANGER, padding: '4px 10px', flex: isHero ? 0 : 1, textAlign: 'center' }}>✕ Delete</button>
+                    </div>
+                  </div>
+                );
+
+                return (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    {/* Hero image — full width */}
+                    <ImageCard img={mainImg} i={mainIdx} isHero={true} />
+
+                    {/* Secondary images — medium grid */}
+                    {secondaryImgs.length > 0 && (
+                      <div>
+                        <div style={{ fontFamily: 'var(--font-mono)', fontSize: '7.5px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--ivory-ghost)', marginBottom: '10px' }}>◈ Other Images</div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
+                          {secondaryImgs.map((img) => {
+                            const origIdx = gallery.findIndex((g) => g.id === img.id);
+                            return <ImageCard key={img.id} img={img} i={origIdx} isHero={false} />;
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
