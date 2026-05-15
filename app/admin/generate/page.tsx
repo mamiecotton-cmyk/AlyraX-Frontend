@@ -74,6 +74,8 @@ type ArchetypeState = {
   imageUrl: string | null;
   error: string | null;
   seed: number | null;
+  // prompt text (if present for this archetype)
+  savedPrompt?: string | null;
 };
 
 // ─── Component ─────────────────────────────────────────────────────────────
@@ -88,6 +90,8 @@ export default function AdminGeneratePage() {
     archetypes.map((a) => ({ archetype: a, status: 'idle', imageUrl: null, error: null, seed: null })),
   );
   const [existingImages, setExistingImages] = useState<Record<string, string>>({});
+  const [promptMap, setPromptMap] = useState<Record<string, string>>({});
+  const [activePromptId, setActivePromptId] = useState<string | null>(null);
   const [currentIndex, setCurrentIndex]     = useState<number | null>(null);
   const [overwrite, setOverwrite]           = useState(false);
 
@@ -113,6 +117,13 @@ export default function AdminGeneratePage() {
           imageUrl: images?.[s.archetype.id] || null,
         })));
       });
+      // Load saved prompts for archetypes
+      fetch('/api/archetypes/prompts')
+        .then((r) => r.json())
+        .then(({ prompts }: { prompts?: Record<string, string> }) => {
+          if (prompts) setPromptMap(prompts);
+        })
+        .catch(() => {});
   }, [authed]);
 
   function updateState(id: string, patch: Partial<ArchetypeState>) {
@@ -211,6 +222,18 @@ export default function AdminGeneratePage() {
   const errors  = states.filter((s) => s.status === 'error').length;
   const pending = states.filter((s) => s.status === 'idle').length;
 
+  const [editedPrompt, setEditedPrompt] = useState('');
+
+  useEffect(() => {
+    if (!activePromptId) return;
+    const saved = promptMap[activePromptId];
+    if (saved) setEditedPrompt(saved);
+    else {
+      const found = archetypes.find((a) => a.id === activePromptId);
+      setEditedPrompt(found ? buildArchetypePrompt(found) : '');
+    }
+  }, [activePromptId, promptMap]);
+
   if (checking) {
     return (
       <div style={{ minHeight: '100dvh', background: 'var(--onyx)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -244,6 +267,12 @@ export default function AdminGeneratePage() {
             style={{ background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--ivory-muted)', padding: 0 }}
           >
             ◁ Dashboard
+          </button>
+          <button
+            onClick={() => router.push('/admin/archetypes')}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--ivory-muted)', padding: 0, marginLeft: '12px' }}
+          >
+            ✎ Edit Prompts
           </button>
         </div>
 
@@ -371,53 +400,61 @@ export default function AdminGeneratePage() {
                   transition: 'border-color 0.2s',
                 }}
               >
-                {/* Image area */}
-                <div
-                  style={{
-                    aspectRatio: '3/4',
-                    background: s.imageUrl ? 'var(--onyx)' : s.archetype.imageGradient,
-                    position: 'relative',
-                    overflow: 'hidden',
-                  }}
-                >
-                  {s.imageUrl ? (
-                    <img
-                      src={s.imageUrl}
-                      alt={s.archetype.name}
-                      style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                    />
-                  ) : (
-                    <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                      {isActive ? (
-                        <>
-                          <div style={{ fontFamily: 'var(--font-mono)', fontSize: '18px', color: 'var(--gold)', animation: 'spin 2s linear infinite' }}>◈</div>
-                          <div style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', letterSpacing: '0.14em', color: 'var(--gold)', textTransform: 'uppercase' }}>Generating...</div>
-                        </>
-                      ) : (
-                        <div style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--ivory-ghost)', opacity: 0.4 }}>◈</div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Status badge */}
+                {/* Clickable image — opens prompt editor drawer */}
+                <div style={{ position: 'relative' }}>
                   <div
+                    onClick={() => setActivePromptId(s.archetype.id)}
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`Edit prompt for ${s.archetype.name}`}
                     style={{
-                      position: 'absolute',
-                      top: '8px',
-                      left: '8px',
-                      fontFamily: 'var(--font-mono)',
-                      fontSize: '7.5px',
-                      letterSpacing: '0.14em',
-                      textTransform: 'uppercase',
-                      color: statusColor,
-                      background: 'rgba(0,0,0,0.8)',
-                      padding: '2px 7px',
-                      borderRadius: '2px',
-                      border: `1px solid ${statusColor}40`,
+                      aspectRatio: '3/4',
+                      background: s.imageUrl ? 'var(--onyx)' : s.archetype.imageGradient,
+                      position: 'relative',
+                      overflow: 'hidden',
+                      cursor: 'pointer',
                     }}
                   >
-                    {s.status === 'skipped' ? 'cached' : s.status}
+                    {s.imageUrl ? (
+                      <img
+                        src={s.imageUrl}
+                        alt={s.archetype.name}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                      />
+                    ) : (
+                      <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                        {isActive ? (
+                          <>
+                            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '18px', color: 'var(--gold)', animation: 'spin 2s linear infinite' }}>◈</div>
+                            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', letterSpacing: '0.14em', color: 'var(--gold)', textTransform: 'uppercase' }}>Generating...</div>
+                          </>
+                        ) : (
+                          <div style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--ivory-ghost)', opacity: 0.4 }}>◈</div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Status badge */}
+                    <div
+                      style={{
+                        position: 'absolute',
+                        top: '8px',
+                        left: '8px',
+                        fontFamily: 'var(--font-mono)',
+                        fontSize: '7.5px',
+                        letterSpacing: '0.14em',
+                        textTransform: 'uppercase',
+                        color: statusColor,
+                        background: 'rgba(0,0,0,0.8)',
+                        padding: '2px 7px',
+                        borderRadius: '2px',
+                        border: `1px solid ${statusColor}40`,
+                      }}
+                    >
+                      {s.status === 'skipped' ? 'cached' : s.status}
+                    </div>
                   </div>
+                </div>
 
                   {/* Dossier ID */}
                   <div
@@ -510,6 +547,97 @@ export default function AdminGeneratePage() {
 
       </div>
 
+      {/* Prompt editor drawer */}
+      {activePromptId && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 60 }}>
+          <div
+            onClick={() => setActivePromptId(null)}
+            style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.45)' }}
+          />
+          <div style={{ position: 'absolute', top: 0, right: 0, height: '100%', width: '420px', background: 'var(--charcoal)', borderLeft: '1px solid var(--border-dark)', padding: '20px', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: '16px', color: 'var(--ivory)' }}>Edit Prompt</div>
+              <button onClick={() => setActivePromptId(null)} style={{ background: 'none', border: 'none', color: 'var(--ivory-muted)', cursor: 'pointer' }}>✕</button>
+            </div>
+
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--ivory-muted)', marginBottom: '8px' }}>{activePromptId}</div>
+
+            <textarea
+              value={editedPrompt}
+              onChange={(e) => setEditedPrompt(e.target.value)}
+              rows={12}
+              style={{ width: '100%', padding: '12px', background: 'var(--onyx)', border: '1px solid var(--border-mid)', borderRadius: '3px', color: 'var(--ivory)', fontFamily: 'var(--font-mono)', fontSize: '12px', resize: 'vertical' }}
+            />
+
+            <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
+              <button
+                onClick={async () => {
+                  const id = activePromptId!;
+                  const imageUrl = existingImages[id] ?? null;
+                  if (!imageUrl) {
+                    alert('No image present yet — save will succeed after an image exists.');
+                    setPromptMap((p) => ({ ...p, [id]: editedPrompt }));
+                    return;
+                  }
+
+                  try {
+                    const res = await fetch('/api/archetypes/images/save', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ archetype_id: id, image_url: imageUrl, prompt_used: editedPrompt, style: 'portrait' }),
+                    });
+                    if (!res.ok) throw new Error('Save failed');
+                    setPromptMap((p) => ({ ...p, [id]: editedPrompt }));
+                    alert('Prompt saved');
+                  } catch (e) {
+                    alert('Save failed');
+                  }
+                }}
+                style={{ padding: '10px 14px', background: 'var(--gold)', border: 'none', borderRadius: '3px', cursor: 'pointer', color: 'var(--onyx)', fontFamily: 'var(--font-mono)', fontSize: '12px' }}
+              >
+                ◈ Save Prompt
+              </button>
+
+              <button
+                onClick={async () => {
+                  const id = activePromptId!;
+                  const prompt = editedPrompt.trim();
+                  if (!prompt) { alert('Prompt is empty'); return; }
+
+                  try {
+                    const genRes = await fetch('/api/generate-companion', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ description: prompt, style: 'portrait', num_inference_steps: 28, guidance_scale: 7.0, seed: -1 }),
+                    });
+                    const genData = await genRes.json();
+                    if (!genRes.ok || !genData.image_url) throw new Error(genData.error || 'Generation failed');
+
+                    // Save image URL + prompt
+                    const saveRes = await fetch('/api/archetypes/images/save', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ archetype_id: id, image_url: genData.image_url, seed: genData.seed ?? null, prompt_used: prompt, style: 'portrait' }),
+                    });
+                    if (!saveRes.ok) throw new Error('Save failed');
+
+                    // Update local state
+                    setExistingImages((prev) => ({ ...prev, [id]: genData.image_url }));
+                    setStates((prev) => prev.map((st) => st.archetype.id === id ? { ...st, imageUrl: genData.image_url, status: 'done', seed: genData.seed ?? null } : st));
+                    setPromptMap((p) => ({ ...p, [id]: prompt }));
+                    alert('Saved and regenerated');
+                  } catch (e) {
+                    alert('Regeneration failed');
+                  }
+                }}
+                style={{ padding: '10px 14px', background: 'transparent', border: '1px solid var(--gold-dim)', borderRadius: '3px', cursor: 'pointer', color: 'var(--gold)', fontFamily: 'var(--font-mono)', fontSize: '12px' }}
+              >
+                ◆ Save & Regenerate
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <style>{`
         @keyframes spin {
           from { transform: rotate(0deg); }
