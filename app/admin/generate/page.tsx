@@ -454,8 +454,7 @@ export default function AdminGeneratePage() {
                       {s.status === 'skipped' ? 'cached' : s.status}
                     </div>
                   </div>
-                </div>
-
+                  
                   {/* Dossier ID */}
                   <div
                     style={{
