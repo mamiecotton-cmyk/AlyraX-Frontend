@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET(req: NextRequest, { params }: { params: { jobId: string } }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ jobId: string }> }) {
   try {
-    const { jobId } = params;
+    const { jobId } = await params;
     const imageEndpointId = process.env.RUNPOD_IMAGE_ENDPOINT_ID;
 
     if (!imageEndpointId) {
