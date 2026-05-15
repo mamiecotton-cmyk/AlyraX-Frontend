@@ -43,12 +43,16 @@ export async function POST(req: NextRequest) {
       num_inference_steps = 35,
       guidance_scale = 7.5,
       seed = -1,
+      width: widthOverride,
+      height: heightOverride,
       reference_image_url,
       reference_strength = 0.25,
       reference_mode = 'identity',
     } = await req.json();
 
-    const { width, height, composition, negative } = getImageSettings(style);
+    const { width: defaultWidth, height: defaultHeight, composition, negative } = getImageSettings(style);
+    const width = widthOverride ?? defaultWidth;
+    const height = heightOverride ?? defaultHeight;
 
     // Optimized: Reduced fluff, focused on high-token impact
     const qualityTags = 'hyper-realistic, 8k uhd, professional studio lighting, sharp focus, masterpiece';
