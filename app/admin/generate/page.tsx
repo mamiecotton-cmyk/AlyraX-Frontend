@@ -14,6 +14,16 @@ export default function DossierPage({ params }: Props) {
   const router  = useRouter();
   const archetype = archetypes.find((a) => a.id === id);
 
+  useEffect(() => {
+    let mounted = true;
+    fetch('/api/auth/me').then((r) => r.json()).then((d) => {
+      if (!mounted) return;
+      if (!d?.user) { router.push('/login'); return; }
+      if (!d?.is_admin) { router.push('/login'); return; }
+    }).catch(() => { if (mounted) router.push('/login'); });
+    return () => { mounted = false };
+  }, [router]);
+
   const [activeTab, setActiveTab] = useState<'profile' | 'conversation' | 'gallery'>('profile');
   const [archetypeImage, setArchetypeImage] = useState<string | null>(null);
   const [galleryImages, setGalleryImages] = useState<{ id: string; image_url: string; is_main: boolean }[]>([]);

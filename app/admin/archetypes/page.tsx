@@ -56,10 +56,18 @@ export default function AdminArchetypesPage() {
 
   // Auth check
   useEffect(() => {
+    // Ensure signed in and admin
+    let mounted = true;
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user) { router.push('/login'); return; }
-      setChecking(false);
+      // server-side check for admin via endpoint
+      fetch('/api/auth/me').then((r) => r.json()).then((d) => {
+        if (!mounted) return;
+        if (!d?.is_admin) { router.push('/login'); return; }
+        setChecking(false);
+      }).catch(() => { if (mounted) router.push('/login'); });
     });
+    return () => { mounted = false };
   }, [router, supabase]);
 
   // Load images + custom archetypes

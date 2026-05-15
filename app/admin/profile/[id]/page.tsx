@@ -96,6 +96,17 @@ export default function AdminProfilePage({ params }: { params: { id: string } })
     load();
   }, [id, hardcoded]);
 
+  // Ensure only admin users can access this page
+  useEffect(() => {
+    let mounted = true;
+    fetch('/api/auth/me').then((r) => r.json()).then((d) => {
+      if (!mounted) return;
+      if (!d?.user) { router.push('/login'); return; }
+      if (!d?.is_admin) { router.push('/login'); return; }
+    }).catch(() => { if (mounted) router.push('/login'); });
+    return () => { mounted = false };
+  }, [router]);
+
   async function generateImages() {
     if (!imagePrompt.trim()) { setStatus('Add a prompt first.'); return; }
     setGenImages(true);
