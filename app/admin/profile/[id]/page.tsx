@@ -53,6 +53,8 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
   const [genVideo, setGenVideo] = useState(false);
   const [uploadingFrame, setUploadingFrame] = useState(false);
   const pollRef = useRef<NodeJS.Timeout | null>(null);
+  const [viewerImageUrl, setViewerImageUrl] = useState<string | null>(null);
+  const [viewerImage, setViewerImage] = useState<GalleryImage | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -392,8 +394,8 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
                               <div
                                 style={{ height: '90px', overflow: 'hidden', borderRadius: '3px', cursor: 'pointer' }}
                                 key={img.id}
-                                onClick={() => setMainImage(img)}
-                                title="Set as main image"
+                                onClick={() => { setViewerImageUrl(img.image_url); setViewerImage(img); }}
+                                title="View image"
                               >
                                 <ImageCard img={img} i={origIdx} isHero={false} />
                               </div>
@@ -534,6 +536,17 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
                   {genVideo ? '▷ Generating...' : '▷ Generate Video'}
                 </button>
                 <div style={{ marginTop: '10px', fontFamily: 'var(--font-mono)', fontSize: '8px', color: 'var(--ivory-ghost)', lineHeight: 1.6 }}>Videos take 3–8 minutes and save automatically.</div>
+              </div>
+            </div>
+          </div>
+        )}
+        {viewerImageUrl && (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200 }} onClick={() => { setViewerImageUrl(null); setViewerImage(null); }}>
+            <div onClick={(e) => e.stopPropagation()} style={{ maxWidth: '92%', maxHeight: '92%', display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'center' }}>
+              <img src={viewerImageUrl} alt="preview" style={{ maxWidth: '100%', maxHeight: '80vh', objectFit: 'contain', borderRadius: '4px' }} />
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button onClick={() => { if (viewerImage) { setMainImage(viewerImage); } setViewerImageUrl(null); setViewerImage(null); }} style={{ ...BTN_GOLD }}>Set Main</button>
+                <button onClick={() => { setViewerImageUrl(null); setViewerImage(null); }} style={{ ...BTN_MUTED }}>Close</button>
               </div>
             </div>
           </div>
