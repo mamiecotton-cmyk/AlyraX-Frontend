@@ -54,20 +54,37 @@ html, body {
   border: none;
 }
 
-/* Scan-line texture overlay on hero areas */
+/* Portrait ambient glow — replaces scan lines */
+.scan-lines {
+  position: relative;
+}
 .scan-lines::after {
   content: '';
   position: absolute;
   inset: 0;
-  background-image: repeating-linear-gradient(
-    0deg,
-    transparent,
-    transparent 2px,
-    rgba(0,0,0,0.08) 2px,
-    rgba(0,0,0,0.08) 4px
+  background: linear-gradient(
+    135deg,
+    rgba(212, 175, 55, 0.06) 0%,
+    transparent 40%,
+    transparent 60%,
+    rgba(212, 175, 55, 0.04) 100%
   );
   pointer-events: none;
   z-index: 1;
+  animation: portraitShimmer 6s ease-in-out infinite alternate;
+}
+.scan-lines::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  box-shadow: inset 0 0 40px rgba(0,0,0,0.45), inset 0 -60px 60px rgba(0,0,0,0.5);
+  pointer-events: none;
+  z-index: 2;
+}
+
+@keyframes portraitShimmer {
+  0%   { opacity: 0.6; }
+  100% { opacity: 1; }
 }
 
 /* Card hover glow */
@@ -270,26 +287,6 @@ html, body {
   0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
   50% { transform: translate3d(0, -0.9%, 0) scale(1.018); }
 }
-
-/* Responsive archetype grid used on the dashboard */
-.archetype-grid {
-  display: grid;
-  gap: 12px;
-  grid-template-columns: repeat(1, 1fr);
-}
-
-@media (min-width: 640px) {
-  .archetype-grid { grid-template-columns: repeat(2, 1fr); }
-}
-
-@media (min-width: 900px) {
-  .archetype-grid { grid-template-columns: repeat(3, 1fr); }
-}
-
-@media (min-width: 1200px) {
-  .archetype-grid { grid-template-columns: repeat(4, 1fr); }
-}
-
 @keyframes portrait-listening {
   0%, 100% { transform: translate3d(0, 0, 0) scale(1.006); }
   35% { transform: translate3d(-0.35%, -0.25%, 0) scale(1.014); }
