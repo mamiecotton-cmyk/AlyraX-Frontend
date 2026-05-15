@@ -290,8 +290,10 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
 
                 const ImageCard = ({ img, i, isHero }: { img: GalleryImage; i: number; isHero: boolean }) => (
                   <div style={{ background: 'var(--charcoal)', border: `1px solid ${img.is_main ? 'var(--gold)' : 'var(--border-dark)'}`, borderRadius: '3px', overflow: 'hidden' }}>
-                    <div style={{ position: 'relative', overflow: 'hidden', background: archetype.imageGradient, ...(isHero ? { height: '320px', display: 'flex', justifyContent: 'center', alignItems: 'center' } : { aspectRatio: '3/4' }) }}>
-                        <img src={img.image_url} alt="" style={isHero ? { width: '100%', height: '320px', objectFit: 'cover', objectPosition: 'center center', display: 'block' } : { width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center top', display: 'block' }} />
+                    <div style={{ position: 'relative', overflow: 'hidden', background: archetype.imageGradient, ...(isHero ? { height: '360px', display: 'flex', justifyContent: 'center', alignItems: 'center' } : { aspectRatio: '3/4' }) }}>
+                      <div style={isHero ? { maxWidth: '520px', width: '100%', height: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center' } : undefined}>
+                        <img src={img.image_url} alt="" style={isHero ? { width: 'auto', height: '100%', objectFit: 'contain', objectPosition: 'center center', display: 'block' } : { width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center top', display: 'block' }} />
+                      </div>
                       {img.is_main && <div style={{ position: 'absolute', top: '8px', left: '8px', fontFamily: 'var(--font-mono)', fontSize: '7px', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--onyx)', background: 'var(--gold)', padding: '3px 8px', borderRadius: '2px' }}>Main</div>}
                       {img.seed && <div style={{ position: 'absolute', bottom: '8px', left: '8px', fontFamily: 'var(--font-mono)', fontSize: '7px', color: 'var(--ivory-ghost)', background: 'rgba(0,0,0,0.75)', padding: '2px 6px', borderRadius: '2px' }}>{img.seed}</div>}
                     </div>
@@ -359,7 +361,7 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
                 </div>
 
                 <div style={{ fontFamily: 'var(--font-mono)', fontSize: '7.5px', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--ivory-ghost)', marginBottom: '5px' }}>Prompt</div>
-                <textarea value={imagePrompt} onChange={(e) => setImagePrompt(e.target.value)} rows={5} placeholder="Describe appearance, setting, mood..." style={{ width: '100%', padding: '10px', background: 'var(--onyx)', border: '1px solid var(--border-mid)', borderRadius: '2px', color: 'var(--ivory)', fontFamily: 'var(--font-mono)', fontSize: '11px', lineHeight: 1.6, resize: 'vertical', outline: 'none', marginBottom: '10px' }} />
+                <textarea value={imagePrompt} onChange={(e) => setImagePrompt(e.target.value)} rows={8} placeholder="Describe appearance, setting, mood..." style={{ width: '100%', padding: '12px', background: 'var(--onyx)', border: '1px solid var(--border-mid)', borderRadius: '2px', color: 'var(--ivory)', fontFamily: 'var(--font-mono)', fontSize: '13px', lineHeight: 1.8, resize: 'vertical', outline: 'none', marginBottom: '10px' }} />
                 <div style={{ fontFamily: 'var(--font-mono)', fontSize: '7.5px', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--ivory-ghost)', marginBottom: '5px' }}>Style</div>
                 <div style={{ display: 'flex', gap: '4px', marginBottom: '10px' }}>
                   {STYLE_OPTS.map((s) => (
@@ -454,7 +456,7 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
               <div style={{ background: 'var(--charcoal)', border: '1px solid var(--border-dark)', borderRadius: '3px', padding: '18px' }}>
                 <div style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', letterSpacing: '0.24em', textTransform: 'uppercase', color: 'var(--gold)', marginBottom: '12px' }}>▷ Generate Video</div>
                 <div style={{ fontFamily: 'var(--font-mono)', fontSize: '7.5px', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--ivory-ghost)', marginBottom: '5px' }}>Video Prompt</div>
-                <textarea value={videoPrompt} onChange={(e) => setVideoPrompt(e.target.value)} rows={4} placeholder="Slow camera push-in, steady eye contact, subtle hand movement..." style={{ width: '100%', padding: '10px', background: 'var(--onyx)', border: '1px solid var(--border-mid)', borderRadius: '2px', color: 'var(--ivory)', fontFamily: 'var(--font-mono)', fontSize: '11px', lineHeight: 1.6, resize: 'vertical', outline: 'none', marginBottom: '12px' }} />
+                <textarea value={videoPrompt} onChange={(e) => setVideoPrompt(e.target.value)} rows={6} placeholder="Slow camera push-in, steady eye contact, subtle hand movement..." style={{ width: '100%', padding: '12px', background: 'var(--onyx)', border: '1px solid var(--border-mid)', borderRadius: '2px', color: 'var(--ivory)', fontFamily: 'var(--font-mono)', fontSize: '13px', lineHeight: 1.8, resize: 'vertical', outline: 'none', marginBottom: '12px' }} />
                 {!videoSourceUrl && gallery.length === 0 && <div style={{ padding: '8px 10px', background: 'rgba(212,175,55,0.05)', border: '1px solid var(--gold-dim)', borderRadius: '2px', fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--gold)', marginBottom: '10px' }}>◈ Add an image first to use as source.</div>}
                 <button onClick={generateVideo} disabled={genVideo} style={{ ...BTN_GOLD, width: '100%', justifyContent: 'center', opacity: genVideo ? 0.6 : 1, cursor: genVideo ? 'not-allowed' : 'pointer' }}>
                   {genVideo ? '▷ Generating...' : '▷ Generate Video'}
