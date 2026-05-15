@@ -464,7 +464,13 @@ export default function DashboardPage() {
           <div className="gold-rule" style={{ marginBottom: '22px' }} />
 
           {/* Card grid */}
-          <div className="archetype-grid" style={{ display: 'grid', gap: '12px' }}>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(4, 1fr)',
+              gap: '12px',
+            }}
+          >
             {displayArchetypes.map((archetype, i) => (
               <ArchetypeCard
                 key={archetype.id}
