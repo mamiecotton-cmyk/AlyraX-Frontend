@@ -13,7 +13,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className="h-full">
-      <body className="h-full flex overflow-hidden" style={{ background: 'var(--onyx)' }}>
+      <body className="h-full" style={{ background: 'var(--onyx)' }}>
         {children}
       </body>
     </html>

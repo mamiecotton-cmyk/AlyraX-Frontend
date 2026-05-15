@@ -142,7 +142,7 @@ export default function OnboardingPage() {
   const STEP_LABELS = ['Design', 'Personality', 'Meet'];
 
   return (
-    <div style={{ minHeight: '100dvh', background: 'var(--onyx)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
+    <div style={{ minHeight: '100dvh', width: '100%', background: 'var(--onyx)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
       <div style={{ width: '100%', maxWidth: '520px' }}>
 
         {/* Logo */}

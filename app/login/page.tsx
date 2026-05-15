@@ -73,6 +73,7 @@ export default function LoginPage() {
     <div
       style={{
         minHeight: '100dvh',
+        width: '100%',
         background: 'var(--onyx)',
         display: 'flex',
         alignItems: 'center',
