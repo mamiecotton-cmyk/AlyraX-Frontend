@@ -7,8 +7,9 @@ function getImageSettings(style: string) {
 
   if (style === 'fullbody') {
     return {
-      width: 768,
-      height: 1024,
+      // Increased to higher resolution for crisper full-body renders
+      width: 1536,
+      height: 2048,
       composition: 'full body shot, head to toe visible, entire body fully in frame, feet visible, no cropping, neutral studio background',
       negative: `${baseNegative}, cropped head, cropped face, cropped feet, cropped legs, out of frame, close-up, extreme close-up`,
     };
@@ -16,16 +17,18 @@ function getImageSettings(style: string) {
 
   if (style === 'fullscreen') {
     return {
-      width: 1024,
-      height: 1792,
+      // Increased fullscreen resolution
+      width: 1536,
+      height: 2688,
       composition: 'full screen vertical cinematic scene, entire subject visible inside the frame, phone screen composition, subject clearly visible with environmental detail, no cropping',
       negative: `${baseNegative}, tiny subject, empty frame, cropped head, cropped face, cropped body, cropped feet, awkward framing, horizontal crop, out of frame`,
     };
   }
 
   return {
-    width: 512,
-    height: 1024,
+    // Portrait bumped to 1024x2048 for much higher fidelity
+    width: 1024,
+    height: 2048,
     composition: 'front-facing waist-up portrait, centered subject, looking directly at camera, face clearly visible, shoulders chest and waist visible, seductive elegant pose, hands naturally visible near torso, vertical profile image, enough room around upper body for animation',
     negative: `${baseNegative}, side profile, back view, turned away, full body, extreme close-up, cropped head, cropped face, cropped shoulders, cropped torso, cropped arms, out of frame`,
   };
@@ -36,8 +39,9 @@ export async function POST(req: NextRequest) {
     const {
       description,
       style = 'portrait',
-      num_inference_steps = 20,
-      guidance_scale = 3.5,
+      // Raise defaults to produce crisper outputs when callers omit these
+      num_inference_steps = 35,
+      guidance_scale = 7.5,
       seed = -1,
       reference_image_url,
       reference_strength = 0.25,
