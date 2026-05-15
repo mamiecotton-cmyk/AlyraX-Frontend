@@ -550,43 +550,43 @@ export default function AdminArchetypesPage() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '12px 16px' }}>
 
                   {/* Thumbnail */}
-                  <Link href={`/admin/profile/${card.customId ?? card.archetype.id}`}>
-                    <div
-                      role="button"
-                      aria-label={`Edit ${card.archetype.name}`}
-                      style={{
-                        width: '96px',
-                        height: '128px',
-                        flexShrink: 0,
-                        borderRadius: '3px',
-                        overflow: 'hidden',
-                        background: card.archetype.imageGradient,
-                        border: '1px solid var(--border-mid)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        position: 'relative',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      {card.imageUrl ? (
-                        <img src={card.imageUrl} alt={card.archetype.name} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center top', display: 'block' }} />
-                      ) : card.status === 'generating' ? (
-                        <span style={{ fontSize: '20px', color: 'var(--gold)', animation: 'spin 2s linear infinite', display: 'inline-block' }}>◈</span>
-                      ) : (
-                        <span style={{ fontSize: '18px', color: 'var(--ivory-ghost)', opacity: 0.3 }}>◈</span>
-                      )}
-                    </div>
-                  </Link>
+                  <div
+                    role="button"
+                    aria-label={`Edit ${card.archetype.name}`}
+                    onClick={() => router.push(`/admin/profile/${card.customId ?? card.archetype.id}`)}
+                    style={{
+                      width: '96px',
+                      height: '128px',
+                      flexShrink: 0,
+                      borderRadius: '3px',
+                      overflow: 'hidden',
+                      background: card.archetype.imageGradient,
+                      border: '1px solid var(--border-mid)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      position: 'relative',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    {card.imageUrl ? (
+                      <img src={card.imageUrl} alt={card.archetype.name} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center top', display: 'block' }} />
+                    ) : card.status === 'generating' ? (
+                      <span style={{ fontSize: '20px', color: 'var(--gold)', animation: 'spin 2s linear infinite', display: 'inline-block' }}>◈</span>
+                    ) : (
+                      <span style={{ fontSize: '18px', color: 'var(--ivory-ghost)', opacity: 0.3 }}>◈</span>
+                    )}
+                  </div>
 
                   {/* Info */}
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '3px', flexWrap: 'wrap' }}>
-                      <Link href={`/admin/profile/${card.customId ?? card.archetype.id}`}>
-                        <a style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left', textDecoration: 'none' }}>
-                          <span style={{ fontFamily: 'var(--font-display)', fontSize: '18px', color: 'var(--ivory)' }}>{card.archetype.name}</span>
-                        </a>
-                      </Link>
+                      <button
+                        onClick={() => router.push(`/admin/profile/${card.customId ?? card.archetype.id}`)}
+                        style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left', textDecoration: 'none' }}
+                      >
+                        <span style={{ fontFamily: 'var(--font-display)', fontSize: '18px', color: 'var(--ivory)' }}>{card.archetype.name}</span>
+                      </button>
                       <span style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', letterSpacing: '0.14em', color: 'var(--gold)', background: 'rgba(212,175,55,0.08)', padding: '1px 6px', borderRadius: '2px', border: '1px solid var(--gold-dim)' }}>{card.archetype.dossierId}</span>
                       <span style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', color: 'var(--ivory-ghost)' }}>{card.archetype.gender === 'M' ? '♂' : '♀'}</span>
                       {card.isCustom && <span style={{ fontFamily: 'var(--font-mono)', fontSize: '7.5px', letterSpacing: '0.14em', color: '#9b59b6', border: '1px solid rgba(155,89,182,0.4)', padding: '1px 6px', borderRadius: '2px' }}>CUSTOM</span>}
