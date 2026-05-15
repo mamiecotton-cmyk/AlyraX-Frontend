@@ -274,6 +274,103 @@ export default function AdminArchetypesPage() {
     pending:  cards.filter((c) => !c.imageUrl).length,
   };
 
+  // Modal state (kept at top-level to avoid re-renders of list)
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalId, setModalId] = useState<string | null>(null);
+  const [modalPrompt, setModalPrompt] = useState('');
+
+  function openModal(cardId: string) {
+    const found = cards.find((c) => c.archetype.id === cardId);
+    if (!found) return;
+    setModalPrompt(found.editedPrompt || found.savedPrompt || '');
+    setModalId(cardId);
+    setModalOpen(true);
+  }
+
+  function closeModal() {
+    setModalOpen(false);
+    setModalId(null);
+    setModalPrompt('');
+  }
+
+  async function modalSaveAndMaybeRegenerate(doRegenerate = false) {
+    if (!modalId) return;
+    const card = cards.find((c) => c.archetype.id === modalId);
+    if (!card) return;
+
+    // Save prompt
+    try {
+      if (card.isCustom && card.customId) {
+        await fetch(`/api/archetypes/custom/${card.customId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt_used: modalPrompt }) });
+      } else {
+        await fetch('/api/archetypes/images/save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ archetype_id: card.archetype.id, image_url: card.imageUrl || '', prompt_used: modalPrompt }) });
+      }
+      // update local state
+      setCards((prev) => prev.map((c) => c.archetype.id === modalId ? { ...c, savedPrompt: modalPrompt, editedPrompt: modalPrompt } : c));
+    } catch {
+      // ignore
+    }
+
+    if (doRegenerate) {
+      // trigger regenerate for this card
+      try {
+        const prompt = modalPrompt || card.savedPrompt;
+        const genRes = await fetch('/api/generate-companion', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ description: prompt, style: 'portrait', num_inference_steps: 35, guidance_scale: 7.5, seed: -1 }) });
+        const genData = await genRes.json();
+        if (genRes.ok && genData.image_url) {
+          const imageUrl = genData.image_url;
+          if (card.isCustom && card.customId) {
+            await fetch(`/api/archetypes/custom/${card.customId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ image_url: imageUrl, seed: genData.seed }) });
+          } else {
+            await fetch('/api/archetypes/images/save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ archetype_id: card.archetype.id, image_url: imageUrl, seed: genData.seed, prompt_used: prompt }) });
+          }
+          setCards((prev) => prev.map((c) => c.archetype.id === modalId ? { ...c, imageUrl, status: 'has-image' } : c));
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    closeModal();
+  }
+
+  // Modal UI component (defined inline so it can access modal state)
+  function ModalContainer() {
+    if (!modalOpen || !modalId) return null;
+    const card = cards.find((c) => c.archetype.id === modalId);
+    if (!card) return null;
+
+    return (
+      <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200 }} onClick={closeModal}>
+        <div onClick={(e) => e.stopPropagation()} style={{ width: '880px', maxWidth: '95%', background: 'var(--onyx)', border: '1px solid var(--border-dark)', borderRadius: '6px', padding: '18px', display: 'flex', gap: '16px' }}>
+          <div style={{ width: '420px', background: card.archetype.imageGradient, borderRadius: '4px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            {card.imageUrl ? <img src={card.imageUrl} alt="preview" style={{ width: '100%', height: '100%', objectFit: 'contain' }} /> : <div style={{ padding: '24px', color: 'var(--ivory-ghost)' }}>No image</div>}
+          </div>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <div style={{ fontFamily: 'var(--font-display)', fontSize: '18px', color: 'var(--ivory)' }}>{card.archetype.name}</div>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--ivory-muted)' }}>{card.archetype.dossierId}</div>
+              </div>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <Link href={`/admin/profile/${card.customId ?? card.archetype.id}`}><a style={{ padding: '8px 12px', background: 'var(--gold)', color: 'var(--onyx)', borderRadius: '3px', textDecoration: 'none' }}>Open Editor</a></Link>
+                <button onClick={closeModal} style={{ padding: '8px 12px', background: 'transparent', border: '1px solid var(--border-mid)', color: 'var(--ivory-muted)', borderRadius: '3px' }}>Close</button>
+              </div>
+            </div>
+
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', color: 'var(--gold)' }}>◈ Prompt</div>
+            <textarea value={modalPrompt} onChange={(e) => setModalPrompt(e.target.value)} rows={6} style={{ width: '100%', padding: '10px', background: 'var(--onyx)', border: '1px solid var(--border-mid)', borderRadius: '4px', color: 'var(--ivory)' }} />
+
+            <div style={{ display: 'flex', gap: '8px', marginTop: 'auto' }}>
+              <button onClick={() => modalSaveAndMaybeRegenerate(false)} style={{ padding: '8px 14px', background: 'var(--gold)', border: 'none', borderRadius: '3px', color: 'var(--onyx)' }}>Save</button>
+              <button onClick={() => modalSaveAndMaybeRegenerate(true)} style={{ padding: '8px 14px', background: 'transparent', border: '1px solid var(--gold-dim)', borderRadius: '3px', color: 'var(--gold)' }}>Save & Regenerate</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (checking) {
     return (
       <div style={{ minHeight: '100dvh', background: 'var(--onyx)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -422,7 +519,7 @@ export default function AdminArchetypesPage() {
         <div style={{ height: '1px', background: 'linear-gradient(90deg, var(--gold) 0%, transparent 100%)', marginBottom: '20px' }} />
 
         {/* Cards */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
           {filtered.length === 0 && (
             <div style={{ textAlign: 'center', padding: '48px', fontFamily: 'var(--font-display)', fontSize: '16px', fontStyle: 'italic', color: 'var(--ivory-ghost)' }}>
               No archetypes match that filter.
@@ -664,6 +761,14 @@ export default function AdminArchetypesPage() {
             );
           })}
         </div>
+
+        {/* Quick edit modal */}
+        {/* Modal state managed via local state to allow fast edits */}
+        {/** Modal implementation below is lightweight: shows larger image, prompt edit, save/regenerate and open full editor */}
+        {/* Using portal would be nicer but inline overlay is sufficient here */}
+        {typeof window !== 'undefined' && (
+          <ModalContainer />
+        )}
       </div>
 
       <style>{`
