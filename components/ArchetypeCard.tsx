@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import type { Archetype } from '../lib/archetypes';
+import type { Archetype } from '@/lib/archetypes';
 
 type Props = {
   archetype: Archetype;
