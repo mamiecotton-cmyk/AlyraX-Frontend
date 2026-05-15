@@ -316,11 +316,11 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
                     {secondaryImgs.length > 0 && (
                       <div>
                         <div style={{ fontFamily: 'var(--font-mono)', fontSize: '7.5px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--ivory-ghost)', marginBottom: '10px' }}>◈ Other Images</div>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px' }}>
                           {secondaryImgs.map((img) => {
                             const origIdx = gallery.findIndex((g) => g.id === img.id);
                             return (
-                              <div style={{ maxHeight: '180px', overflow: 'hidden', borderRadius: '3px' }} key={img.id}>
+                              <div style={{ maxHeight: '90px', overflow: 'hidden', borderRadius: '3px' }} key={img.id}>
                                 <ImageCard img={img} i={origIdx} isHero={false} />
                               </div>
                             );
