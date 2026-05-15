@@ -81,6 +81,9 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
         }
       }
       setGallery(imgs);
+      // If loaded gallery has a main image with a seed, prefill the seed input
+      const mainLoaded = imgs.find((g) => g.is_main);
+      if (mainLoaded && typeof mainLoaded.seed === 'number') setSeed(String(mainLoaded.seed));
       setVideos(vRes.videos ?? []);
       if (pRes.prompts?.[id]) setImagePrompt(pRes.prompts[id]);
       setLoading(false);
@@ -91,7 +94,9 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
   async function generateImages() {
     if (!imagePrompt.trim()) { setStatus('Add a prompt first.'); return; }
     setGenImages(true);
-    const baseSeed = seed.trim() ? Number(seed) : -1;
+    // Prefer the main image's seed if present; otherwise fall back to the manual seed input or random
+    const mainSeed = gallery.find((g) => g.is_main)?.seed ?? null;
+    const baseSeed = mainSeed !== null && mainSeed !== undefined ? mainSeed : (seed.trim() ? Number(seed) : -1);
     let done = 0;
     for (let i = 0; i < packSize; i++) {
       try {
@@ -129,6 +134,8 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
   async function setMainImage(img: GalleryImage) {
     await fetch(`/api/archetypes/gallery/${img.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ is_main: true, image_url: img.image_url }) });
     setGallery((prev) => prev.map((g) => ({ ...g, is_main: g.id === img.id })));
+    // If the newly selected main image has a seed, populate the seed input so generation can reuse it
+    if (img.seed !== null && img.seed !== undefined) setSeed(String(img.seed));
     setStatus('Main image updated.');
   }
 
