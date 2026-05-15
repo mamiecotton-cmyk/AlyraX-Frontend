@@ -373,3 +373,62 @@ export const QUIZ_DIMENSIONS = [
   'street',      // 0 = polished/refined, 1 = raw/street
   'dominance',   // 0 = soft/yielding, 1 = dominant/commanding
 ] as const;
+
+// ─── Custom archetype from Supabase ────────────────────────────────────────
+export type CustomArchetypeRow = {
+  id: string;
+  dossier_id: string;
+  name: string;
+  gender: 'M' | 'F';
+  archetype: string;
+  tagline: string;
+  quote: string;
+  bio: string;
+  vibe: string;
+  energy: string;
+  style: string;
+  background: string;
+  image_gradient: string;
+  accent_color: string;
+  vector: number[];
+  image_url: string | null;
+  prompt_used: string | null;
+  seed: number | null;
+  created_at: string;
+};
+
+export function customRowToArchetype(row: CustomArchetypeRow): Archetype {
+  return {
+    id: row.id,
+    dossierId: row.dossier_id,
+    name: row.name,
+    gender: row.gender,
+    archetype: row.archetype,
+    tagline: row.tagline,
+    quote: row.quote,
+    bio: row.bio,
+    vibe: row.vibe,
+    energy: row.energy,
+    style: row.style,
+    background: row.background,
+    imageGradient: row.image_gradient,
+    accentColor: row.accent_color,
+    vector: (row.vector ?? [0.5, 0.5, 0.5, 0.5, 0.5]) as [number, number, number, number, number],
+  };
+}
+
+/**
+ * Fetches custom archetypes from Supabase and merges with the hardcoded 20.
+ * Safe to call client-side via the API route.
+ */
+export async function fetchAllArchetypes(): Promise<Archetype[]> {
+  try {
+    const res = await fetch('/api/archetypes/custom', { cache: 'no-store' });
+    if (!res.ok) return archetypes;
+    const { archetypes: customRows } = await res.json() as { archetypes: CustomArchetypeRow[] };
+    const custom = (customRows ?? []).map(customRowToArchetype);
+    return [...archetypes, ...custom];
+  } catch {
+    return archetypes;
+  }
+}
