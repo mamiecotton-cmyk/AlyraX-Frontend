@@ -1,16 +1,16 @@
 'use client';
 
-import { use, useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
-import { archetypes } from '@/lib/archetypes';
+import { archetypes, type Archetype } from '@/lib/archetypes';
 
 type Props = {
-  params: Promise<{ id: string }>;
+  params: { id: string };
 };
 
 export default function DossierPage({ params }: Props) {
-  const { id } = use(params);
+  const { id } = params;
   const router  = useRouter();
   const archetype = archetypes.find((a) => a.id === id);
 

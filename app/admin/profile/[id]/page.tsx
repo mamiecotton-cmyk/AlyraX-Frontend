@@ -1,6 +1,6 @@
 'use client';
 
-import { use, useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { archetypes, type Archetype, buildArchetypePrompt, NEGATIVE_PROMPT } from '@/lib/archetypes';
 import { createClient } from '@/lib/supabase';
@@ -30,8 +30,8 @@ const BTN_GHOST: React.CSSProperties = { padding: '7px 14px', background: 'trans
 const BTN_MUTED: React.CSSProperties = { padding: '7px 14px', background: 'transparent', border: '1px solid var(--border-mid)', borderRadius: '2px', cursor: 'pointer', fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--ivory-muted)' };
 const BTN_DANGER: React.CSSProperties = { padding: '5px 10px', background: 'transparent', border: '1px solid rgba(192,57,43,0.35)', borderRadius: '2px', cursor: 'pointer', fontFamily: 'var(--font-mono)', fontSize: '8px', letterSpacing: '0.12em', color: '#c0392b' };
 
-export default function AdminProfilePage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params);
+export default function AdminProfilePage({ params }: { params: { id: string } }) {
+  const { id } = params;
   const router = useRouter();
   const supabase = createClient();
   const hardcoded = archetypes.find((a) => a.id === id);
