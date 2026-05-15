@@ -304,7 +304,7 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
                     {secondaryImgs.length > 0 && (
                       <div>
                         <div style={{ fontFamily: 'var(--font-mono)', fontSize: '7.5px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--ivory-ghost)', marginBottom: '10px' }}>◈ Other Images</div>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px' }}>
                           {secondaryImgs.map((img) => {
                             const origIdx = gallery.findIndex((g) => g.id === img.id);
                             return <ImageCard key={img.id} img={img} i={origIdx} isHero={false} />;
