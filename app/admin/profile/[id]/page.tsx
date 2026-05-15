@@ -121,10 +121,62 @@ export default function AdminProfilePage({ params }: { params: { id: string } })
         setStatus(`Generating image ${i + 1} / ${packSize}...`);
         const res = await fetch('/api/generate-companion', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ description: finalPrompt, negative_prompt: NEGATIVE_PROMPT, style: imageStyle, num_inference_steps: 35, guidance_scale: 7.5, seed: baseSeed >= 0 ? baseSeed + i : -1 }) });
         const data = await res.json();
-        if (!res.ok || !data.image_url) continue;
-        const saveRes = await fetch('/api/archetypes/gallery', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ archetype_id: id, image_url: data.image_url, seed: data.seed, style: imageStyle, prompt_used: imagePrompt, is_main: gallery.length === 0 && i === 0 }) });
-        const saved = await saveRes.json();
-        if (saved.image) { setGallery((prev) => [...prev, saved.image]); done++; }
+
+        // If server returned image immediately (legacy/blocking), handle as before
+        if (res.ok && data.image_url) {
+          const saveRes = await fetch('/api/archetypes/gallery', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ archetype_id: id, image_url: data.image_url, seed: data.seed, style: imageStyle, prompt_used: imagePrompt, is_main: gallery.length === 0 && i === 0 }) });
+          const saved = await saveRes.json();
+          if (saved.image) { setGallery((prev) => [...prev, saved.image]); done++; }
+          continue;
+        }
+
+        // If accepted async, poll status endpoint
+        if (res.status === 202 && data?.jobId) {
+          const jobId = data.jobId as string;
+          let attempts = 0;
+          const maxAttempts = 120; // ~6 minutes
+          let completedData: any = null;
+
+          while (attempts < maxAttempts) {
+            await new Promise((r) => setTimeout(r, 3000));
+            attempts++;
+            setStatus(`Waiting for job ${attempts * 3}s...`);
+            try {
+              const sres = await fetch(`/api/generate-companion/status/${jobId}`);
+              if (!sres.ok) continue;
+              const sdata = await sres.json();
+
+              // If proxy returned saved image_url or raw completed data
+              if (sdata.image_url || sdata.success) {
+                completedData = sdata;
+                break;
+              }
+
+              // Expose queue/progress messages to admin
+              if (sdata.status) setStatus(`Job status: ${sdata.status}`);
+              if (sdata.status_message) setStatus(sdata.status_message);
+            } catch (err) {
+              // ignore and retry
+            }
+          }
+
+          if (!completedData) {
+            // timed out for this image
+            continue;
+          }
+
+          const imageUrl = completedData.image_url ?? (completedData.raw?.output?.image ? `data:image/png;base64,${completedData.raw.output.image}` : null);
+          const outputSeed = completedData.seed ?? completedData.raw?.output?.seed ?? null;
+          if (!imageUrl) continue;
+
+          const saveRes = await fetch('/api/archetypes/gallery', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ archetype_id: id, image_url: imageUrl, seed: outputSeed, style: imageStyle, prompt_used: imagePrompt, is_main: gallery.length === 0 && i === 0 }) });
+          const saved = await saveRes.json();
+          if (saved.image) { setGallery((prev) => [...prev, saved.image]); done++; }
+          continue;
+        }
+
+        // Unknown response — skip
+        continue;
       } catch { /* continue */ }
     }
     setStatus(`Done — ${done} of ${packSize} generated.`);
