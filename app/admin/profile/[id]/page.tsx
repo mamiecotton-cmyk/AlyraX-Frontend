@@ -266,7 +266,7 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
 
         {/* IMAGES */}
         {tab === 'images' && (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 280px', gap: '20px', alignItems: 'start' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', alignItems: 'start' }}>
             <div>
               <div style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', letterSpacing: '0.24em', textTransform: 'uppercase', color: 'var(--gold)', marginBottom: '14px' }}>◈ Gallery — {gallery.length} image{gallery.length !== 1 ? 's' : ''}</div>
               {gallery.length === 0 ? (
@@ -354,7 +354,7 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
 
         {/* VIDEOS */}
         {tab === 'videos' && (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: '20px', alignItems: 'start' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', alignItems: 'start' }}>
             <div>
               <div style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', letterSpacing: '0.24em', textTransform: 'uppercase', color: 'var(--gold)', marginBottom: '14px' }}>▷ Videos — {videos.length} clip{videos.length !== 1 ? 's' : ''}</div>
               {videos.length === 0 ? (
