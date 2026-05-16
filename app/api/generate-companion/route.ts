@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 export const maxDuration = 300;
 
 function getImageSettings(style: string) {
-  const baseNegative = 'ugly, deformed, blurry, low quality, cartoon, anime, illustration, painting, sketch, stylized, low poly, toy, doll, clay, plastic, watercolor, oil painting, pastel, 3d render, bad anatomy, watermark, text, extra limbs, missing limbs, mutated hands, poorly drawn face';
+  const baseNegative = 'ugly, deformed, blurry, low quality, cartoon, anime, illustration, painting, sketch, stylized, low poly, toy, doll, clay, plastic, wax figure, mannequin, airbrushed skin, perfect skin, synthetic face, uncanny valley, AI generated, CGI, 3d render, watercolor, oil painting, pastel, bad anatomy, watermark, text, extra limbs, missing limbs, mutated hands, poorly drawn face';
 
   if (style === 'fullbody') {
     return {
@@ -56,8 +56,19 @@ export async function POST(req: NextRequest) {
     const width = widthOverride ?? defaultWidth;
     const height = heightOverride ?? defaultHeight;
 
-    // Optimized: emphasize photorealism and real-person photography
-    const qualityTags = 'photorealistic, hyper-realistic photograph, real person, professional studio lighting, sharp focus, masterpiece';
+    // Optimized: emphasize real human photography and imperfect natural detail.
+    const qualityTags = [
+      'RAW documentary photograph',
+      'photorealistic human portrait',
+      'real person',
+      'natural asymmetrical face',
+      'visible skin pores',
+      'subtle skin texture and imperfections',
+      'natural hair texture',
+      'realistic eyes',
+      'professional camera photo',
+      'sharp focus',
+    ].join(', ');
 
     // Condensed reference logic
     const refPrefix = reference_image_url && reference_mode === 'inspiration'
@@ -78,7 +89,7 @@ export async function POST(req: NextRequest) {
 
     const prompt = `${qualityTags}, ${styleTag}, ${composition}, ${genderTag}${refPrefix}${description}`;
 
-    console.log('Generating image with', { style, styleTag, width, height, gender, promptPreview: prompt.slice(0, 240), negativePreview: negative.slice(0, 240) });
+    console.log('Generating image with', { style, styleTag, width, height, gender, seed, reference_mode, hasReference: Boolean(reference_image_url), promptPreview: prompt.slice(0, 500), negativePreview: negative.slice(0, 300) });
 
     // Submit job async
     const imageEndpointId = process.env.RUNPOD_IMAGE_ENDPOINT_ID;
@@ -120,6 +131,8 @@ export async function POST(req: NextRequest) {
     // Return 202 Accepted with job id — client can poll the status endpoint
     return NextResponse.json({
       jobId,
+      seed,
+      prompt_preview: prompt.slice(0, 500),
       message: 'Job submitted; poll /api/generate-companion/status/[jobId] for updates',
     }, { status: 202 });
 

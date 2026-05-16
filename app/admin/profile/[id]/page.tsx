@@ -101,13 +101,11 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
         }
         setGallery(imgs);
         setVideos(vRes.videos ?? []);
-        // Always rebuild prompt from lib so gender is always correct
-        // Only fall back to saved prompt if archetype isn't found
         const foundArchetype = archetypes.find((a) => a.id === id);
-        if (foundArchetype) {
-          setImagePrompt(buildArchetypePrompt(foundArchetype));
-        } else if (pRes.prompts?.[id]) {
+        if (pRes.prompts?.[id]) {
           setImagePrompt(pRes.prompts[id]);
+        } else if (foundArchetype) {
+          setImagePrompt(buildArchetypePrompt(foundArchetype));
         }
       } catch (err) {
         console.error('Error loading admin profile data:', err);
@@ -133,13 +131,13 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
     setGenImages(true);
     const baseSeed = seed.trim() ? Number(seed) : -1;
     let done = 0;
-    // Build final prompt using gender override if set
     const effectiveGender = genderOverride ?? archetype?.gender ?? 'M';
-    const foundArch = archetypes.find((a) => a.id === id);
-    const finalPrompt = foundArch ? buildArchetypePrompt(foundArch, effectiveGender) : imagePrompt;
+    const finalPrompt = imagePrompt.trim();
+    const referenceImageUrl = gallery.find((g) => g.is_main)?.image_url ?? gallery[0]?.image_url;
     for (let i = 0; i < packSize; i++) {
       try {
-        setStatus(`Generating image ${i + 1} / ${packSize}...`);
+        const generationSeed = baseSeed >= 0 ? baseSeed + i : -1;
+        setStatus(`Generating image ${i + 1} / ${packSize}${generationSeed >= 0 ? ` · seed ${generationSeed}` : ''}...`);
         // Determine optional width/height overrides based on resolution selection
         let widthOverride: number | undefined = undefined;
         let heightOverride: number | undefined = undefined;
@@ -150,7 +148,7 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
           if (imageStyle === 'fullscreen') { widthOverride = 768; heightOverride = 1344; }
         }
 
-        const res = await fetch('/api/generate-companion', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ description: finalPrompt, negative_prompt: NEGATIVE_PROMPT, style: imageStyle, num_inference_steps: 35, guidance_scale: 7.5, seed: baseSeed >= 0 ? baseSeed + i : -1, width: widthOverride, height: heightOverride }) });
+        const res = await fetch('/api/generate-companion', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ description: finalPrompt, negative_prompt: NEGATIVE_PROMPT, style: imageStyle, num_inference_steps: 35, guidance_scale: 7.5, seed: generationSeed, width: widthOverride, height: heightOverride, gender: effectiveGender, reference_image_url: referenceImageUrl, reference_mode: referenceImageUrl ? 'identity' : undefined, reference_strength: referenceImageUrl ? 0.22 : undefined }) });
         const data = await res.json();
 
         // If server returned image immediately (legacy/blocking), handle as before
