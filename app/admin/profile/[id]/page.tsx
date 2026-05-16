@@ -44,6 +44,7 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
   const [videos, setVideos] = useState<GalleryVideo[]>([]);
   const [imagePrompt, setImagePrompt] = useState('');
   const [imageStyle, setImageStyle] = useState<ImageStyle>('portrait');
+  const [resolution, setResolution] = useState<'standard' | 'high'>('standard');
   const [packSize, setPackSize] = useState<PackSize>(1);
   const [seed, setSeed] = useState('');
   const [genImages, setGenImages] = useState(false);
@@ -125,7 +126,17 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
     for (let i = 0; i < packSize; i++) {
       try {
         setStatus(`Generating image ${i + 1} / ${packSize}...`);
-        const res = await fetch('/api/generate-companion', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ description: finalPrompt, negative_prompt: NEGATIVE_PROMPT, style: imageStyle, num_inference_steps: 35, guidance_scale: 7.5, seed: baseSeed >= 0 ? baseSeed + i : -1 }) });
+        // Determine optional width/height overrides based on resolution selection
+        let widthOverride: number | undefined = undefined;
+        let heightOverride: number | undefined = undefined;
+        if (resolution === 'high') {
+          // Cap high-res requests to fit within the 1,048,576 pixel limit
+          if (imageStyle === 'portrait') { widthOverride = 768; heightOverride = 1344; }
+          if (imageStyle === 'fullbody') { widthOverride = 832; heightOverride = 1216; }
+          if (imageStyle === 'fullscreen') { widthOverride = 768; heightOverride = 1344; }
+        }
+
+        const res = await fetch('/api/generate-companion', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ description: finalPrompt, negative_prompt: NEGATIVE_PROMPT, style: imageStyle, num_inference_steps: 35, guidance_scale: 7.5, seed: baseSeed >= 0 ? baseSeed + i : -1, width: widthOverride, height: heightOverride }) });
         const data = await res.json();
 
         // If server returned image immediately (legacy/blocking), handle as before
@@ -441,6 +452,14 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
                   {STYLE_OPTS.map((s) => (
                     <button key={s.key} onClick={() => setImageStyle(s.key)} style={{ flex: 1, padding: '6px 3px', textAlign: 'center', border: `1px solid ${imageStyle === s.key ? 'var(--gold)' : 'var(--border-mid)'}`, background: imageStyle === s.key ? 'var(--gold-glow)' : 'transparent', borderRadius: '2px', cursor: 'pointer', fontFamily: 'var(--font-mono)', fontSize: '7px', letterSpacing: '0.1em', textTransform: 'uppercase', color: imageStyle === s.key ? 'var(--gold)' : 'var(--ivory-muted)' }}>
                       <div>{s.label}</div><div style={{ opacity: 0.5, fontSize: '6px' }}>{s.size}</div>
+                    </button>
+                  ))}
+                </div>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: '7.5px', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--ivory-ghost)', marginBottom: '5px' }}>Resolution</div>
+                <div style={{ display: 'flex', gap: '4px', marginBottom: '10px' }}>
+                  {(['standard', 'high'] as const).map((r) => (
+                    <button key={r} onClick={() => setResolution(r)} style={{ flex: 1, padding: '6px 3px', textAlign: 'center', border: `1px solid ${resolution === r ? 'var(--gold)' : 'var(--border-mid)'}`, background: resolution === r ? 'var(--gold-glow)' : 'transparent', borderRadius: '2px', cursor: 'pointer', fontFamily: 'var(--font-mono)', fontSize: '7px', letterSpacing: '0.1em', textTransform: 'uppercase', color: resolution === r ? 'var(--gold)' : 'var(--ivory-muted)' }}>
+                      {r === 'standard' ? 'Standard' : 'High'}
                     </button>
                   ))}
                 </div>

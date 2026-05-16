@@ -8,8 +8,8 @@ function getImageSettings(style: string) {
   if (style === 'fullbody') {
     return {
       // Increased to higher resolution for crisper full-body renders
-      width: 1536,
-      height: 2048,
+      width: 832,
+      height: 1216,
       composition: 'full body shot, head to toe visible, entire body fully in frame, feet visible, no cropping, neutral studio background',
       negative: `${baseNegative}, cropped head, cropped face, cropped feet, cropped legs, out of frame, close-up, extreme close-up`,
     };
@@ -26,9 +26,9 @@ function getImageSettings(style: string) {
   }
 
   return {
-    // Portrait bumped to 1024x2048 for much higher fidelity
-    width: 1024,
-    height: 2048,
+    // Portrait capped to fit pixel limit
+    width: 768,
+    height: 1344,
     composition: 'front-facing waist-up portrait, centered subject, looking directly at camera, face clearly visible, shoulders chest and waist visible, seductive elegant pose, hands naturally visible near torso, vertical profile image, enough room around upper body for animation',
     negative: `${baseNegative}, side profile, back view, turned away, full body, extreme close-up, cropped head, cropped face, cropped shoulders, cropped torso, cropped arms, out of frame`,
   };
