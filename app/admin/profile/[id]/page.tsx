@@ -34,6 +34,7 @@ type GenerateStatusResponse = {
 type Tab = 'images' | 'videos';
 type ImageStyle = 'portrait' | 'fullbody' | 'fullscreen';
 type PackSize = 1 | 5 | 10;
+type ReferenceBehavior = 'prompt' | 'balanced' | 'match';
 type StructuredPromptFields = {
   race: string;
   gender: 'M' | 'F';
@@ -48,6 +49,11 @@ const STYLE_OPTS: { key: ImageStyle; label: string; size: string }[] = [
   { key: 'portrait', label: 'Portrait', size: '768×1024' },
   { key: 'fullbody', label: 'Full Body', size: '832×1216' },
   { key: 'fullscreen', label: 'Full Screen', size: '768×1344' },
+];
+const REFERENCE_BEHAVIOR_OPTS: { key: ReferenceBehavior; label: string; denoise: number; strength: number }[] = [
+  { key: 'prompt', label: 'Prompt', denoise: 0.76, strength: 0.12 },
+  { key: 'balanced', label: 'Balanced', denoise: 0.70, strength: 0.18 },
+  { key: 'match', label: 'Match', denoise: 0.56, strength: 0.26 },
 ];
 
 const BTN_GOLD: React.CSSProperties = { padding: '8px 18px', background: 'var(--gold)', border: 'none', borderRadius: '2px', cursor: 'pointer', fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--onyx)', fontWeight: 500 };
@@ -180,6 +186,7 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
   const [seed, setSeed] = useState('');
   const [genImages, setGenImages] = useState(false);
   const [useReferenceImage, setUseReferenceImage] = useState(false);
+  const [referenceBehavior, setReferenceBehavior] = useState<ReferenceBehavior>('prompt');
   const [genderOverride, setGenderOverride] = useState<'M' | 'F' | null>(null);
   const [structuredPrompt, setStructuredPrompt] = useState<StructuredPromptFields>(() => inferStructuredPrompt(hardcoded ?? null, '', hardcoded?.gender ?? 'M'));
   const [structuredInitialized, setStructuredInitialized] = useState(false);
@@ -271,6 +278,7 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
     const effectiveGender = promptFieldsForGeneration.gender;
     const finalPrompt = imagePrompt.trim();
     const referenceImageUrl = useReferenceImage ? gallery.find((g) => g.is_main)?.image_url ?? gallery[0]?.image_url : undefined;
+    const referenceBehaviorSetting = REFERENCE_BEHAVIOR_OPTS.find((option) => option.key === referenceBehavior) ?? REFERENCE_BEHAVIOR_OPTS[0];
     for (let i = 0; i < packSize; i++) {
       try {
         const generationSeed = baseSeed >= 0 ? baseSeed + i : -1;
@@ -285,7 +293,7 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
           if (imageStyle === 'fullscreen') { widthOverride = 768; heightOverride = 1344; }
         }
 
-        const res = await fetch('/api/generate-companion', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ description: finalPrompt, structured_prompt: promptFieldsForGeneration, negative_prompt: NEGATIVE_PROMPT, style: imageStyle, num_inference_steps: 35, guidance_scale: 7.5, seed: generationSeed, width: widthOverride, height: heightOverride, gender: effectiveGender, reference_image_url: referenceImageUrl, reference_mode: referenceImageUrl ? 'identity' : undefined, reference_strength: referenceImageUrl ? 0.22 : undefined }) });
+        const res = await fetch('/api/generate-companion', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ description: finalPrompt, structured_prompt: promptFieldsForGeneration, negative_prompt: NEGATIVE_PROMPT, style: imageStyle, num_inference_steps: 35, guidance_scale: 7.5, seed: generationSeed, width: widthOverride, height: heightOverride, gender: effectiveGender, reference_image_url: referenceImageUrl, reference_mode: referenceImageUrl ? 'identity' : undefined, reference_strength: referenceImageUrl ? referenceBehaviorSetting.strength : undefined, denoise_strength: referenceImageUrl ? referenceBehaviorSetting.denoise : undefined }) });
         const data = await res.json();
         const generatedPrompt = typeof data.prompt_preview === 'string' ? data.prompt_preview : finalPromptPreview;
 
@@ -734,6 +742,18 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
                     Use current main image as identity reference
                   </span>
                 </label>
+                {useReferenceImage && (
+                  <>
+                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: '7.5px', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--ivory-ghost)', marginBottom: '5px' }}>Reference Behavior</div>
+                    <div style={{ display: 'flex', gap: '4px', marginBottom: '10px' }}>
+                      {REFERENCE_BEHAVIOR_OPTS.map((option) => (
+                        <button key={option.key} onClick={() => setReferenceBehavior(option.key)} style={{ flex: 1, padding: '6px 3px', textAlign: 'center', border: `1px solid ${referenceBehavior === option.key ? 'var(--gold)' : 'var(--border-mid)'}`, background: referenceBehavior === option.key ? 'var(--gold-glow)' : 'transparent', borderRadius: '2px', cursor: 'pointer', fontFamily: 'var(--font-mono)', fontSize: '7px', letterSpacing: '0.1em', textTransform: 'uppercase', color: referenceBehavior === option.key ? 'var(--gold)' : 'var(--ivory-muted)' }}>
+                          {option.label}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
                 <div style={{ fontFamily: 'var(--font-mono)', fontSize: '7.5px', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--ivory-ghost)', marginBottom: '5px' }}>Style</div>
                 <div style={{ display: 'flex', gap: '4px', marginBottom: '10px' }}>
                   {STYLE_OPTS.map((s) => (

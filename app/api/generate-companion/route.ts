@@ -153,6 +153,7 @@ export async function POST(req: NextRequest) {
       negative_prompt: incomingNegative,
       reference_image_url,
       reference_strength = 0.25,
+      denoise_strength,
       reference_mode = 'identity',
       structured_prompt,
     } = await req.json();
@@ -160,6 +161,7 @@ export async function POST(req: NextRequest) {
     const { width: defaultWidth, height: defaultHeight, composition, negative: styleNegative } = getImageSettings(style);
     const width = widthOverride ?? defaultWidth;
     const height = heightOverride ?? defaultHeight;
+    const effectiveDenoiseStrength = reference_image_url ? denoise_strength ?? 0.76 : undefined;
 
     // Merge negative prompts (server style negatives + client-provided negatives)
     const negative = [styleNegative, incomingNegative].filter(Boolean).join(', ');
@@ -172,7 +174,7 @@ export async function POST(req: NextRequest) {
       structuredPrompt: structured_prompt,
     });
 
-    console.log('Generating image with', { style, composition, width, height, gender, seed, reference_mode, hasReference: Boolean(reference_image_url), structuredPrompt: hasStructuredPrompt(structured_prompt), promptPreview: prompt.slice(0, 500), negativePreview: negative.slice(0, 300) });
+    console.log('Generating image with', { style, composition, width, height, gender, seed, reference_mode, reference_strength, denoise_strength: effectiveDenoiseStrength, hasReference: Boolean(reference_image_url), structuredPrompt: hasStructuredPrompt(structured_prompt), promptPreview: prompt.slice(0, 500), negativePreview: negative.slice(0, 300) });
 
     // Submit job async
     const imageEndpointId = process.env.RUNPOD_IMAGE_ENDPOINT_ID;
@@ -197,6 +199,7 @@ export async function POST(req: NextRequest) {
             seed,
             reference_image_url,
             reference_strength,
+            denoise_strength: effectiveDenoiseStrength,
           }
         }),
       }
