@@ -39,6 +39,7 @@ type StructuredPromptFields = {
   environment: string;
   details: string;
 };
+type SceneSuggestion = Pick<StructuredPromptFields, 'wardrobe' | 'environment' | 'details'>;
 
 const STYLE_OPTS: { key: ImageStyle; label: string; size: string }[] = [
   { key: 'portrait', label: 'Portrait', size: '768×1024' },
@@ -50,10 +51,34 @@ const BTN_GOLD: React.CSSProperties = { padding: '8px 18px', background: 'var(--
 const BTN_GHOST: React.CSSProperties = { padding: '7px 14px', background: 'transparent', border: '1px solid var(--gold-dim)', borderRadius: '2px', cursor: 'pointer', fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--gold)' };
 const BTN_MUTED: React.CSSProperties = { padding: '7px 14px', background: 'transparent', border: '1px solid var(--border-mid)', borderRadius: '2px', cursor: 'pointer', fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--ivory-muted)' };
 const BTN_DANGER: React.CSSProperties = { padding: '5px 10px', background: 'transparent', border: '1px solid rgba(192,57,43,0.35)', borderRadius: '2px', cursor: 'pointer', fontFamily: 'var(--font-mono)', fontSize: '8px', letterSpacing: '0.12em', color: '#c0392b' };
-const FIELD_LABEL: React.CSSProperties = { fontFamily: 'var(--font-mono)', fontSize: '7px', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--ivory-ghost)', marginBottom: '4px' };
-const FIELD_INPUT: React.CSSProperties = { width: '100%', padding: '8px 9px', background: 'var(--onyx)', border: '1px solid var(--border-mid)', borderRadius: '2px', color: 'var(--ivory)', fontFamily: 'var(--font-mono)', fontSize: '11px', outline: 'none' };
+const FIELD_LABEL: React.CSSProperties = { fontFamily: 'var(--font-mono)', fontSize: '8px', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--ivory-muted)', marginBottom: '5px' };
+const FIELD_INPUT: React.CSSProperties = { width: '100%', padding: '10px 11px', background: '#0e0d0c', border: '1px solid #3a332f', borderRadius: '2px', color: 'var(--ivory)', fontFamily: 'var(--font-mono)', fontSize: '12px', outline: 'none' };
 
 const HUMAN_REALISM = 'RAW candid DSLR photo, photorealistic human, natural skin pores, realistic eyes';
+const WARDROBE_IDEAS = [
+  'tailored navy suit',
+  'open collar black shirt',
+  'cream linen shirt',
+  'charcoal turtleneck and coat',
+  'white oxford shirt',
+  'sleek monochrome streetwear',
+];
+const ENVIRONMENT_IDEAS = [
+  'modern office with large window light',
+  'quiet hotel lounge at golden hour',
+  'city street after rain',
+  'minimal studio with soft side light',
+  'private library with warm lamps',
+  'rooftop terrace at dusk',
+];
+const DETAIL_IDEAS = [
+  'calm confident expression',
+  'direct gaze, subtle smile',
+  'composed and magnetic',
+  'relaxed shoulders, natural stance',
+  'quiet intensity, candid moment',
+  'editorial mood, authentic expression',
+];
 
 function compactText(value: string) {
   return value.replace(/\s+/g, ' ').replace(/[.]+$/g, '').trim();
@@ -92,6 +117,31 @@ function buildStructuredPreview(fields: StructuredPromptFields, style: ImageStyl
     HUMAN_REALISM,
     shortComposition(style),
   ].filter(Boolean).join(', '), 55);
+}
+
+function suggestionIndex(seed: string, offset: number, length: number) {
+  let total = offset;
+  for (let i = 0; i < seed.length; i++) total += seed.charCodeAt(i) * (i + 1);
+  return Math.abs(total) % length;
+}
+
+function buildSceneSuggestion(archetype: Archetype | null, id: string): SceneSuggestion {
+  const seed = `${id}-${archetype?.name ?? ''}-${archetype?.style ?? ''}-${archetype?.energy ?? ''}`;
+
+  return {
+    wardrobe: WARDROBE_IDEAS[suggestionIndex(seed, 3, WARDROBE_IDEAS.length)],
+    environment: ENVIRONMENT_IDEAS[suggestionIndex(seed, 11, ENVIRONMENT_IDEAS.length)],
+    details: DETAIL_IDEAS[suggestionIndex(seed, 19, DETAIL_IDEAS.length)],
+  };
+}
+
+function applySceneSuggestions(fields: StructuredPromptFields, suggestion: SceneSuggestion): StructuredPromptFields {
+  return {
+    ...fields,
+    wardrobe: compactText(fields.wardrobe) || suggestion.wardrobe,
+    environment: compactText(fields.environment) || suggestion.environment,
+    details: compactText(fields.details) || suggestion.details,
+  };
 }
 
 function inferStructuredPrompt(archetype: Archetype | null, prompt: string, gender: 'M' | 'F'): StructuredPromptFields {
@@ -201,7 +251,9 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
     setStructuredInitialized(true);
   }, [archetype, genderOverride, imagePrompt, loading, structuredInitialized]);
 
-  const finalPromptPreview = buildStructuredPreview(structuredPrompt, imageStyle, imagePrompt);
+  const sceneSuggestion = buildSceneSuggestion(archetype, id);
+  const promptFieldsForGeneration = applySceneSuggestions(structuredPrompt, sceneSuggestion);
+  const finalPromptPreview = buildStructuredPreview(promptFieldsForGeneration, imageStyle, imagePrompt);
 
   function setStructuredField<K extends keyof StructuredPromptFields>(field: K, value: StructuredPromptFields[K]) {
     setStructuredPrompt((prev) => ({ ...prev, [field]: value }));
@@ -212,7 +264,7 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
     setGenImages(true);
     const baseSeed = seed.trim() ? Number(seed) : -1;
     let done = 0;
-    const effectiveGender = structuredPrompt.gender;
+    const effectiveGender = promptFieldsForGeneration.gender;
     const finalPrompt = imagePrompt.trim();
     const referenceImageUrl = useReferenceImage ? gallery.find((g) => g.is_main)?.image_url ?? gallery[0]?.image_url : undefined;
     for (let i = 0; i < packSize; i++) {
@@ -229,7 +281,7 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
           if (imageStyle === 'fullscreen') { widthOverride = 768; heightOverride = 1344; }
         }
 
-        const res = await fetch('/api/generate-companion', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ description: finalPrompt, structured_prompt: structuredPrompt, negative_prompt: NEGATIVE_PROMPT, style: imageStyle, num_inference_steps: 35, guidance_scale: 7.5, seed: generationSeed, width: widthOverride, height: heightOverride, gender: effectiveGender, reference_image_url: referenceImageUrl, reference_mode: referenceImageUrl ? 'identity' : undefined, reference_strength: referenceImageUrl ? 0.22 : undefined }) });
+        const res = await fetch('/api/generate-companion', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ description: finalPrompt, structured_prompt: promptFieldsForGeneration, negative_prompt: NEGATIVE_PROMPT, style: imageStyle, num_inference_steps: 35, guidance_scale: 7.5, seed: generationSeed, width: widthOverride, height: heightOverride, gender: effectiveGender, reference_image_url: referenceImageUrl, reference_mode: referenceImageUrl ? 'identity' : undefined, reference_strength: referenceImageUrl ? 0.22 : undefined }) });
         const data = await res.json();
         const generatedPrompt = typeof data.prompt_preview === 'string' ? data.prompt_preview : finalPromptPreview;
 
@@ -620,23 +672,23 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
 	                </div>
 	                <label style={{ display: 'block', marginBottom: '8px' }}>
 	                  <div style={FIELD_LABEL}>Wardrobe</div>
-	                  <input value={structuredPrompt.wardrobe} onChange={(e) => setStructuredField('wardrobe', e.target.value)} placeholder="Tailored navy suit" style={FIELD_INPUT} />
+		                    <input value={structuredPrompt.wardrobe} onChange={(e) => setStructuredField('wardrobe', e.target.value)} placeholder={sceneSuggestion.wardrobe} style={FIELD_INPUT} />
 	                </label>
 	                <label style={{ display: 'block', marginBottom: '8px' }}>
 	                  <div style={FIELD_LABEL}>Environment</div>
-	                  <input value={structuredPrompt.environment} onChange={(e) => setStructuredField('environment', e.target.value)} placeholder="Modern office with large window light" style={FIELD_INPUT} />
+		                  <input value={structuredPrompt.environment} onChange={(e) => setStructuredField('environment', e.target.value)} placeholder={sceneSuggestion.environment} style={FIELD_INPUT} />
 	                </label>
 	                <label style={{ display: 'block', marginBottom: '10px' }}>
 	                  <div style={FIELD_LABEL}>Mood / Details</div>
-	                  <input value={structuredPrompt.details} onChange={(e) => setStructuredField('details', e.target.value)} placeholder="Calm confident expression" style={FIELD_INPUT} />
+		                  <input value={structuredPrompt.details} onChange={(e) => setStructuredField('details', e.target.value)} placeholder={sceneSuggestion.details} style={FIELD_INPUT} />
 	                </label>
 
 	                <div style={{ fontFamily: 'var(--font-mono)', fontSize: '7.5px', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--ivory-ghost)', marginBottom: '5px' }}>Advanced Prompt Details</div>
 	                <textarea value={imagePrompt} onChange={(e) => setImagePrompt(e.target.value)} rows={5} placeholder="Optional extra details. Structured fields stay first." style={{ width: '100%', padding: '12px', background: 'var(--onyx)', border: '1px solid var(--border-mid)', borderRadius: '2px', color: 'var(--ivory)', fontFamily: 'var(--font-mono)', fontSize: '12px', lineHeight: 1.7, resize: 'vertical', outline: 'none', marginBottom: '10px' }} />
-	                <div style={{ padding: '9px 10px', background: 'rgba(0,0,0,0.22)', border: '1px solid var(--border-mid)', borderRadius: '2px', color: 'var(--ivory-muted)', fontFamily: 'var(--font-mono)', fontSize: '10px', lineHeight: 1.6, marginBottom: '10px' }}>
-	                  <div style={{ ...FIELD_LABEL, marginBottom: '5px' }}>Final Prompt Preview</div>
-	                  {finalPromptPreview || 'Fill the structured fields to preview the prompt.'}
-	                </div>
+		                <div style={{ padding: '11px 12px', background: '#0e0d0c', border: '1px solid #3a332f', borderRadius: '2px', color: 'var(--ivory)', fontFamily: 'var(--font-mono)', fontSize: '11px', lineHeight: 1.6, marginBottom: '10px' }}>
+		                  <div style={{ ...FIELD_LABEL, marginBottom: '5px' }}>Final Prompt Preview</div>
+		                  {finalPromptPreview || 'Fill the structured fields to preview the prompt.'}
+		                </div>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 10px', background: useReferenceImage ? 'var(--gold-glow)' : 'var(--onyx)', border: `1px solid ${useReferenceImage ? 'var(--gold-dim)' : 'var(--border-mid)'}`, borderRadius: '2px', cursor: gallery.length > 0 ? 'pointer' : 'not-allowed', marginBottom: '10px' }}>
                   <input
                     type="checkbox"
