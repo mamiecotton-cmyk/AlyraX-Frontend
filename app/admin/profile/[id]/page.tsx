@@ -61,6 +61,7 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
   const [packSize, setPackSize] = useState<PackSize>(1);
   const [seed, setSeed] = useState('');
   const [genImages, setGenImages] = useState(false);
+  const [useReferenceImage, setUseReferenceImage] = useState(false);
   const [genderOverride, setGenderOverride] = useState<'M' | 'F' | null>(null);
   const [videoPrompt, setVideoPrompt] = useState('');
   const [videoSourceUrl, setVideoSourceUrl] = useState<string | null>(null);
@@ -133,7 +134,7 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
     let done = 0;
     const effectiveGender = genderOverride ?? archetype?.gender ?? 'M';
     const finalPrompt = imagePrompt.trim();
-    const referenceImageUrl = gallery.find((g) => g.is_main)?.image_url ?? gallery[0]?.image_url;
+    const referenceImageUrl = useReferenceImage ? gallery.find((g) => g.is_main)?.image_url ?? gallery[0]?.image_url : undefined;
     for (let i = 0; i < packSize; i++) {
       try {
         const generationSeed = baseSeed >= 0 ? baseSeed + i : -1;
@@ -528,6 +529,17 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
 
                 <div style={{ fontFamily: 'var(--font-mono)', fontSize: '7.5px', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--ivory-ghost)', marginBottom: '5px' }}>Prompt</div>
                 <textarea value={imagePrompt} onChange={(e) => setImagePrompt(e.target.value)} rows={8} placeholder="Describe appearance, setting, mood..." style={{ width: '100%', padding: '12px', background: 'var(--onyx)', border: '1px solid var(--border-mid)', borderRadius: '2px', color: 'var(--ivory)', fontFamily: 'var(--font-mono)', fontSize: '13px', lineHeight: 1.8, resize: 'vertical', outline: 'none', marginBottom: '10px' }} />
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 10px', background: useReferenceImage ? 'var(--gold-glow)' : 'var(--onyx)', border: `1px solid ${useReferenceImage ? 'var(--gold-dim)' : 'var(--border-mid)'}`, borderRadius: '2px', cursor: gallery.length > 0 ? 'pointer' : 'not-allowed', marginBottom: '10px' }}>
+                  <input
+                    type="checkbox"
+                    checked={useReferenceImage}
+                    disabled={gallery.length === 0}
+                    onChange={(e) => setUseReferenceImage(e.target.checked)}
+                  />
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', letterSpacing: '0.12em', textTransform: 'uppercase', color: useReferenceImage ? 'var(--gold)' : 'var(--ivory-muted)' }}>
+                    Use current main image as identity reference
+                  </span>
+                </label>
                 <div style={{ fontFamily: 'var(--font-mono)', fontSize: '7.5px', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--ivory-ghost)', marginBottom: '5px' }}>Style</div>
                 <div style={{ display: 'flex', gap: '4px', marginBottom: '10px' }}>
                   {STYLE_OPTS.map((s) => (
