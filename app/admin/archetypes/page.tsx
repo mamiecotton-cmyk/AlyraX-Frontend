@@ -21,6 +21,7 @@ type CardState = {
   saving: boolean;
   generating: boolean;
   deleting: boolean;
+  deletingPhoto: boolean;
   status: 'has-image' | 'no-image' | 'generating' | 'error';
   error: string | null;
 };
@@ -96,6 +97,7 @@ export default function AdminArchetypesPage() {
         saving: false,
         generating: false,
         deleting: false,
+        deletingPhoto: false,
         status: imageMap[a.id] ? 'has-image' : 'no-image',
         error: null,
       }));
@@ -112,6 +114,7 @@ export default function AdminArchetypesPage() {
         saving: false,
         generating: false,
         deleting: false,
+        deletingPhoto: false,
         status: row.image_url ? 'has-image' : 'no-image',
         error: null,
       }));
@@ -260,6 +263,47 @@ export default function AdminArchetypesPage() {
     setCards((prev) => prev.filter((c) => c.archetype.id !== card.archetype.id));
   }
 
+  async function deletePhoto(card: CardState) {
+    if (!card.imageUrl || !confirm(`Delete the current photo for ${card.archetype.name}?`)) return;
+    updateCard(card.archetype.id, { deletingPhoto: true, error: null });
+
+    try {
+      if (card.isCustom && card.customId) {
+        const res = await fetch(`/api/archetypes/custom/${card.customId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ image_url: null, seed: null }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || 'Delete failed');
+
+        updateCard(card.archetype.id, {
+          deletingPhoto: false,
+          imageUrl: null,
+          status: 'no-image',
+        });
+        return;
+      }
+
+      const res = await fetch(`/api/archetypes/images/${card.archetype.id}`, { method: 'DELETE' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Delete failed');
+
+      const nextImageUrl = typeof data.next_image_url === 'string' ? data.next_image_url : null;
+      updateCard(card.archetype.id, {
+        deletingPhoto: false,
+        imageUrl: nextImageUrl,
+        status: nextImageUrl ? 'has-image' : 'no-image',
+      });
+    } catch (err) {
+      updateCard(card.archetype.id, {
+        deletingPhoto: false,
+        status: card.imageUrl ? 'has-image' : 'no-image',
+        error: err instanceof Error ? err.message : 'Delete failed',
+      });
+    }
+  }
+
   // ── Toggle all prompts ────────────────────────────────────────────────────
   function toggleAllPrompts() {
     const next = !expandAll;
@@ -278,14 +322,6 @@ export default function AdminArchetypesPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [modalId, setModalId] = useState<string | null>(null);
   const [modalPrompt, setModalPrompt] = useState('');
-
-  function openModal(cardId: string) {
-    const found = cards.find((c) => c.archetype.id === cardId);
-    if (!found) return;
-    setModalPrompt(found.editedPrompt || found.savedPrompt || '');
-    setModalId(cardId);
-    setModalOpen(true);
-  }
 
   function closeModal() {
     setModalOpen(false);
@@ -334,8 +370,7 @@ export default function AdminArchetypesPage() {
     closeModal();
   }
 
-  // Modal UI component (defined inline so it can access modal state)
-  function ModalContainer() {
+  function renderModalContainer() {
     if (!modalOpen || !modalId) return null;
     const card = cards.find((c) => c.archetype.id === modalId);
     if (!card) return null;
@@ -364,6 +399,11 @@ export default function AdminArchetypesPage() {
             <div style={{ display: 'flex', gap: '8px', marginTop: 'auto' }}>
               <button onClick={() => modalSaveAndMaybeRegenerate(false)} style={{ padding: '8px 14px', background: 'var(--gold)', border: 'none', borderRadius: '3px', color: 'var(--onyx)' }}>Save</button>
               <button onClick={() => modalSaveAndMaybeRegenerate(true)} style={{ padding: '8px 14px', background: 'transparent', border: '1px solid var(--gold-dim)', borderRadius: '3px', color: 'var(--gold)' }}>Save & Regenerate</button>
+              {card.imageUrl && (
+                <button onClick={() => deletePhoto(card)} disabled={card.deletingPhoto} style={{ padding: '8px 14px', background: 'transparent', border: '1px solid rgba(192,57,43,0.3)', borderRadius: '3px', color: card.deletingPhoto ? 'var(--ivory-ghost)' : '#c0392b' }}>
+                  {card.deletingPhoto ? 'Deleting...' : 'Delete Photo'}
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -626,6 +666,26 @@ export default function AdminArchetypesPage() {
                       {card.generating ? '◈ Working...' : card.imageUrl ? '↺ Regen' : '◆ Generate'}
                     </button>
 
+                    {card.imageUrl && (
+                      <button
+                        onClick={() => deletePhoto(card)}
+                        disabled={card.deletingPhoto || card.generating}
+                        style={{
+                          padding: '5px 10px',
+                          fontFamily: 'var(--font-mono)',
+                          fontSize: '8.5px',
+                          letterSpacing: '0.14em',
+                          color: card.deletingPhoto ? 'var(--ivory-ghost)' : '#c0392b',
+                          background: 'transparent',
+                          border: `1px solid ${card.deletingPhoto ? 'var(--border-dark)' : 'rgba(192,57,43,0.3)'}`,
+                          borderRadius: '2px',
+                          cursor: card.deletingPhoto || card.generating ? 'not-allowed' : 'pointer',
+                        }}
+                      >
+                        {card.deletingPhoto ? 'Deleting...' : '✕ Photo'}
+                      </button>
+                    )}
+
                     {/* Delete (custom only) */}
                     {card.isCustom && (
                       <button
@@ -766,9 +826,7 @@ export default function AdminArchetypesPage() {
         {/* Modal state managed via local state to allow fast edits */}
         {/** Modal implementation below is lightweight: shows larger image, prompt edit, save/regenerate and open full editor */}
         {/* Using portal would be nicer but inline overlay is sufficient here */}
-        {typeof window !== 'undefined' && (
-          <ModalContainer />
-        )}
+        {typeof window !== 'undefined' && renderModalContainer()}
       </div>
 
       <style>{`

@@ -15,6 +15,19 @@ type GalleryVideo = {
   source_image_url: string | null; prompt_used: string | null;
   is_featured: boolean; sort_order: number;
 };
+type GenerateStatusResponse = {
+  image_url?: string;
+  success?: boolean;
+  seed?: number;
+  status?: string;
+  status_message?: string;
+  raw?: {
+    output?: {
+      image?: string;
+      seed?: number;
+    };
+  };
+};
 type Tab = 'images' | 'videos';
 type ImageStyle = 'portrait' | 'fullbody' | 'fullscreen';
 type PackSize = 1 | 5 | 10;
@@ -56,6 +69,7 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
   const pollRef = useRef<NodeJS.Timeout | null>(null);
   const [viewerImageUrl, setViewerImageUrl] = useState<string | null>(null);
   const [viewerImage, setViewerImage] = useState<GalleryImage | null>(null);
+  const [deletingImageId, setDeletingImageId] = useState<string | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -152,7 +166,7 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
           const jobId = data.jobId as string;
           let attempts = 0;
           const maxAttempts = 120; // ~6 minutes
-          let completedData: any = null;
+          let completedData: GenerateStatusResponse | null = null;
 
           while (attempts < maxAttempts) {
             await new Promise((r) => setTimeout(r, 3000));
@@ -172,7 +186,7 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
               // Expose queue/progress messages to admin
               if (sdata.status) setStatus(`Job status: ${sdata.status}`);
               if (sdata.status_message) setStatus(sdata.status_message);
-            } catch (err) {
+            } catch {
               // ignore and retry
             }
           }
@@ -225,10 +239,30 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
   }
 
   async function deleteImage(img: GalleryImage) {
+    if (deletingImageId) return;
     if (!confirm('Delete this image?')) return;
-    await fetch(`/api/archetypes/gallery/${img.id}`, { method: 'DELETE' });
-    setGallery((prev) => { const next = prev.filter((g) => g.id !== img.id); if (img.is_main && next.length > 0) next[0] = { ...next[0], is_main: true }; return next; });
-    setStatus('Image deleted.');
+    setDeletingImageId(img.id);
+    try {
+      const res = await fetch(`/api/archetypes/gallery/${img.id}`, { method: 'DELETE' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Delete failed');
+
+      setGallery((prev) => {
+        const next = prev.filter((g) => g.id !== img.id);
+        if (img.is_main && next.length > 0) next[0] = { ...next[0], is_main: true };
+        return next;
+      });
+      if (videoSourceUrl === img.image_url) setVideoSourceUrl(null);
+      if (viewerImage?.id === img.id) {
+        setViewerImageUrl(null);
+        setViewerImage(null);
+      }
+      setStatus('Image deleted.');
+    } catch (err) {
+      setStatus(err instanceof Error ? err.message : 'Delete failed.');
+    } finally {
+      setDeletingImageId(null);
+    }
   }
 
   async function moveImage(index: number, dir: 'up' | 'down') {
@@ -384,7 +418,13 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
                       </div>
                       {!img.is_main && <button onClick={() => setMainImage(img)} style={{ ...BTN_MUTED, padding: '4px 10px', fontSize: '8px', flex: isHero ? 0 : 1, textAlign: 'center' }}>Set Main</button>}
                       <button onClick={() => { setVideoSourceUrl(img.image_url); setTab('videos'); setStatus('Source frame set.'); }} style={{ ...BTN_MUTED, padding: '4px 10px', fontSize: '8px', flex: isHero ? 0 : 1, textAlign: 'center' }}>▷ Video</button>
-                      <button onClick={() => deleteImage(img)} style={{ ...BTN_DANGER, padding: '4px 10px', flex: isHero ? 0 : 1, textAlign: 'center' }}>✕ Delete</button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); deleteImage(img); }}
+                        disabled={deletingImageId !== null}
+                        style={{ ...BTN_DANGER, padding: '4px 10px', flex: isHero ? 0 : 1, textAlign: 'center', opacity: deletingImageId === img.id ? 0.5 : 1, cursor: deletingImageId !== null ? 'not-allowed' : 'pointer' }}
+                      >
+                        {deletingImageId === img.id ? 'Deleting...' : '✕ Delete'}
+                      </button>
                     </div>
                   </div>
                 );
@@ -403,12 +443,55 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
                             const origIdx = gallery.findIndex((g) => g.id === img.id);
                             return (
                               <div
-                                style={{ height: '90px', overflow: 'hidden', borderRadius: '3px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--onyx)' }}
+                                style={{ position: 'relative', aspectRatio: '3/4', overflow: 'hidden', borderRadius: '3px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--onyx)', border: '1px solid var(--border-dark)' }}
                                 key={img.id}
                                 onClick={() => { setViewerImageUrl(img.image_url); setViewerImage(img); }}
                                 title="View image"
                               >
-                                <ImageCard img={img} i={origIdx} isHero={false} />
+                                <img src={img.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center top', display: 'block' }} />
+                                {img.seed && <div style={{ position: 'absolute', top: '6px', left: '6px', fontFamily: 'var(--font-mono)', fontSize: '7px', color: 'var(--ivory-ghost)', background: 'rgba(0,0,0,0.75)', padding: '2px 6px', borderRadius: '2px' }}>{img.seed}</div>}
+                                <div style={{ position: 'absolute', top: '6px', right: '6px', display: 'flex', gap: '4px' }}>
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); moveImage(origIdx, 'up'); }}
+                                    disabled={origIdx === 0 || deletingImageId !== null}
+                                    title="Move up"
+                                    style={{ width: '24px', height: '24px', background: 'rgba(0,0,0,0.72)', border: '1px solid var(--border-mid)', borderRadius: '2px', color: 'var(--ivory-muted)', cursor: origIdx === 0 || deletingImageId !== null ? 'not-allowed' : 'pointer', opacity: origIdx === 0 ? 0.45 : 1 }}
+                                  >
+                                    ▲
+                                  </button>
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); moveImage(origIdx, 'down'); }}
+                                    disabled={origIdx === gallery.length - 1 || deletingImageId !== null}
+                                    title="Move down"
+                                    style={{ width: '24px', height: '24px', background: 'rgba(0,0,0,0.72)', border: '1px solid var(--border-mid)', borderRadius: '2px', color: 'var(--ivory-muted)', cursor: origIdx === gallery.length - 1 || deletingImageId !== null ? 'not-allowed' : 'pointer', opacity: origIdx === gallery.length - 1 ? 0.45 : 1 }}
+                                  >
+                                    ▼
+                                  </button>
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); deleteImage(img); }}
+                                    disabled={deletingImageId !== null}
+                                    title="Delete image"
+                                    style={{ width: '28px', height: '24px', background: 'rgba(0,0,0,0.72)', border: '1px solid rgba(192,57,43,0.45)', borderRadius: '2px', color: '#c0392b', cursor: deletingImageId !== null ? 'not-allowed' : 'pointer', opacity: deletingImageId === img.id ? 0.5 : 1 }}
+                                  >
+                                    ✕
+                                  </button>
+                                </div>
+                                <div style={{ position: 'absolute', left: '6px', right: '6px', bottom: '6px', display: 'flex', gap: '4px', justifyContent: 'flex-end' }}>
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); setMainImage(img); }}
+                                    disabled={deletingImageId !== null}
+                                    style={{ padding: '3px 6px', background: 'rgba(0,0,0,0.72)', border: '1px solid var(--gold-dim)', borderRadius: '2px', color: 'var(--gold)', fontFamily: 'var(--font-mono)', fontSize: '7px', letterSpacing: '0.08em', cursor: deletingImageId !== null ? 'not-allowed' : 'pointer' }}
+                                  >
+                                    Main
+                                  </button>
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); setVideoSourceUrl(img.image_url); setTab('videos'); setStatus('Source frame set.'); }}
+                                    disabled={deletingImageId !== null}
+                                    style={{ padding: '3px 6px', background: 'rgba(0,0,0,0.72)', border: '1px solid var(--border-mid)', borderRadius: '2px', color: 'var(--ivory-muted)', fontFamily: 'var(--font-mono)', fontSize: '7px', letterSpacing: '0.08em', cursor: deletingImageId !== null ? 'not-allowed' : 'pointer' }}
+                                  >
+                                    Video
+                                  </button>
+                                </div>
                               </div>
                             );
                           })}
@@ -565,6 +648,15 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
               <img src={viewerImageUrl} alt="preview" style={{ maxWidth: '100%', maxHeight: '80vh', objectFit: 'contain', borderRadius: '4px' }} />
               <div style={{ display: 'flex', gap: '8px' }}>
                 <button onClick={() => { if (viewerImage) { setMainImage(viewerImage); } setViewerImageUrl(null); setViewerImage(null); }} style={{ ...BTN_GOLD }}>Set Main</button>
+                {viewerImage && (
+                  <button
+                    onClick={() => deleteImage(viewerImage)}
+                    disabled={deletingImageId !== null}
+                    style={{ ...BTN_DANGER, opacity: deletingImageId === viewerImage.id ? 0.5 : 1, cursor: deletingImageId !== null ? 'not-allowed' : 'pointer' }}
+                  >
+                    {deletingImageId === viewerImage.id ? 'Deleting...' : '✕ Delete'}
+                  </button>
+                )}
                 <button onClick={() => { setViewerImageUrl(null); setViewerImage(null); }} style={{ ...BTN_MUTED }}>Close</button>
               </div>
             </div>

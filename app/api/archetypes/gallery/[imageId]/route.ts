@@ -102,6 +102,11 @@ export async function DELETE(
             image_url: next[0].image_url,
             updated_at: new Date().toISOString(),
           }, { onConflict: 'archetype_id' });
+      } else {
+        await supabase
+          .from('archetype_images')
+          .delete()
+          .eq('archetype_id', img.archetype_id);
       }
     }
 
