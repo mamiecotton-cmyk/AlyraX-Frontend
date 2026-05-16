@@ -91,7 +91,7 @@ function limitWords(value: string, maxWords: number) {
 function shortComposition(style: ImageStyle) {
   if (style === 'fullbody') return 'full body in frame';
   if (style === 'fullscreen') return 'vertical full screen scene';
-  return 'waist-up centered portrait';
+  return 'tight head-and-shoulders portrait, no empty headroom';
 }
 
 function formatAge(age: string) {
@@ -276,7 +276,7 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
         let heightOverride: number | undefined = undefined;
         if (resolution === 'high') {
           // Cap high-res requests to fit within the 1,048,576 pixel limit
-          if (imageStyle === 'portrait') { widthOverride = 768; heightOverride = 1344; }
+          if (imageStyle === 'portrait') { widthOverride = 768; heightOverride = 1024; }
           if (imageStyle === 'fullbody') { widthOverride = 832; heightOverride = 1216; }
           if (imageStyle === 'fullscreen') { widthOverride = 768; heightOverride = 1344; }
         }

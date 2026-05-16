@@ -47,18 +47,18 @@ function getImageSettings(style: string) {
   }
 
   return {
-    // Portrait capped to fit pixel limit
+    // Portrait uses a shorter canvas to reduce empty headroom.
     width: 768,
-    height: 1344,
-    composition: 'front-facing waist-up portrait, centered subject, looking directly at camera, face clearly visible, shoulders chest and waist visible, seductive elegant pose, hands naturally visible near torso, vertical profile image, enough room around upper body for animation',
-    negative: `${baseNegative}, side profile, back view, turned away, full body, extreme close-up, cropped head, cropped face, cropped shoulders, cropped torso, cropped arms, out of frame`,
+    height: 1024,
+    composition: 'tight head-and-shoulders portrait, face fills upper frame, background close behind subject, no empty headroom',
+    negative: `${baseNegative}, side profile, back view, turned away, full body, extreme close-up, cropped head, cropped face, cropped shoulders, cropped torso, cropped arms, out of frame, empty background, excessive headroom, tiny head, distant subject, blank wall`,
   };
 }
 
 function getShortComposition(style: string) {
   if (style === 'fullbody') return 'full body in frame';
   if (style === 'fullscreen') return 'vertical full screen scene';
-  return 'waist-up centered portrait';
+  return 'tight head-and-shoulders portrait, no empty headroom';
 }
 
 function getGenderLabel(gender: unknown) {
