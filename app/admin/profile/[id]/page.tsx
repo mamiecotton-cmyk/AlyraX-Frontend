@@ -31,6 +31,14 @@ type GenerateStatusResponse = {
 type Tab = 'images' | 'videos';
 type ImageStyle = 'portrait' | 'fullbody' | 'fullscreen';
 type PackSize = 1 | 5 | 10;
+type StructuredPromptFields = {
+  race: string;
+  gender: 'M' | 'F';
+  age: string;
+  wardrobe: string;
+  environment: string;
+  details: string;
+};
 
 const STYLE_OPTS: { key: ImageStyle; label: string; size: string }[] = [
   { key: 'portrait', label: 'Portrait', size: '768×1024' },
@@ -42,6 +50,63 @@ const BTN_GOLD: React.CSSProperties = { padding: '8px 18px', background: 'var(--
 const BTN_GHOST: React.CSSProperties = { padding: '7px 14px', background: 'transparent', border: '1px solid var(--gold-dim)', borderRadius: '2px', cursor: 'pointer', fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--gold)' };
 const BTN_MUTED: React.CSSProperties = { padding: '7px 14px', background: 'transparent', border: '1px solid var(--border-mid)', borderRadius: '2px', cursor: 'pointer', fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--ivory-muted)' };
 const BTN_DANGER: React.CSSProperties = { padding: '5px 10px', background: 'transparent', border: '1px solid rgba(192,57,43,0.35)', borderRadius: '2px', cursor: 'pointer', fontFamily: 'var(--font-mono)', fontSize: '8px', letterSpacing: '0.12em', color: '#c0392b' };
+const FIELD_LABEL: React.CSSProperties = { fontFamily: 'var(--font-mono)', fontSize: '7px', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--ivory-ghost)', marginBottom: '4px' };
+const FIELD_INPUT: React.CSSProperties = { width: '100%', padding: '8px 9px', background: 'var(--onyx)', border: '1px solid var(--border-mid)', borderRadius: '2px', color: 'var(--ivory)', fontFamily: 'var(--font-mono)', fontSize: '11px', outline: 'none' };
+
+const HUMAN_REALISM = 'RAW candid DSLR photo, photorealistic human, natural skin pores, realistic eyes';
+
+function compactText(value: string) {
+  return value.replace(/\s+/g, ' ').replace(/[.]+$/g, '').trim();
+}
+
+function limitWords(value: string, maxWords: number) {
+  return value.split(/\s+/).filter(Boolean).slice(0, maxWords).join(' ');
+}
+
+function shortComposition(style: ImageStyle) {
+  if (style === 'fullbody') return 'full body in frame';
+  if (style === 'fullscreen') return 'vertical full screen scene';
+  return 'waist-up centered portrait';
+}
+
+function formatAge(age: string) {
+  const cleaned = compactText(age);
+  if (!cleaned) return '';
+  if (/^age\b/i.test(cleaned)) return cleaned;
+  return `age ${cleaned}`;
+}
+
+function buildStructuredPreview(fields: StructuredPromptFields, style: ImageStyle, manualPrompt: string) {
+  const identity = [
+    compactText(fields.race),
+    fields.gender === 'M' ? 'male' : 'female',
+    formatAge(fields.age),
+  ].filter(Boolean).join(' ');
+
+  return limitWords([
+    identity,
+    compactText(fields.wardrobe),
+    compactText(fields.environment),
+    compactText(fields.details),
+    compactText(manualPrompt),
+    HUMAN_REALISM,
+    shortComposition(style),
+  ].filter(Boolean).join(', '), 55);
+}
+
+function inferStructuredPrompt(archetype: Archetype | null, prompt: string, gender: 'M' | 'F'): StructuredPromptFields {
+  const raceMatch = prompt.match(/\b(African American|Black|Latina|Latino|Asian|South Asian|Middle Eastern|Indigenous|White|Caucasian|biracial|multiracial)\b/i);
+  const ageMatch = prompt.match(/\bage\s*(\d{2})\b/i);
+
+  return {
+    race: raceMatch?.[1] ?? '',
+    gender,
+    age: ageMatch?.[1] ?? (archetype?.age ? String(archetype.age) : ''),
+    wardrobe: '',
+    environment: '',
+    details: archetype ? `${archetype.style.toLowerCase()}, ${archetype.energy.toLowerCase()}` : '',
+  };
+}
 
 export default function AdminProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -63,6 +128,8 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
   const [genImages, setGenImages] = useState(false);
   const [useReferenceImage, setUseReferenceImage] = useState(false);
   const [genderOverride, setGenderOverride] = useState<'M' | 'F' | null>(null);
+  const [structuredPrompt, setStructuredPrompt] = useState<StructuredPromptFields>(() => inferStructuredPrompt(hardcoded ?? null, '', hardcoded?.gender ?? 'M'));
+  const [structuredInitialized, setStructuredInitialized] = useState(false);
   const [videoPrompt, setVideoPrompt] = useState('');
   const [videoSourceUrl, setVideoSourceUrl] = useState<string | null>(null);
   const [genVideo, setGenVideo] = useState(false);
@@ -127,12 +194,25 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
     return () => { mounted = false };
   }, [router]);
 
+  useEffect(() => {
+    if (loading || structuredInitialized) return;
+    const effectiveGender = genderOverride ?? archetype?.gender ?? 'M';
+    setStructuredPrompt(inferStructuredPrompt(archetype, imagePrompt, effectiveGender));
+    setStructuredInitialized(true);
+  }, [archetype, genderOverride, imagePrompt, loading, structuredInitialized]);
+
+  const finalPromptPreview = buildStructuredPreview(structuredPrompt, imageStyle, imagePrompt);
+
+  function setStructuredField<K extends keyof StructuredPromptFields>(field: K, value: StructuredPromptFields[K]) {
+    setStructuredPrompt((prev) => ({ ...prev, [field]: value }));
+  }
+
   async function generateImages() {
-    if (!imagePrompt.trim()) { setStatus('Add a prompt first.'); return; }
+    if (!finalPromptPreview.trim()) { setStatus('Add structured prompt details first.'); return; }
     setGenImages(true);
     const baseSeed = seed.trim() ? Number(seed) : -1;
     let done = 0;
-    const effectiveGender = genderOverride ?? archetype?.gender ?? 'M';
+    const effectiveGender = structuredPrompt.gender;
     const finalPrompt = imagePrompt.trim();
     const referenceImageUrl = useReferenceImage ? gallery.find((g) => g.is_main)?.image_url ?? gallery[0]?.image_url : undefined;
     for (let i = 0; i < packSize; i++) {
@@ -149,12 +229,13 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
           if (imageStyle === 'fullscreen') { widthOverride = 768; heightOverride = 1344; }
         }
 
-        const res = await fetch('/api/generate-companion', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ description: finalPrompt, negative_prompt: NEGATIVE_PROMPT, style: imageStyle, num_inference_steps: 35, guidance_scale: 7.5, seed: generationSeed, width: widthOverride, height: heightOverride, gender: effectiveGender, reference_image_url: referenceImageUrl, reference_mode: referenceImageUrl ? 'identity' : undefined, reference_strength: referenceImageUrl ? 0.22 : undefined }) });
+        const res = await fetch('/api/generate-companion', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ description: finalPrompt, structured_prompt: structuredPrompt, negative_prompt: NEGATIVE_PROMPT, style: imageStyle, num_inference_steps: 35, guidance_scale: 7.5, seed: generationSeed, width: widthOverride, height: heightOverride, gender: effectiveGender, reference_image_url: referenceImageUrl, reference_mode: referenceImageUrl ? 'identity' : undefined, reference_strength: referenceImageUrl ? 0.22 : undefined }) });
         const data = await res.json();
+        const generatedPrompt = typeof data.prompt_preview === 'string' ? data.prompt_preview : finalPromptPreview;
 
         // If server returned image immediately (legacy/blocking), handle as before
         if (res.ok && data.image_url) {
-          const saveRes = await fetch('/api/archetypes/gallery', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ archetype_id: id, image_url: data.image_url, seed: data.seed, style: imageStyle, prompt_used: imagePrompt, is_main: gallery.length === 0 && i === 0 }) });
+          const saveRes = await fetch('/api/archetypes/gallery', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ archetype_id: id, image_url: data.image_url, seed: data.seed, style: imageStyle, prompt_used: generatedPrompt, is_main: gallery.length === 0 && i === 0 }) });
           const saved = await saveRes.json();
           if (saved.image) { setGallery((prev) => [...prev, saved.image]); done++; }
           continue;
@@ -199,7 +280,7 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
           const outputSeed = completedData.seed ?? completedData.raw?.output?.seed ?? null;
           if (!imageUrl) continue;
 
-          const saveRes = await fetch('/api/archetypes/gallery', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ archetype_id: id, image_url: imageUrl, seed: outputSeed, style: imageStyle, prompt_used: imagePrompt, is_main: gallery.length === 0 && i === 0 }) });
+          const saveRes = await fetch('/api/archetypes/gallery', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ archetype_id: id, image_url: imageUrl, seed: outputSeed, style: imageStyle, prompt_used: generatedPrompt, is_main: gallery.length === 0 && i === 0 }) });
           const saved = await saveRes.json();
           if (saved.image) { setGallery((prev) => [...prev, saved.image]); done++; }
           continue;
@@ -508,27 +589,54 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
 
                 {/* Gender toggle */}
                 <div style={{ fontFamily: 'var(--font-mono)', fontSize: '7.5px', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--ivory-ghost)', marginBottom: '5px' }}>Gender</div>
-                <div style={{ display: 'flex', gap: '4px', marginBottom: '12px' }}>
-                  {(['M', 'F'] as const).map((g) => {
-                    const active = (genderOverride ?? archetype?.gender) === g;
+	                <div style={{ display: 'flex', gap: '4px', marginBottom: '12px' }}>
+	                  {(['M', 'F'] as const).map((g) => {
+	                    const active = structuredPrompt.gender === g;
                     return (
-                      <button
-                        key={g}
-                        onClick={() => {
-                          setGenderOverride(g);
-                          const foundArch = archetypes.find((a) => a.id === id);
-                          if (foundArch) setImagePrompt(buildArchetypePrompt(foundArch, g));
-                        }}
-                        style={{ flex: 1, padding: '8px', border: `1px solid ${active ? 'var(--gold)' : 'var(--border-mid)'}`, background: active ? 'var(--gold-glow)' : 'transparent', borderRadius: '2px', cursor: 'pointer', fontFamily: 'var(--font-mono)', fontSize: '10px', color: active ? 'var(--gold)' : 'var(--ivory-muted)', letterSpacing: '0.1em' }}
-                      >
+	                      <button
+	                        key={g}
+	                        onClick={() => {
+	                          setGenderOverride(g);
+	                          setStructuredField('gender', g);
+	                        }}
+	                        style={{ flex: 1, padding: '8px', border: `1px solid ${active ? 'var(--gold)' : 'var(--border-mid)'}`, background: active ? 'var(--gold-glow)' : 'transparent', borderRadius: '2px', cursor: 'pointer', fontFamily: 'var(--font-mono)', fontSize: '10px', color: active ? 'var(--gold)' : 'var(--ivory-muted)', letterSpacing: '0.1em' }}
+	                      >
                         {g === 'M' ? '♂ Male' : '♀ Female'}
                       </button>
                     );
-                  })}
-                </div>
+	                  })}
+	                </div>
 
-                <div style={{ fontFamily: 'var(--font-mono)', fontSize: '7.5px', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--ivory-ghost)', marginBottom: '5px' }}>Prompt</div>
-                <textarea value={imagePrompt} onChange={(e) => setImagePrompt(e.target.value)} rows={8} placeholder="Describe appearance, setting, mood..." style={{ width: '100%', padding: '12px', background: 'var(--onyx)', border: '1px solid var(--border-mid)', borderRadius: '2px', color: 'var(--ivory)', fontFamily: 'var(--font-mono)', fontSize: '13px', lineHeight: 1.8, resize: 'vertical', outline: 'none', marginBottom: '10px' }} />
+	                <div style={{ fontFamily: 'var(--font-mono)', fontSize: '7.5px', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--ivory-ghost)', marginBottom: '6px' }}>Structured Subject</div>
+	                <div style={{ display: 'grid', gridTemplateColumns: '1fr 0.62fr', gap: '8px', marginBottom: '8px' }}>
+	                  <label>
+	                    <div style={FIELD_LABEL}>Race / Ethnicity</div>
+	                    <input value={structuredPrompt.race} onChange={(e) => setStructuredField('race', e.target.value)} placeholder="African American" style={FIELD_INPUT} />
+	                  </label>
+	                  <label>
+	                    <div style={FIELD_LABEL}>Age</div>
+	                    <input value={structuredPrompt.age} onChange={(e) => setStructuredField('age', e.target.value)} placeholder="34" style={FIELD_INPUT} />
+	                  </label>
+	                </div>
+	                <label style={{ display: 'block', marginBottom: '8px' }}>
+	                  <div style={FIELD_LABEL}>Wardrobe</div>
+	                  <input value={structuredPrompt.wardrobe} onChange={(e) => setStructuredField('wardrobe', e.target.value)} placeholder="Tailored navy suit" style={FIELD_INPUT} />
+	                </label>
+	                <label style={{ display: 'block', marginBottom: '8px' }}>
+	                  <div style={FIELD_LABEL}>Environment</div>
+	                  <input value={structuredPrompt.environment} onChange={(e) => setStructuredField('environment', e.target.value)} placeholder="Modern office with large window light" style={FIELD_INPUT} />
+	                </label>
+	                <label style={{ display: 'block', marginBottom: '10px' }}>
+	                  <div style={FIELD_LABEL}>Mood / Details</div>
+	                  <input value={structuredPrompt.details} onChange={(e) => setStructuredField('details', e.target.value)} placeholder="Calm confident expression" style={FIELD_INPUT} />
+	                </label>
+
+	                <div style={{ fontFamily: 'var(--font-mono)', fontSize: '7.5px', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--ivory-ghost)', marginBottom: '5px' }}>Advanced Prompt Details</div>
+	                <textarea value={imagePrompt} onChange={(e) => setImagePrompt(e.target.value)} rows={5} placeholder="Optional extra details. Structured fields stay first." style={{ width: '100%', padding: '12px', background: 'var(--onyx)', border: '1px solid var(--border-mid)', borderRadius: '2px', color: 'var(--ivory)', fontFamily: 'var(--font-mono)', fontSize: '12px', lineHeight: 1.7, resize: 'vertical', outline: 'none', marginBottom: '10px' }} />
+	                <div style={{ padding: '9px 10px', background: 'rgba(0,0,0,0.22)', border: '1px solid var(--border-mid)', borderRadius: '2px', color: 'var(--ivory-muted)', fontFamily: 'var(--font-mono)', fontSize: '10px', lineHeight: 1.6, marginBottom: '10px' }}>
+	                  <div style={{ ...FIELD_LABEL, marginBottom: '5px' }}>Final Prompt Preview</div>
+	                  {finalPromptPreview || 'Fill the structured fields to preview the prompt.'}
+	                </div>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 10px', background: useReferenceImage ? 'var(--gold-glow)' : 'var(--onyx)', border: `1px solid ${useReferenceImage ? 'var(--gold-dim)' : 'var(--border-mid)'}`, borderRadius: '2px', cursor: gallery.length > 0 ? 'pointer' : 'not-allowed', marginBottom: '10px' }}>
                   <input
                     type="checkbox"
