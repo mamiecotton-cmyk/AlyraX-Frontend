@@ -29,6 +29,16 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ jobI
     const statusData = await statusResponse.json();
     console.log(`Job ${jobId} full status response:`, JSON.stringify(statusData));
 
+    const runpodError = statusData.error ?? statusData.output?.error;
+    if (runpodError) {
+      console.error('RunPod generation error:', runpodError);
+      return NextResponse.json({ error: runpodError, raw: statusData }, { status: 500 });
+    }
+
+    if (statusData.status === 'FAILED') {
+      return NextResponse.json({ error: statusData.status_message || 'RunPod image generation failed', raw: statusData }, { status: 500 });
+    }
+
     // If completed, try to save the image to Supabase (same behavior as previous flow)
     if (statusData.status === 'COMPLETED') {
       const imageBase64 = statusData.output?.image;

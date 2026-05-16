@@ -21,10 +21,13 @@ type GenerateStatusResponse = {
   seed?: number;
   status?: string;
   status_message?: string;
+  error?: string;
   raw?: {
+    error?: string;
     output?: {
       image?: string;
       seed?: number;
+      error?: string;
     };
   };
 };
@@ -264,6 +267,7 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
     setGenImages(true);
     const baseSeed = seed.trim() ? Number(seed) : -1;
     let done = 0;
+    let lastGenerationError: string | null = null;
     const effectiveGender = promptFieldsForGeneration.gender;
     const finalPrompt = imagePrompt.trim();
     const referenceImageUrl = useReferenceImage ? gallery.find((g) => g.is_main)?.image_url ?? gallery[0]?.image_url : undefined;
@@ -285,6 +289,13 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
         const data = await res.json();
         const generatedPrompt = typeof data.prompt_preview === 'string' ? data.prompt_preview : finalPromptPreview;
 
+        if (!res.ok) {
+          const errorMessage = data.error || 'Image generation request failed.';
+          lastGenerationError = errorMessage;
+          setStatus(errorMessage);
+          continue;
+        }
+
         // If server returned image immediately (legacy/blocking), handle as before
         if (res.ok && data.image_url) {
           const saveRes = await fetch('/api/archetypes/gallery', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ archetype_id: id, image_url: data.image_url, seed: data.seed, style: imageStyle, prompt_used: generatedPrompt, is_main: gallery.length === 0 && i === 0 }) });
@@ -299,6 +310,7 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
           let attempts = 0;
           const maxAttempts = 120; // ~6 minutes
           let completedData: GenerateStatusResponse | null = null;
+          let generationError: string | null = null;
 
           while (attempts < maxAttempts) {
             await new Promise((r) => setTimeout(r, 3000));
@@ -306,8 +318,17 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
             setStatus(`Waiting for job ${attempts * 3}s...`);
             try {
               const sres = await fetch(`/api/generate-companion/status/${jobId}`);
-              if (!sres.ok) continue;
-              const sdata = await sres.json();
+              const sdata = await sres.json().catch(() => ({})) as GenerateStatusResponse;
+              if (!sres.ok) {
+                generationError = sdata.error || 'Image generation failed.';
+                break;
+              }
+
+              const statusError = sdata.error || sdata.raw?.output?.error || sdata.raw?.error;
+              if (statusError) {
+                generationError = statusError;
+                break;
+              }
 
               // If proxy returned saved image_url or raw completed data
               if (sdata.image_url || sdata.success) {
@@ -318,13 +339,16 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
               // Expose queue/progress messages to admin
               if (sdata.status) setStatus(`Job status: ${sdata.status}`);
               if (sdata.status_message) setStatus(sdata.status_message);
-            } catch {
-              // ignore and retry
+            } catch (err) {
+              generationError = err instanceof Error ? err.message : 'Image generation failed.';
+              break;
             }
           }
 
           if (!completedData) {
-            // timed out for this image
+            const errorMessage = generationError || 'Image generation timed out.';
+            lastGenerationError = errorMessage;
+            setStatus(errorMessage);
             continue;
           }
 
@@ -340,9 +364,19 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
 
         // Unknown response — skip
         continue;
-      } catch { /* continue */ }
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Image generation failed.';
+        lastGenerationError = errorMessage;
+        setStatus(errorMessage);
+      }
     }
-    setStatus(`Done — ${done} of ${packSize} generated.`);
+    if (lastGenerationError && done === 0) {
+      setStatus(lastGenerationError);
+    } else if (lastGenerationError) {
+      setStatus(`Done - ${done} of ${packSize} generated. Last error: ${lastGenerationError}`);
+    } else {
+      setStatus(`Done — ${done} of ${packSize} generated.`);
+    }
     setGenImages(false);
   }
 
