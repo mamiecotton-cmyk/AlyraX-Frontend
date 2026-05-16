@@ -45,12 +45,14 @@ export async function POST(req: NextRequest) {
       seed = -1,
       width: widthOverride,
       height: heightOverride,
+      gender,
+      negative_prompt: incomingNegative,
       reference_image_url,
       reference_strength = 0.25,
       reference_mode = 'identity',
     } = await req.json();
 
-    const { width: defaultWidth, height: defaultHeight, composition, negative } = getImageSettings(style);
+    const { width: defaultWidth, height: defaultHeight, composition, negative: styleNegative } = getImageSettings(style);
     const width = widthOverride ?? defaultWidth;
     const height = heightOverride ?? defaultHeight;
 
@@ -67,9 +69,16 @@ export async function POST(req: NextRequest) {
     // Final consolidated prompt
     // Make the requested style explicit and place composition earlier in the prompt
     const styleTag = style === 'fullbody' ? 'full body shot, head to toe visible' : style === 'fullscreen' ? 'full screen vertical cinematic scene' : 'waist-up portrait';
-    const prompt = `${qualityTags}, ${styleTag}, ${composition}, ${refPrefix}${description}`;
 
-    console.log('Generating image with', { style, styleTag, width, height });
+    // Merge negative prompts (server style negatives + client-provided negatives)
+    const negative = [styleNegative, incomingNegative].filter(Boolean).join(', ');
+
+    // If client provided an explicit gender, add a short gender tag to help enforce sex/gender
+    const genderTag = gender === 'M' ? 'real African American man, ' : gender === 'F' ? 'real African American woman, ' : '';
+
+    const prompt = `${qualityTags}, ${styleTag}, ${composition}, ${genderTag}${refPrefix}${description}`;
+
+    console.log('Generating image with', { style, styleTag, width, height, gender, promptPreview: prompt.slice(0, 240), negativePreview: negative.slice(0, 240) });
 
     // Submit job async
     const imageEndpointId = process.env.RUNPOD_IMAGE_ENDPOINT_ID;
