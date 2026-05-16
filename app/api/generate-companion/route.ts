@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 export const maxDuration = 300;
 
 function getImageSettings(style: string) {
-  const baseNegative = 'ugly, deformed, blurry, low quality, cartoon, anime, bad anatomy, watermark, text, extra limbs, missing limbs, mutated hands, poorly drawn face';
+  const baseNegative = 'ugly, deformed, blurry, low quality, cartoon, anime, illustration, painting, sketch, stylized, low poly, toy, doll, clay, plastic, watercolor, oil painting, pastel, 3d render, bad anatomy, watermark, text, extra limbs, missing limbs, mutated hands, poorly drawn face';
 
   if (style === 'fullbody') {
     return {
@@ -54,8 +54,8 @@ export async function POST(req: NextRequest) {
     const width = widthOverride ?? defaultWidth;
     const height = heightOverride ?? defaultHeight;
 
-    // Optimized: Reduced fluff, focused on high-token impact
-    const qualityTags = 'hyper-realistic, 8k uhd, professional studio lighting, sharp focus, masterpiece';
+    // Optimized: emphasize photorealism and real-person photography
+    const qualityTags = 'photorealistic, hyper-realistic photograph, real person, professional studio lighting, sharp focus, masterpiece';
 
     // Condensed reference logic
     const refPrefix = reference_image_url && reference_mode === 'inspiration'
