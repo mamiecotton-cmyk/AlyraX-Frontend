@@ -65,7 +65,11 @@ export async function POST(req: NextRequest) {
         : '';
 
     // Final consolidated prompt
-    const prompt = `${qualityTags}, ${refPrefix}${description}, ${composition}`;
+    // Make the requested style explicit and place composition earlier in the prompt
+    const styleTag = style === 'fullbody' ? 'full body shot, head to toe visible' : style === 'fullscreen' ? 'full screen vertical cinematic scene' : 'waist-up portrait';
+    const prompt = `${qualityTags}, ${styleTag}, ${composition}, ${refPrefix}${description}`;
+
+    console.log('Generating image with', { style, styleTag, width, height });
 
     // Submit job async
     const imageEndpointId = process.env.RUNPOD_IMAGE_ENDPOINT_ID;
