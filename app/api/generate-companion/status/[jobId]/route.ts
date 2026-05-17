@@ -12,12 +12,59 @@ type ComfyOutput = {
   images?: ComfyImage[];
 };
 
+type RunPodImageOutput = {
+  data?: string;
+  image?: string;
+  base64?: string;
+  url?: string;
+  s3_url?: string;
+  type?: string;
+};
+
 function normalizeComfyUrl(value: string) {
   return value.replace(/\/+$/, '');
 }
 
 function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : String(error);
+}
+
+function getRunPodImageEndpointId() {
+  return process.env.RUNPOD_COMFYUI_ENDPOINT_ID || process.env.RUNPOD_IMAGE_ENDPOINT_ID;
+}
+
+function getImagePayload(output: Record<string, unknown> | undefined) {
+  const legacyImage = typeof output?.image === 'string' ? output.image : '';
+  if (legacyImage) return { base64: legacyImage };
+
+  const message = typeof output?.message === 'string' ? output.message : '';
+  if (message) {
+    return message.startsWith('http') ? { url: message } : { base64: message };
+  }
+
+  const images = Array.isArray(output?.images) ? output.images : [];
+  const firstImage = images[0] as string | RunPodImageOutput | undefined;
+
+  if (typeof firstImage === 'string') {
+    return firstImage.startsWith('http') ? { url: firstImage } : { base64: firstImage };
+  }
+
+  const data = firstImage?.data || firstImage?.image || firstImage?.base64 || '';
+  if (data) {
+    return data.startsWith('http') || firstImage?.type === 's3_url'
+      ? { url: data }
+      : { base64: data };
+  }
+
+  const url = firstImage?.url || firstImage?.s3_url || '';
+  if (url) return { url };
+
+  return {};
+}
+
+function base64ToBuffer(value: string) {
+  const base64 = value.includes(',') ? value.split(',').pop() ?? '' : value;
+  return Buffer.from(base64, 'base64');
 }
 
 async function uploadImageBuffer(imageBuffer: Buffer, jobId: string, raw: unknown, seed?: number, width?: number, height?: number) {
@@ -112,10 +159,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ jobI
       return uploadImageBuffer(imageBuffer, jobId, historyData);
     }
 
-    const imageEndpointId = process.env.RUNPOD_IMAGE_ENDPOINT_ID;
+    const imageEndpointId = getRunPodImageEndpointId();
 
     if (!imageEndpointId) {
-      return NextResponse.json({ error: 'Missing RUNPOD_IMAGE_ENDPOINT_ID' }, { status: 500 });
+      return NextResponse.json({ error: 'Missing RUNPOD_COMFYUI_ENDPOINT_ID or RUNPOD_IMAGE_ENDPOINT_ID' }, { status: 500 });
     }
 
     const statusResponse = await fetch(
@@ -148,17 +195,31 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ jobI
 
     // If completed, try to save the image to Supabase (same behavior as previous flow)
     if (statusData.status === 'COMPLETED') {
-      const imageBase64 = statusData.output?.image;
+      const { base64, url } = getImagePayload(statusData.output);
       const outputSeed = statusData.output?.seed;
       const outputWidth = statusData.output?.width;
       const outputHeight = statusData.output?.height;
 
-      if (!imageBase64) {
-        return NextResponse.json({ error: 'No image returned' }, { status: 500 });
+      if (!base64 && !url) {
+        return NextResponse.json({ error: 'No image returned', raw: statusData }, { status: 500 });
       }
 
       try {
-        const imageBuffer = Buffer.from(imageBase64, 'base64');
+        let imageBuffer: Buffer;
+
+        if (url) {
+          const imageResponse = await fetch(url);
+          if (!imageResponse.ok) {
+            const err = await imageResponse.text();
+            console.error('RunPod output image fetch error:', err);
+            return NextResponse.json({ error: 'Failed to fetch generated image', detail: err, raw: statusData }, { status: 502 });
+          }
+
+          imageBuffer = Buffer.from(await imageResponse.arrayBuffer());
+        } else {
+          imageBuffer = base64ToBuffer(base64 ?? '');
+        }
+
         return uploadImageBuffer(imageBuffer, jobId, statusData, outputSeed, outputWidth, outputHeight);
       } catch (err) {
         console.error('Error saving completed image:', err);

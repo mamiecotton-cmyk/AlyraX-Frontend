@@ -175,6 +175,10 @@ function getComfyCheckpoint() {
   return process.env.COMFYUI_CHECKPOINT || 'model_974693_2831949.safetensors';
 }
 
+function getRunPodComfyEndpointId() {
+  return process.env.RUNPOD_COMFYUI_ENDPOINT_ID || process.env.RUNPOD_IMAGE_ENDPOINT_ID;
+}
+
 function buildComfySdxlWorkflow({
   prompt,
   negative,
@@ -327,6 +331,51 @@ export async function POST(req: NextRequest) {
         seed,
         prompt_preview: prompt.slice(0, 500),
         message: 'ComfyUI job submitted; poll /api/generate-companion/status/[jobId] for updates',
+      }, { status: 202 });
+    }
+
+    if (process.env.IMAGE_GENERATION_PROVIDER === 'runpod-comfyui') {
+      const endpointId = getRunPodComfyEndpointId();
+      if (!endpointId) {
+        return NextResponse.json({ error: 'Missing RUNPOD_COMFYUI_ENDPOINT_ID' }, { status: 500 });
+      }
+
+      const runpodResponse = await fetch(
+        `https://api.runpod.ai/v2/${endpointId}/run`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${process.env.RUNPOD_API_KEY}`,
+          },
+          body: JSON.stringify({
+            input: {
+              workflow: buildComfySdxlWorkflow({
+                prompt,
+                negative,
+                width,
+                height,
+                seed,
+                steps: num_inference_steps,
+                cfg: guidance_scale,
+              }),
+            },
+          }),
+        }
+      );
+
+      if (!runpodResponse.ok) {
+        const error = await runpodResponse.text();
+        console.error('RunPod ComfyUI submit error:', error);
+        return NextResponse.json({ error: 'RunPod ComfyUI submission failed', detail: error }, { status: 500 });
+      }
+
+      const { id: jobId } = await runpodResponse.json();
+      return NextResponse.json({
+        jobId,
+        seed,
+        prompt_preview: prompt.slice(0, 500),
+        message: 'RunPod ComfyUI job submitted; poll /api/generate-companion/status/[jobId] for updates',
       }, { status: 202 });
     }
 
