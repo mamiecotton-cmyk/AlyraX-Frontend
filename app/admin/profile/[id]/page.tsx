@@ -3,6 +3,7 @@
 import { use, useEffect, useRef, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { archetypes, type Archetype, buildArchetypePrompt, NEGATIVE_PROMPT } from '@/lib/archetypes';
+import { getArchetypeImagePrompt } from '@/lib/archetype-image-prompts';
 import { createClient } from '@/lib/supabase';
 
 type GalleryImage = {
@@ -135,6 +136,15 @@ function suggestionIndex(seed: string, offset: number, length: number) {
 }
 
 function buildSceneSuggestion(archetype: Archetype | null, id: string): SceneSuggestion {
+  const promptProfile = getArchetypeImagePrompt(archetype);
+  if (promptProfile) {
+    return {
+      wardrobe: promptProfile.wardrobe,
+      environment: promptProfile.environment,
+      details: promptProfile.details,
+    };
+  }
+
   const seed = `${id}-${archetype?.name ?? ''}-${archetype?.style ?? ''}-${archetype?.energy ?? ''}`;
 
   return {
@@ -154,6 +164,18 @@ function applySceneSuggestions(fields: StructuredPromptFields, suggestion: Scene
 }
 
 function inferStructuredPrompt(archetype: Archetype | null, prompt: string, gender: 'M' | 'F'): StructuredPromptFields {
+  const promptProfile = getArchetypeImagePrompt(archetype);
+  if (promptProfile) {
+    return {
+      race: promptProfile.race,
+      gender,
+      age: promptProfile.age,
+      wardrobe: promptProfile.wardrobe,
+      environment: promptProfile.environment,
+      details: promptProfile.details,
+    };
+  }
+
   const raceMatch = prompt.match(/\b(African American|Black|Latina|Latino|Asian|South Asian|Middle Eastern|Indigenous|White|Caucasian|biracial|multiracial)\b/i);
   const ageMatch = prompt.match(/\bage\s*(\d{2})\b/i);
 
@@ -233,7 +255,7 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
         if (pRes.prompts?.[id]) {
           setImagePrompt(pRes.prompts[id]);
         } else if (foundArchetype) {
-          setImagePrompt(buildArchetypePrompt(foundArchetype));
+          setImagePrompt(getArchetypeImagePrompt(foundArchetype)?.prompt ?? buildArchetypePrompt(foundArchetype));
         }
       } catch (err) {
         console.error('Error loading admin profile data:', err);
