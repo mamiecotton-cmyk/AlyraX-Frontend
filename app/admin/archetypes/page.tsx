@@ -4,7 +4,8 @@ import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase';
-import { archetypes, type Archetype, type CustomArchetypeRow, customRowToArchetype } from '@/lib/archetypes';
+import { archetypes, buildArchetypePrompt, type Archetype, type CustomArchetypeRow, customRowToArchetype } from '@/lib/archetypes';
+import { getArchetypeImagePrompt } from '@/lib/archetype-image-prompts';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 type ImageMap   = Record<string, string>;
@@ -26,6 +27,20 @@ type CardState = {
   error: string | null;
 };
 
+type GenerateStatusResponse = {
+  image_url?: string;
+  success?: boolean;
+  seed?: number;
+  error?: string;
+  status?: string;
+  raw?: {
+    output?: {
+      image?: string;
+      seed?: number;
+    };
+  };
+};
+
 type GenderFilter  = 'all' | 'M' | 'F';
 type StatusFilter  = 'all' | 'has-image' | 'no-image' | 'custom';
 
@@ -44,6 +59,10 @@ const CHIP = (active: boolean): React.CSSProperties => ({
   transition: 'all 0.15s',
 });
 
+function defaultPromptForArchetype(archetype: Archetype) {
+  return getArchetypeImagePrompt(archetype)?.prompt ?? buildArchetypePrompt(archetype);
+}
+
 // ─── Component ─────────────────────────────────────────────────────────────
 export default function AdminArchetypesPage() {
   const router = useRouter();
@@ -55,6 +74,8 @@ export default function AdminArchetypesPage() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [search, setSearch]       = useState('');
   const [expandAll, setExpandAll] = useState(false);
+  const [bulkGenerating, setBulkGenerating] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState('');
 
   // Auth check
   useEffect(() => {
@@ -87,20 +108,23 @@ export default function AdminArchetypesPage() {
       const customRows: CustomArchetypeRow[] = customRes.archetypes ?? [];
 
       // Build cards for the 20 hardcoded archetypes
-      const hardcodedCards: CardState[] = archetypes.map((a) => ({
-        archetype: a,
-        isCustom: false,
-        imageUrl: imageMap[a.id] || null,
-        savedPrompt: promptMap[a.id] || '',
-        editedPrompt: promptMap[a.id] || '',
-        promptOpen: false,
-        saving: false,
-        generating: false,
-        deleting: false,
-        deletingPhoto: false,
-        status: imageMap[a.id] ? 'has-image' : 'no-image',
-        error: null,
-      }));
+      const hardcodedCards: CardState[] = archetypes.map((a) => {
+        const defaultPrompt = defaultPromptForArchetype(a);
+        return {
+          archetype: a,
+          isCustom: false,
+          imageUrl: imageMap[a.id] || null,
+          savedPrompt: promptMap[a.id] || defaultPrompt,
+          editedPrompt: promptMap[a.id] || defaultPrompt,
+          promptOpen: false,
+          saving: false,
+          generating: false,
+          deleting: false,
+          deletingPhoto: false,
+          status: imageMap[a.id] ? 'has-image' : 'no-image',
+          error: null,
+        };
+      });
 
       // Build cards for custom archetypes
       const customCards: CardState[] = customRows.map((row) => ({
@@ -169,6 +193,81 @@ export default function AdminArchetypesPage() {
     setCards((prev) => prev.map((c) => c.archetype.id === id ? { ...c, ...patch } : c));
   }
 
+  async function waitForGeneratedImage(jobId: string): Promise<{ imageUrl: string; seed: number | null }> {
+    for (let attempts = 0; attempts < 120; attempts++) {
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+      const statusRes = await fetch(`/api/generate-companion/status/${jobId}`);
+      const statusData = await statusRes.json().catch(() => ({})) as GenerateStatusResponse;
+
+      if (!statusRes.ok) {
+        throw new Error(statusData.error || 'Generation failed');
+      }
+
+      const imageUrl = statusData.image_url ?? (statusData.raw?.output?.image ? `data:image/png;base64,${statusData.raw.output.image}` : null);
+      const seed = statusData.seed ?? statusData.raw?.output?.seed ?? null;
+
+      if (imageUrl) {
+        return { imageUrl, seed };
+      }
+    }
+
+    throw new Error('Generation timed out');
+  }
+
+  async function requestGeneratedImage(prompt: string) {
+    const genRes = await fetch('/api/generate-companion', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        description: prompt,
+        style: 'portrait',
+        num_inference_steps: 35,
+        guidance_scale: 5,
+        seed: -1,
+      }),
+    });
+
+    const genData = await genRes.json().catch(() => ({}));
+
+    if (!genRes.ok) {
+      throw new Error(genData.error || 'Generation failed');
+    }
+
+    if (genData.image_url) {
+      return { imageUrl: genData.image_url as string, seed: genData.seed ?? null };
+    }
+
+    if (genData.jobId) {
+      return waitForGeneratedImage(genData.jobId as string);
+    }
+
+    throw new Error('Generation did not return a job');
+  }
+
+  async function saveGeneratedImage(card: CardState, imageUrl: string, seed: number | null, prompt: string) {
+    if (card.isCustom && card.customId) {
+      const res = await fetch(`/api/archetypes/custom/${card.customId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image_url: imageUrl, seed }),
+      });
+      if (!res.ok) throw new Error('Failed to save generated image');
+      return;
+    }
+
+    const res = await fetch('/api/archetypes/images/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        archetype_id: card.archetype.id,
+        image_url: imageUrl,
+        seed,
+        prompt_used: prompt,
+      }),
+    });
+    if (!res.ok) throw new Error('Failed to save generated image');
+  }
+
   // ── Save prompt ───────────────────────────────────────────────────────────
   async function savePrompt(card: CardState) {
     updateCard(card.archetype.id, { saving: true });
@@ -210,42 +309,8 @@ export default function AdminArchetypesPage() {
     }
 
     try {
-      const genRes = await fetch('/api/generate-companion', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          description: prompt,
-          style: 'portrait',
-          num_inference_steps: 35,
-          guidance_scale: 7.5,
-          seed: -1,
-        }),
-      });
-
-      const genData = await genRes.json();
-      if (!genRes.ok || !genData.image_url) throw new Error(genData.error || 'Generation failed');
-
-      const imageUrl: string = genData.image_url;
-
-      // Save image URL
-      if (card.isCustom && card.customId) {
-        await fetch(`/api/archetypes/custom/${card.customId}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ image_url: imageUrl, seed: genData.seed }),
-        });
-      } else {
-        await fetch('/api/archetypes/images/save', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            archetype_id: card.archetype.id,
-            image_url: imageUrl,
-            seed: genData.seed,
-            prompt_used: prompt,
-          }),
-        });
-      }
+      const { imageUrl, seed } = await requestGeneratedImage(prompt);
+      await saveGeneratedImage(card, imageUrl, seed, prompt);
 
       updateCard(card.archetype.id, { generating: false, imageUrl, status: 'has-image' });
     } catch (err) {
@@ -304,6 +369,56 @@ export default function AdminArchetypesPage() {
     }
   }
 
+  async function generateAllShown() {
+    if (bulkGenerating) return;
+
+    const missingTargets = filtered.filter((card) => !card.imageUrl && !card.generating);
+    const targets = missingTargets.length > 0 ? missingTargets : filtered.filter((card) => !card.generating);
+
+    if (targets.length === 0) return;
+
+    if (missingTargets.length === 0 && !confirm(`Regenerate all ${targets.length} shown archetypes?`)) {
+      return;
+    }
+
+    setBulkGenerating(true);
+
+    for (let i = 0; i < targets.length; i++) {
+      const card = targets[i];
+      const prompt = card.editedPrompt || card.savedPrompt || defaultPromptForArchetype(card.archetype);
+
+      setBulkProgress(`${i + 1}/${targets.length} ${card.archetype.name}`);
+      updateCard(card.archetype.id, {
+        generating: true,
+        status: 'generating',
+        error: null,
+        savedPrompt: card.savedPrompt || prompt,
+        editedPrompt: card.editedPrompt || prompt,
+      });
+
+      try {
+        const { imageUrl, seed } = await requestGeneratedImage(prompt);
+        await saveGeneratedImage(card, imageUrl, seed, prompt);
+        updateCard(card.archetype.id, {
+          generating: false,
+          imageUrl,
+          status: 'has-image',
+          savedPrompt: prompt,
+          editedPrompt: prompt,
+        });
+      } catch (err) {
+        updateCard(card.archetype.id, {
+          generating: false,
+          status: 'error',
+          error: err instanceof Error ? err.message : 'Generation failed',
+        });
+      }
+    }
+
+    setBulkGenerating(false);
+    setBulkProgress('');
+  }
+
   // ── Toggle all prompts ────────────────────────────────────────────────────
   function toggleAllPrompts() {
     const next = !expandAll;
@@ -351,19 +466,11 @@ export default function AdminArchetypesPage() {
       // trigger regenerate for this card
       try {
         const prompt = modalPrompt || card.savedPrompt;
-        const genRes = await fetch('/api/generate-companion', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ description: prompt, style: 'portrait', num_inference_steps: 35, guidance_scale: 7.5, seed: -1 }) });
-        const genData = await genRes.json();
-        if (genRes.ok && genData.image_url) {
-          const imageUrl = genData.image_url;
-          if (card.isCustom && card.customId) {
-            await fetch(`/api/archetypes/custom/${card.customId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ image_url: imageUrl, seed: genData.seed }) });
-          } else {
-            await fetch('/api/archetypes/images/save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ archetype_id: card.archetype.id, image_url: imageUrl, seed: genData.seed, prompt_used: prompt }) });
-          }
-          setCards((prev) => prev.map((c) => c.archetype.id === modalId ? { ...c, imageUrl, status: 'has-image' } : c));
-        }
-      } catch {
-        // ignore
+        const { imageUrl, seed } = await requestGeneratedImage(prompt);
+        await saveGeneratedImage(card, imageUrl, seed, prompt);
+        setCards((prev) => prev.map((c) => c.archetype.id === modalId ? { ...c, imageUrl, status: 'has-image', error: null } : c));
+      } catch (err) {
+        setCards((prev) => prev.map((c) => c.archetype.id === modalId ? { ...c, status: 'error', error: err instanceof Error ? err.message : 'Generation failed' } : c));
       }
     }
 
@@ -441,10 +548,11 @@ export default function AdminArchetypesPage() {
 
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
             <button
-              onClick={() => router.push('/admin/generate')}
-              style={CHIP(false)}
+              onClick={generateAllShown}
+              disabled={bulkGenerating}
+              style={{ ...CHIP(false), cursor: bulkGenerating ? 'not-allowed' : 'pointer', opacity: bulkGenerating ? 0.6 : 1 }}
             >
-              ◈ Generate All
+              {bulkGenerating ? `◈ ${bulkProgress || 'Generating...'}` : '◈ Generate All'}
             </button>
             <button
               onClick={() => router.push('/dashboard')}
