@@ -11,6 +11,13 @@ type StructuredPrompt = {
   details?: string;
 };
 
+type ComfyOutput = [string, number] | string;
+type ComfyWorkflowNode = {
+  class_type: string;
+  inputs: Record<string, ComfyOutput | number | string>;
+};
+type ComfyWorkflow = Record<string, ComfyWorkflowNode>;
+
 const HUMAN_REALISM = 'RAW candid DSLR photo, photorealistic human, natural skin pores, realistic eyes';
 
 function cleanPromptPart(value: unknown) {
@@ -138,6 +145,94 @@ function buildCompactPrompt({
   ].filter(Boolean).join(', '), 55);
 }
 
+function normalizeComfyUrl(value: string) {
+  return value.replace(/\/+$/, '');
+}
+
+function getComfyCheckpoint() {
+  return process.env.COMFYUI_CHECKPOINT || 'model_974693_2831949.safetensors';
+}
+
+function buildComfySdxlWorkflow({
+  prompt,
+  negative,
+  width,
+  height,
+  seed,
+  steps,
+  cfg,
+}: {
+  prompt: string;
+  negative: string;
+  width: number;
+  height: number;
+  seed: number;
+  steps: number;
+  cfg: number;
+}): ComfyWorkflow {
+  const resolvedSeed = seed >= 0 ? seed : Math.floor(Math.random() * 2 ** 32);
+
+  return {
+    '1': {
+      class_type: 'CheckpointLoaderSimple',
+      inputs: {
+        ckpt_name: getComfyCheckpoint(),
+      },
+    },
+    '2': {
+      class_type: 'CLIPTextEncode',
+      inputs: {
+        text: prompt,
+        clip: ['1', 1],
+      },
+    },
+    '3': {
+      class_type: 'CLIPTextEncode',
+      inputs: {
+        text: negative,
+        clip: ['1', 1],
+      },
+    },
+    '4': {
+      class_type: 'EmptyLatentImage',
+      inputs: {
+        width,
+        height,
+        batch_size: 1,
+      },
+    },
+    '5': {
+      class_type: 'KSampler',
+      inputs: {
+        seed: resolvedSeed,
+        steps,
+        cfg,
+        sampler_name: process.env.COMFYUI_SAMPLER || 'dpmpp_2m',
+        scheduler: process.env.COMFYUI_SCHEDULER || 'karras',
+        denoise: 1,
+        model: ['1', 0],
+        positive: ['2', 0],
+        negative: ['3', 0],
+        latent_image: ['4', 0],
+      },
+    },
+    '6': {
+      class_type: 'VAEDecode',
+      inputs: {
+        samples: ['5', 0],
+        vae: ['1', 2],
+      },
+    },
+    '7': {
+      class_type: 'SaveImage',
+      inputs: {
+        filename_prefix: 'alyrax',
+        images: ['6', 0],
+      },
+    },
+  };
+}
+
 export async function POST(req: NextRequest) {
   try {
     const {
@@ -175,6 +270,43 @@ export async function POST(req: NextRequest) {
     });
 
     console.log('Generating image with', { style, composition, width, height, gender, seed, reference_mode, reference_strength, denoise_strength: effectiveDenoiseStrength, hasReference: Boolean(reference_image_url), structuredPrompt: hasStructuredPrompt(structured_prompt), promptPreview: prompt.slice(0, 500), negativePreview: negative.slice(0, 300) });
+
+    if (process.env.IMAGE_GENERATION_PROVIDER === 'comfyui') {
+      const comfyUrl = process.env.COMFYUI_BASE_URL;
+      if (!comfyUrl) {
+        return NextResponse.json({ error: 'Missing COMFYUI_BASE_URL' }, { status: 500 });
+      }
+
+      const comfyResponse = await fetch(`${normalizeComfyUrl(comfyUrl)}/prompt`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: buildComfySdxlWorkflow({
+            prompt,
+            negative,
+            width,
+            height,
+            seed,
+            steps: num_inference_steps,
+            cfg: guidance_scale,
+          }),
+        }),
+      });
+
+      if (!comfyResponse.ok) {
+        const error = await comfyResponse.text();
+        console.error('ComfyUI submit error:', error);
+        return NextResponse.json({ error: 'ComfyUI submission failed' }, { status: 500 });
+      }
+
+      const comfyData = await comfyResponse.json();
+      return NextResponse.json({
+        jobId: `comfy:${comfyData.prompt_id}`,
+        seed,
+        prompt_preview: prompt.slice(0, 500),
+        message: 'ComfyUI job submitted; poll /api/generate-companion/status/[jobId] for updates',
+      }, { status: 202 });
+    }
 
     // Submit job async
     const imageEndpointId = process.env.RUNPOD_IMAGE_ENDPOINT_ID;

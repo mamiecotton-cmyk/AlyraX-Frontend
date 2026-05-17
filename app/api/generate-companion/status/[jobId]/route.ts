@@ -2,9 +2,112 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 
+type ComfyImage = {
+  filename?: string;
+  subfolder?: string;
+  type?: string;
+};
+
+type ComfyOutput = {
+  images?: ComfyImage[];
+};
+
+function normalizeComfyUrl(value: string) {
+  return value.replace(/\/+$/, '');
+}
+
+async function uploadImageBuffer(imageBuffer: Buffer, jobId: string, raw: unknown, seed?: number, width?: number, height?: number) {
+  const { createClient } = await import('@/lib/supabase-server');
+  const supabase = await createClient();
+
+  const fileName = `generated/${Date.now()}-${jobId.replace(/[^a-zA-Z0-9_-]/g, '-')}.png`;
+
+  const uploadRes = await supabase.storage
+    .from('companions')
+    .upload(fileName, imageBuffer, {
+      contentType: 'image/png',
+      upsert: true,
+    });
+
+  if (uploadRes.error) {
+    console.error('Supabase upload error:', uploadRes.error);
+    return NextResponse.json({
+      image_url: `data:image/png;base64,${imageBuffer.toString('base64')}`,
+      success: true,
+      seed,
+      width,
+      height,
+      raw,
+    });
+  }
+
+  const { data: urlData } = supabase.storage
+    .from('companions')
+    .getPublicUrl(fileName);
+
+  return NextResponse.json({
+    image_url: urlData.publicUrl,
+    success: true,
+    seed,
+    width,
+    height,
+    raw,
+  });
+}
+
 export async function GET(req: NextRequest, { params }: { params: Promise<{ jobId: string }> }) {
   try {
     const { jobId } = await params;
+    if (jobId.startsWith('comfy:')) {
+      const comfyUrl = process.env.COMFYUI_BASE_URL;
+      if (!comfyUrl) {
+        return NextResponse.json({ error: 'Missing COMFYUI_BASE_URL' }, { status: 500 });
+      }
+
+      const promptId = jobId.slice('comfy:'.length);
+      const baseUrl = normalizeComfyUrl(comfyUrl);
+      const historyResponse = await fetch(`${baseUrl}/history/${promptId}`);
+
+      if (!historyResponse.ok) {
+        const err = await historyResponse.text();
+        console.error('ComfyUI history error:', err);
+        return NextResponse.json({ error: 'Failed to fetch ComfyUI status' }, { status: 502 });
+      }
+
+      const historyData = await historyResponse.json();
+      const promptHistory = historyData[promptId];
+
+      if (!promptHistory) {
+        return NextResponse.json({ status: 'IN_QUEUE' });
+      }
+
+      if (promptHistory.status?.status_str === 'error') {
+        return NextResponse.json({ error: promptHistory.status?.messages?.[0] || 'ComfyUI generation failed', raw: historyData }, { status: 500 });
+      }
+
+      const outputs = Object.values((promptHistory.outputs ?? {}) as Record<string, ComfyOutput>);
+      const image = outputs.flatMap((output) => output.images ?? [])[0];
+
+      if (!image?.filename) {
+        return NextResponse.json({ status: 'PROCESSING', raw: historyData });
+      }
+
+      const viewUrl = new URL(`${baseUrl}/view`);
+      viewUrl.searchParams.set('filename', image.filename);
+      viewUrl.searchParams.set('subfolder', image.subfolder ?? '');
+      viewUrl.searchParams.set('type', image.type ?? 'output');
+
+      const imageResponse = await fetch(viewUrl);
+      if (!imageResponse.ok) {
+        const err = await imageResponse.text();
+        console.error('ComfyUI image fetch error:', err);
+        return NextResponse.json({ error: 'Failed to fetch ComfyUI image' }, { status: 502 });
+      }
+
+      const imageBuffer = Buffer.from(await imageResponse.arrayBuffer());
+      return uploadImageBuffer(imageBuffer, jobId, historyData);
+    }
+
     const imageEndpointId = process.env.RUNPOD_IMAGE_ENDPOINT_ID;
 
     if (!imageEndpointId) {
@@ -51,44 +154,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ jobI
       }
 
       try {
-        const { createClient } = await import('@/lib/supabase-server');
-        const supabase = await createClient();
-
         const imageBuffer = Buffer.from(imageBase64, 'base64');
-        const fileName = `generated/${Date.now()}-${jobId}.png`;
-
-        const uploadRes = await supabase.storage
-          .from('companions')
-          .upload(fileName, imageBuffer, {
-            contentType: 'image/png',
-            upsert: true,
-          });
-
-        if (uploadRes.error) {
-          console.error('Supabase upload error:', uploadRes.error);
-          // Fall back to returning data URL if upload fails
-          return NextResponse.json({
-            image_url: `data:image/png;base64,${imageBase64}`,
-            success: true,
-            seed: outputSeed,
-            width: outputWidth,
-            height: outputHeight,
-            raw: statusData,
-          });
-        }
-
-        const { data: urlData } = supabase.storage
-          .from('companions')
-          .getPublicUrl(fileName);
-
-        return NextResponse.json({
-          image_url: urlData.publicUrl,
-          success: true,
-          seed: outputSeed,
-          width: outputWidth,
-          height: outputHeight,
-          raw: statusData,
-        });
+        return uploadImageBuffer(imageBuffer, jobId, statusData, outputSeed, outputWidth, outputHeight);
       } catch (err) {
         console.error('Error saving completed image:', err);
         return NextResponse.json({ success: true, raw: statusData });
