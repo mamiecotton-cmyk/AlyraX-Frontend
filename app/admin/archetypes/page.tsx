@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase';
 import { archetypes, buildArchetypePrompt, type Archetype, type CustomArchetypeRow, customRowToArchetype } from '@/lib/archetypes';
-import { getArchetypeImagePrompt } from '@/lib/archetype-image-prompts';
+import { getArchetypeImagePrompt, type ArchetypeImagePrompt } from '@/lib/archetype-image-prompts';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 type ImageMap   = Record<string, string>;
@@ -41,6 +41,15 @@ type GenerateStatusResponse = {
   };
 };
 
+type StructuredPromptRequest = {
+  race: string;
+  gender: 'M' | 'F';
+  age: string;
+  wardrobe: string;
+  environment: string;
+  details: string;
+};
+
 type GenderFilter  = 'all' | 'M' | 'F';
 type StatusFilter  = 'all' | 'has-image' | 'no-image' | 'custom';
 
@@ -61,6 +70,33 @@ const CHIP = (active: boolean): React.CSSProperties => ({
 
 function defaultPromptForArchetype(archetype: Archetype) {
   return getArchetypeImagePrompt(archetype)?.prompt ?? buildArchetypePrompt(archetype);
+}
+
+function structuredPromptForCard(card: CardState): StructuredPromptRequest {
+  const promptProfile: ArchetypeImagePrompt | null = getArchetypeImagePrompt(card.archetype);
+  return {
+    race: promptProfile?.race ?? 'Black American',
+    gender: card.archetype.gender,
+    age: promptProfile?.age ?? String(card.archetype.age),
+    wardrobe: promptProfile?.wardrobe ?? card.archetype.style,
+    environment: promptProfile?.environment ?? card.archetype.city,
+    details: promptProfile?.details ?? `${card.archetype.style.toLowerCase()}, ${card.archetype.energy.toLowerCase()}`,
+  };
+}
+
+function subjectNegativeForCard(card: CardState) {
+  const wrongGender = card.archetype.gender === 'F'
+    ? 'man, male, masculine face, beard, mustache'
+    : 'woman, female, feminine face, breasts';
+
+  return [
+    wrongGender,
+    'white person',
+    'caucasian',
+    'european features',
+    'wrong ethnicity',
+    'wrong gender',
+  ].join(', ');
 }
 
 // ─── Component ─────────────────────────────────────────────────────────────
@@ -214,12 +250,15 @@ export default function AdminArchetypesPage() {
     throw new Error('Generation timed out');
   }
 
-  async function requestGeneratedImage(prompt: string) {
+  async function requestGeneratedImage(card: CardState, prompt: string) {
     const genRes = await fetch('/api/generate-companion', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         description: prompt,
+        structured_prompt: structuredPromptForCard(card),
+        gender: card.archetype.gender,
+        negative_prompt: subjectNegativeForCard(card),
         style: 'portrait',
         num_inference_steps: 35,
         guidance_scale: 5,
@@ -309,7 +348,7 @@ export default function AdminArchetypesPage() {
     }
 
     try {
-      const { imageUrl, seed } = await requestGeneratedImage(prompt);
+      const { imageUrl, seed } = await requestGeneratedImage(card, prompt);
       await saveGeneratedImage(card, imageUrl, seed, prompt);
 
       updateCard(card.archetype.id, { generating: false, imageUrl, status: 'has-image' });
@@ -397,7 +436,7 @@ export default function AdminArchetypesPage() {
       });
 
       try {
-        const { imageUrl, seed } = await requestGeneratedImage(prompt);
+        const { imageUrl, seed } = await requestGeneratedImage(card, prompt);
         await saveGeneratedImage(card, imageUrl, seed, prompt);
         updateCard(card.archetype.id, {
           generating: false,
@@ -466,7 +505,7 @@ export default function AdminArchetypesPage() {
       // trigger regenerate for this card
       try {
         const prompt = modalPrompt || card.savedPrompt;
-        const { imageUrl, seed } = await requestGeneratedImage(prompt);
+        const { imageUrl, seed } = await requestGeneratedImage(card, prompt);
         await saveGeneratedImage(card, imageUrl, seed, prompt);
         setCards((prev) => prev.map((c) => c.archetype.id === modalId ? { ...c, imageUrl, status: 'has-image', error: null } : c));
       } catch (err) {

@@ -145,6 +145,24 @@ function buildCompactPrompt({
   ].filter(Boolean).join(', '), 55);
 }
 
+function getSubjectNegative(gender: unknown, structuredPrompt?: StructuredPrompt) {
+  const parts: string[] = [];
+  const effectiveGender = structuredPrompt?.gender || gender;
+  const race = cleanPromptPart(structuredPrompt?.race).toLowerCase();
+
+  if (effectiveGender === 'F') {
+    parts.push('man', 'male', 'masculine face', 'beard', 'mustache');
+  } else if (effectiveGender === 'M') {
+    parts.push('woman', 'female', 'feminine face', 'breasts');
+  }
+
+  if (race.includes('black') || race.includes('african')) {
+    parts.push('white person', 'caucasian', 'european features', 'wrong ethnicity');
+  }
+
+  return parts.join(', ');
+}
+
 function normalizeComfyUrl(value: string) {
   return value.replace(/\/+$/, '');
 }
@@ -259,7 +277,7 @@ export async function POST(req: NextRequest) {
     const effectiveDenoiseStrength = reference_image_url ? denoise_strength ?? 0.76 : undefined;
 
     // Merge negative prompts (server style negatives + client-provided negatives)
-    const negative = [styleNegative, incomingNegative].filter(Boolean).join(', ');
+    const negative = [styleNegative, getSubjectNegative(gender, structured_prompt), incomingNegative].filter(Boolean).join(', ');
     const prompt = buildCompactPrompt({
       description: cleanPromptPart(description),
       style,
