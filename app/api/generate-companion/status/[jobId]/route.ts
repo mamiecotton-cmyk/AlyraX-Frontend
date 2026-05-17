@@ -16,6 +16,10 @@ function normalizeComfyUrl(value: string) {
   return value.replace(/\/+$/, '');
 }
 
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : String(error);
+}
+
 async function uploadImageBuffer(imageBuffer: Buffer, jobId: string, raw: unknown, seed?: number, width?: number, height?: number) {
   const { createClient } = await import('@/lib/supabase-server');
   const supabase = await createClient();
@@ -82,7 +86,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ jobI
       }
 
       if (promptHistory.status?.status_str === 'error') {
-        return NextResponse.json({ error: promptHistory.status?.messages?.[0] || 'ComfyUI generation failed', raw: historyData }, { status: 500 });
+        return NextResponse.json({ error: 'ComfyUI generation failed', detail: promptHistory.status?.messages?.[0], raw: historyData }, { status: 500 });
       }
 
       const outputs = Object.values((promptHistory.outputs ?? {}) as Record<string, ComfyOutput>);
@@ -166,6 +170,6 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ jobI
     return NextResponse.json(statusData);
   } catch (error) {
     console.error('Status proxy error:', error);
-    return NextResponse.json({ error: 'Status check failed' }, { status: 500 });
+    return NextResponse.json({ error: 'Status check failed', detail: getErrorMessage(error) }, { status: 500 });
   }
 }

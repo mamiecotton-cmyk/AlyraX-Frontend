@@ -167,6 +167,10 @@ function normalizeComfyUrl(value: string) {
   return value.replace(/\/+$/, '');
 }
 
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : String(error);
+}
+
 function getComfyCheckpoint() {
   return process.env.COMFYUI_CHECKPOINT || 'model_974693_2831949.safetensors';
 }
@@ -314,7 +318,7 @@ export async function POST(req: NextRequest) {
       if (!comfyResponse.ok) {
         const error = await comfyResponse.text();
         console.error('ComfyUI submit error:', error);
-        return NextResponse.json({ error: 'ComfyUI submission failed' }, { status: 500 });
+        return NextResponse.json({ error: 'ComfyUI submission failed', detail: error }, { status: 500 });
       }
 
       const comfyData = await comfyResponse.json();
@@ -374,6 +378,6 @@ export async function POST(req: NextRequest) {
 
   } catch (error) {
     console.error('Generation error:', error);
-    return NextResponse.json({ error: 'Generation failed' }, { status: 500 });
+    return NextResponse.json({ error: 'Generation failed', detail: getErrorMessage(error) }, { status: 500 });
   }
 }
