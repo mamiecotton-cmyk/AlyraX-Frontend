@@ -1,0 +1,6 @@
+FROM timpietruskyrunpod/comfyui-wizard:kd71ezxvz1jyhakjw0tajs6wgn86xpw4
+
+RUN cd /workspace/runpod-slim/ComfyUI/custom_nodes && \
+    git clone https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite.git && \
+    cd ComfyUI-VideoHelperSuite && \
+    pip install -r requirements.txt
