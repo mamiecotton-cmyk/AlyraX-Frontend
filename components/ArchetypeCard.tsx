@@ -18,12 +18,12 @@ export default function ArchetypeCard({ archetype, featured = false, delay = 0, 
       className="card-hover fade-in"
       style={{
         animationDelay: `${delay}s`,
-        background: 'var(--charcoal)',
-        border: featured ? '1px solid var(--gold)' : '1px solid var(--border-dark)',
-        borderRadius: '3px',
+        background: '#1a1a1a',
+        borderRadius: '10px',
         overflow: 'hidden',
         cursor: 'pointer',
         position: 'relative',
+        border: featured ? '2px solid #e63946' : '1px solid #2a2a2a',
       }}
       onClick={() => router.push(`/dossier/${archetype.id}`)}
     >
@@ -51,71 +51,138 @@ export default function ArchetypeCard({ archetype, featured = false, delay = 0, 
             }}
           />
         ) : (
-          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
             <svg width="48" height="80" viewBox="0 0 48 80" fill="none" aria-hidden="true">
-              <circle cx="24" cy="20" r="12" fill={archetype.accentColor} opacity="0.4" />
-              <path d="M6 72 C6 52 42 52 42 72" stroke={archetype.accentColor} strokeWidth="1" fill="none" opacity="0.3" />
+              <circle cx="24" cy="20" r="12" fill="#ffffff" opacity="0.1" />
+              <path d="M6 72 C6 52 42 52 42 72" stroke="#ffffff" strokeWidth="1" fill="none" opacity="0.1" />
             </svg>
           </div>
         )}
 
         {/* Gradient overlay */}
-        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, transparent 50%, rgba(0,0,0,0.75) 100%)', pointerEvents: 'none', zIndex: 1 }} />
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            background: 'linear-gradient(180deg, transparent 40%, rgba(0,0,0,0.95) 100%)',
+            pointerEvents: 'none',
+            zIndex: 1,
+          }}
+        />
+
+        {/* Featured badge */}
+        {featured && (
+          <div
+            style={{
+              position: 'absolute',
+              top: '12px',
+              right: '12px',
+              background: '#e63946',
+              color: '#ffffff',
+              fontSize: '10px',
+              fontWeight: 600,
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+              padding: '4px 10px',
+              borderRadius: '20px',
+              zIndex: 2,
+            }}
+          >
+            ● Your Match
+          </div>
+        )}
 
         {/* Dossier ID */}
-        <div style={{ position: 'absolute', top: '10px', left: '10px', fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '0.18em', color: 'var(--gold)', background: 'rgba(0,0,0,0.7)', padding: '2px 7px', borderRadius: '2px', border: '1px solid rgba(212,175,55,0.25)', zIndex: 2 }}>
+        <div
+          style={{
+            position: 'absolute',
+            top: '12px',
+            left: '12px',
+            background: 'rgba(0,0,0,0.6)',
+            border: '1px solid rgba(255,255,255,0.2)',
+            color: '#ffffff',
+            fontFamily: 'var(--font-mono)',
+            fontSize: '10px',
+            letterSpacing: '0.14em',
+            padding: '3px 8px',
+            borderRadius: '3px',
+            zIndex: 2,
+          }}
+        >
           {archetype.dossierId}
         </div>
 
-        {/* Gender */}
-        <div style={{ position: 'absolute', top: '10px', right: '10px', fontFamily: 'var(--font-mono)', fontSize: '8px', color: 'var(--ivory-muted)', background: 'rgba(0,0,0,0.6)', padding: '2px 6px', borderRadius: '2px', zIndex: 2 }}>
-          {archetype.gender === 'M' ? '♂' : '♀'}
-        </div>
-
-        {featured && (
-          <div style={{ position: 'absolute', bottom: '10px', right: '10px', fontFamily: 'var(--font-mono)', fontSize: '7px', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--onyx)', background: 'var(--gold)', padding: '2px 7px', borderRadius: '2px', zIndex: 2 }}>
-            Your Match
+        {/* Name overlay */}
+        <div
+          style={{
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            padding: '20px 14px 14px',
+            zIndex: 2,
+          }}
+        >
+          {/* Online badge */}
+          <div
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '5px',
+              background: '#e63946',
+              color: '#ffffff',
+              fontSize: '10px',
+              fontWeight: 500,
+              padding: '3px 9px',
+              borderRadius: '20px',
+              marginBottom: '8px',
+            }}
+          >
+            <span style={{ fontSize: '7px' }}>●</span> Online
           </div>
-        )}
-      </div>
 
-      {/* Card body */}
-      <div style={{ padding: '12px 13px 13px', borderTop: '1px solid var(--border-dark)' }}>
-        <div style={{ fontFamily: 'var(--font-display)', fontSize: '16px', fontWeight: 500, color: 'var(--ivory)', marginBottom: '2px' }}>
-          {archetype.name}
-        </div>
-        <div style={{ fontFamily: 'var(--font-mono)', fontSize: '8.5px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--ivory-muted)', marginBottom: '6px' }}>
-          {archetype.archetype}
-        </div>
-        {/* City + Age row — like Secrets.ai */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--ivory-muted)' }}>
-            <span style={{ color: 'var(--gold)', fontSize: '10px' }}>◎</span>
+          <div
+            style={{
+              fontFamily: 'var(--font-display)',
+              fontSize: '22px',
+              fontWeight: 500,
+              color: '#ffffff',
+              lineHeight: 1.1,
+              marginBottom: '4px',
+            }}
+          >
+            {archetype.name}
+          </div>
+
+          <div
+            style={{
+              fontSize: '12px',
+              color: '#ffffff',
+              opacity: 0.85,
+              marginBottom: '2px',
+            }}
+          >
             {archetype.city}
           </div>
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--ivory-muted)' }}>
+
+          <div
+            style={{
+              fontSize: '12px',
+              color: '#ffffff',
+              opacity: 0.7,
+            }}
+          >
             {archetype.age} years old
           </div>
         </div>
-        <div style={{ fontSize: '11.5px', color: 'var(--ivory-ghost)', fontStyle: 'italic', lineHeight: 1.45, marginBottom: '11px' }}>
-          {archetype.vibe}
-        </div>
-        <button
-          onClick={(e) => { e.stopPropagation(); router.push(`/dossier/${archetype.id}`); }}
-          style={{
-            display: 'block', width: '100%', padding: '7px 0', textAlign: 'center',
-            fontFamily: 'var(--font-mono)', fontSize: '8.5px', letterSpacing: '0.18em', textTransform: 'uppercase',
-            color: featured ? 'var(--onyx)' : 'var(--gold)',
-            background: featured ? 'var(--gold)' : 'transparent',
-            border: `1px solid ${featured ? 'var(--gold)' : 'var(--gold-dim)'}`,
-            borderRadius: '2px', cursor: 'pointer', transition: 'all 0.15s',
-          }}
-          onMouseEnter={(e) => { if (!featured) (e.currentTarget as HTMLButtonElement).style.background = 'var(--gold-hover)'; }}
-          onMouseLeave={(e) => { if (!featured) (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}
-        >
-          Open Dossier
-        </button>
-        {/* Admin quick-link removed — admin access moved to account settings */}
       </div>
     </article>
   );

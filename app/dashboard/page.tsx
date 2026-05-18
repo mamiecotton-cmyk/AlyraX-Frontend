@@ -6,14 +6,9 @@ import { createClient } from '@/lib/supabase';
 import Sidebar from '@/components/Sidebar';
 import ArchetypeCard from '@/components/ArchetypeCard';
 import { archetypes } from '@/lib/archetypes';
-
 import dynamic from 'next/dynamic';
 import { vapi } from '@/lib/vapi';
-import {
-  getCompanionMemory,
-  getUserDisplayName,
-  type CompanionMemory,
-} from '@/lib/companion-memory';
+import { getCompanionMemory, getUserDisplayName, type CompanionMemory } from '@/lib/companion-memory';
 
 const CallButton = dynamic(() => import('@/components/CallButton'), { ssr: false });
 const TalkingPortrait = dynamic(() => import('@/components/TalkingPortrait'), { ssr: false });
@@ -35,21 +30,20 @@ type Companion = {
 type Filter = 'all' | 'M' | 'F';
 
 export default function DashboardPage() {
-  const router = useRouter();
+  const router  = useRouter();
   const supabase = createClient();
 
-  const [companion, setCompanion] = useState<Companion | null>(null);
-  const [loading, setLoading]     = useState(true);
-  const [userName, setUserName]   = useState('');
+  const [companion, setCompanion]   = useState<Companion | null>(null);
+  const [loading, setLoading]       = useState(true);
+  const [userName, setUserName]     = useState('');
   const [lastMemory, setLastMemory] = useState<CompanionMemory | null>(null);
-  const [status, setStatus]       = useState('idle');
-  const [calling, setCalling]     = useState(false);
-  const [filter, setFilter]       = useState<Filter>('all');
+  const [status, setStatus]         = useState('idle');
+  const [calling, setCalling]       = useState(false);
+  const [filter, setFilter]         = useState<Filter>('all');
   const [showCallPanel, setShowCallPanel] = useState(false);
-  const [mode, setMode]           = useState<'solo' | 'solo_video'>('solo');
+  const [mode, setMode]             = useState<'solo' | 'solo_video'>('solo');
   const [archetypeImages, setArchetypeImages] = useState<Record<string, string>>({});
 
-  // Filtered archetype grid
   const displayArchetypes = useMemo(() => {
     if (filter === 'all') return archetypes;
     return archetypes.filter((a) => a.gender === filter);
@@ -59,28 +53,23 @@ export default function DashboardPage() {
     async function loadData() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.push('/login'); return; }
-
       const displayName = getUserDisplayName(user.user_metadata, user.email);
       setUserName(displayName);
-
       const { data: companionData } = await supabase
         .from('companions')
         .select('*, personas(name, tagline, system_prompt, voice_id)')
         .eq('user_id', user.id)
         .limit(1)
         .maybeSingle();
-
       if (companionData) {
         setCompanion(companionData);
         setLastMemory(getCompanionMemory(user.user_metadata, companionData.id));
       }
-
       setLoading(false);
     }
     loadData();
   }, [router, supabase]);
 
-  // Fetch archetype portrait images
   useEffect(() => {
     fetch('/api/archetypes/images')
       .then((r) => r.json())
@@ -88,7 +77,6 @@ export default function DashboardPage() {
       .catch(() => {});
   }, []);
 
-  // Vapi listeners
   useEffect(() => {
     if (!vapi) return;
     vapi.on('call-start', () => { setStatus('connected'); setCalling(true); });
@@ -101,15 +89,15 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', width: '100%', height: '100dvh', background: 'var(--onyx)', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.3em', color: 'var(--ivory-ghost)', textTransform: 'uppercase', animation: 'fadeSlideUp 0.4s ease' }}>
+      <div style={{ display: 'flex', width: '100%', height: '100dvh', background: '#f5f5f0', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', letterSpacing: '0.3em', color: '#0a0a0a', textTransform: 'uppercase' }}>
           Accessing Archive...
         </div>
       </div>
     );
   }
 
-  const featuredId = companion ? null : 'jaxon'; // show jaxon as featured if no companion yet
+  const featuredId = companion ? null : 'jaxon';
 
   return (
     <div style={{ display: 'flex', width: '100%', height: '100dvh', overflow: 'hidden' }}>
@@ -122,7 +110,7 @@ export default function DashboardPage() {
           flexDirection: 'column',
           height: '100dvh',
           overflow: 'hidden',
-          background: 'var(--onyx)',
+          background: '#f5f5f0',
         }}
       >
         {/* Top bar */}
@@ -131,49 +119,25 @@ export default function DashboardPage() {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            padding: '14px 28px',
-            borderBottom: '1px solid var(--border-dark)',
-            background: 'var(--charcoal-mid)',
+            padding: '16px 28px',
+            borderBottom: '1px solid #e0e0d8',
+            background: '#ffffff',
             flexShrink: 0,
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <div
-              style={{
-                fontFamily: 'var(--font-display)',
-                fontSize: '14px',
-                fontWeight: 400,
-                color: 'var(--ivory)',
-                letterSpacing: '0.04em',
-              }}
-            >
+            <div style={{ fontFamily: 'var(--font-display)', fontSize: '20px', fontWeight: 400, color: '#0a0a0a', letterSpacing: '0.02em' }}>
               The Archive
             </div>
-            <span style={{ color: 'var(--ivory-ghost)', fontSize: '10px' }}>—</span>
-            <div
-              style={{
-                fontFamily: 'var(--font-mono)',
-                fontSize: '9px',
-                letterSpacing: '0.18em',
-                textTransform: 'uppercase',
-                color: 'var(--ivory-muted)',
-              }}
-            >
-              20 Archetypes · All Clearances
+            <span style={{ color: '#ccc' }}>—</span>
+            <div style={{ fontSize: '14px', color: '#0a0a0a' }}>
+              20 Archetypes
             </div>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             {userName && (
-              <div
-                style={{
-                  fontFamily: 'var(--font-mono)',
-                  fontSize: '9px',
-                  letterSpacing: '0.14em',
-                  color: 'var(--ivory-ghost)',
-                  textTransform: 'uppercase',
-                }}
-              >
+              <div style={{ fontSize: '14px', color: '#0a0a0a', fontWeight: 500 }}>
                 {userName}
               </div>
             )}
@@ -184,17 +148,15 @@ export default function DashboardPage() {
                   display: 'flex',
                   alignItems: 'center',
                   gap: '6px',
-                  padding: '6px 14px',
-                  background: showCallPanel ? 'var(--gold-hover)' : 'transparent',
-                  border: '1px solid var(--gold-dim)',
-                  borderRadius: '2px',
+                  padding: '8px 18px',
+                  background: showCallPanel ? '#0a0a0a' : 'transparent',
+                  border: '1px solid #0a0a0a',
+                  borderRadius: '4px',
                   cursor: 'pointer',
-                  fontFamily: 'var(--font-mono)',
-                  fontSize: '9px',
-                  letterSpacing: '0.16em',
-                  textTransform: 'uppercase',
-                  color: 'var(--gold)',
-                  transition: 'background 0.15s',
+                  fontSize: '13px',
+                  fontWeight: 500,
+                  color: showCallPanel ? '#ffffff' : '#0a0a0a',
+                  transition: 'all 0.15s',
                 }}
               >
                 ◉ {calling ? 'On Call' : 'Call ' + companion.name}
@@ -203,17 +165,14 @@ export default function DashboardPage() {
             <button
               onClick={() => router.push('/onboarding')}
               style={{
-                padding: '6px 14px',
-                background: 'var(--gold)',
+                padding: '8px 20px',
+                background: '#e63946',
                 border: 'none',
-                borderRadius: '2px',
+                borderRadius: '4px',
                 cursor: 'pointer',
-                fontFamily: 'var(--font-mono)',
-                fontSize: '9px',
-                letterSpacing: '0.16em',
-                textTransform: 'uppercase',
-                color: 'var(--onyx)',
+                fontSize: '13px',
                 fontWeight: 500,
+                color: '#ffffff',
               }}
             >
               + New Companion
@@ -221,28 +180,19 @@ export default function DashboardPage() {
           </div>
         </header>
 
-        {/* Call slide-down panel */}
+        {/* Call panel */}
         {showCallPanel && companion && (
           <div
             className="fade-in"
             style={{
               display: 'flex',
               alignItems: 'stretch',
-              borderBottom: '1px solid var(--border-dark)',
-              background: 'var(--charcoal)',
+              borderBottom: '1px solid #e0e0d8',
+              background: '#ffffff',
               flexShrink: 0,
             }}
           >
-            {/* Portrait */}
-            <div
-              style={{
-                width: '120px',
-                minWidth: '120px',
-                position: 'relative',
-                overflow: 'hidden',
-                background: 'var(--charcoal-mid)',
-              }}
-            >
+            <div style={{ width: '100px', minWidth: '100px', position: 'relative', overflow: 'hidden', background: '#1a1a1a' }}>
               {companion.image_url && mode === 'solo' && (
                 <TalkingPortrait
                   imageUrl={companion.image_url}
@@ -251,66 +201,32 @@ export default function DashboardPage() {
                 />
               )}
               {companion.image_url && mode !== 'solo' && (
-                <img
-                  src={companion.image_url}
-                  alt={companion.name}
-                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                />
+                <img src={companion.image_url} alt={companion.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               )}
             </div>
-
-            {/* Call controls */}
-            <div
-              style={{
-                flex: 1,
-                padding: '16px 24px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-              }}
-            >
+            <div style={{ flex: 1, padding: '16px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div>
-                <div
-                  style={{
-                    fontFamily: 'var(--font-display)',
-                    fontSize: '18px',
-                    fontWeight: 500,
-                    color: 'var(--ivory)',
-                    marginBottom: '4px',
-                  }}
-                >
+                <div style={{ fontFamily: 'var(--font-display)', fontSize: '20px', color: '#0a0a0a', marginBottom: '2px' }}>
                   {companion.name}
                 </div>
-                <div
-                  style={{
-                    fontFamily: 'var(--font-mono)',
-                    fontSize: '9px',
-                    letterSpacing: '0.16em',
-                    textTransform: 'uppercase',
-                    color: 'var(--ivory-muted)',
-                  }}
-                >
+                <div style={{ fontSize: '13px', color: '#0a0a0a' }}>
                   {companion.personas?.tagline || 'Your AI Companion'}
                 </div>
               </div>
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                {/* Mode toggle */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <div style={{ display: 'flex', gap: '4px' }}>
                   {(['solo', 'solo_video'] as const).map((m) => (
                     <button
                       key={m}
                       onClick={() => setMode(m)}
                       style={{
-                        padding: '5px 12px',
-                        fontFamily: 'var(--font-mono)',
-                        fontSize: '8.5px',
-                        letterSpacing: '0.14em',
-                        textTransform: 'uppercase',
-                        color: mode === m ? 'var(--onyx)' : 'var(--ivory-muted)',
-                        background: mode === m ? 'var(--gold)' : 'transparent',
-                        border: '1px solid ' + (mode === m ? 'var(--gold)' : 'var(--border-mid)'),
-                        borderRadius: '2px',
+                        padding: '6px 14px',
+                        fontSize: '12px',
+                        fontWeight: 500,
+                        color: mode === m ? '#ffffff' : '#0a0a0a',
+                        background: mode === m ? '#0a0a0a' : 'transparent',
+                        border: '1px solid #0a0a0a',
+                        borderRadius: '3px',
                         cursor: 'pointer',
                       }}
                     >
@@ -318,7 +234,6 @@ export default function DashboardPage() {
                     </button>
                   ))}
                 </div>
-
                 <CallButton
                   scenario={`Mode: ${mode === 'solo_video' ? 'Video' : 'Solo'}`}
                   companionId={companion.id}
@@ -335,7 +250,7 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* Pulse quiz banner - shown when no companion exists */}
+        {/* No companion banner */}
         {!companion && (
           <div
             className="fade-in"
@@ -344,131 +259,68 @@ export default function DashboardPage() {
               alignItems: 'center',
               justifyContent: 'space-between',
               padding: '14px 28px',
-              borderBottom: '1px solid rgba(212,175,55,0.15)',
-              background: 'rgba(212,175,55,0.04)',
+              borderBottom: '1px solid #e0e0d8',
+              background: '#ffffff',
               flexShrink: 0,
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-              <div
-                style={{
-                  width: '34px',
-                  height: '34px',
-                  borderRadius: '50%',
-                  border: '1px solid var(--gold-dim)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: 'var(--gold)',
-                  fontSize: '14px',
-                  flexShrink: 0,
-                }}
-              >
-                ◆
+            <div>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: '16px', color: '#0a0a0a', marginBottom: '2px' }}>
+                Find your match
               </div>
-              <div>
-                <div
-                  style={{
-                    fontFamily: 'var(--font-display)',
-                    fontSize: '14px',
-                    color: 'var(--ivory)',
-                    marginBottom: '2px',
-                  }}
-                >
-                  Identity not yet synchronized
-                </div>
-                <div
-                  style={{
-                    fontSize: '11px',
-                    color: 'var(--ivory-muted)',
-                  }}
-                >
-                  Complete the Pulse Quiz — 5 questions, 90 seconds — to find your archetype match.
-                </div>
+              <div style={{ fontSize: '13px', color: '#0a0a0a' }}>
+                Complete the Pulse Quiz — 5 questions — to find your archetype match.
               </div>
             </div>
             <button
               onClick={() => router.push('/pulse-quiz')}
-              className="btn-gold"
+              style={{ padding: '9px 20px', background: '#e63946', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '13px', fontWeight: 500, color: '#ffffff' }}
             >
-              ◈ Take the Pulse Quiz
+              Take the Pulse Quiz
             </button>
           </div>
         )}
 
-        {/* Main scrollable content */}
+        {/* Main content */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '24px 28px' }}>
 
-          {/* Section header */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              marginBottom: '14px',
-            }}
-          >
-            <div>
-              <div
-                style={{
-                  fontFamily: 'var(--font-mono)',
-                  fontSize: '9px',
-                  letterSpacing: '0.24em',
-                  textTransform: 'uppercase',
-                  color: 'var(--gold)',
-                  marginBottom: '4px',
-                }}
-              >
-                ◈ Active Dossiers
-              </div>
-              <div
-                style={{
-                  fontFamily: 'var(--font-display)',
-                  fontSize: '24px',
-                  fontWeight: 400,
-                  color: 'var(--ivory)',
-                  letterSpacing: '0.02em',
-                }}
-              >
-                The Archetypes
-              </div>
+          {/* Filter + header row */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+            <div style={{ fontFamily: 'var(--font-display)', fontSize: '28px', fontWeight: 400, color: '#0a0a0a' }}>
+              The Archetypes
             </div>
-
-            {/* Filter tabs */}
-            <div style={{ display: 'flex', gap: '4px' }}>
+            <div style={{ display: 'flex', gap: '6px' }}>
               {(['all', 'M', 'F'] as Filter[]).map((f) => (
                 <button
                   key={f}
                   onClick={() => setFilter(f)}
                   style={{
-                    padding: '6px 14px',
-                    fontFamily: 'var(--font-mono)',
-                    fontSize: '9px',
-                    letterSpacing: '0.16em',
-                    textTransform: 'uppercase',
-                    color: filter === f ? 'var(--onyx)' : 'var(--ivory-muted)',
-                    background: filter === f ? 'var(--gold)' : 'transparent',
-                    border: '1px solid ' + (filter === f ? 'var(--gold)' : 'var(--border-mid)'),
-                    borderRadius: '2px',
+                    padding: '7px 18px',
+                    fontSize: '13px',
+                    fontWeight: 500,
+                    color: filter === f ? '#ffffff' : '#0a0a0a',
+                    background: filter === f ? '#0a0a0a' : 'transparent',
+                    border: '1px solid #0a0a0a',
+                    borderRadius: '4px',
                     cursor: 'pointer',
                     transition: 'all 0.15s',
                   }}
                 >
-                  {f === 'all' ? '◉ All' : f === 'M' ? '△ Men' : '▽ Women'}
+                  {f === 'all' ? 'All' : f === 'M' ? 'Men' : 'Women'}
                 </button>
               ))}
             </div>
           </div>
 
-          {/* Gold rule */}
-          <div className="gold-rule" style={{ marginBottom: '22px' }} />
+          {/* Divider */}
+          <div style={{ height: '1px', background: '#e0e0d8', marginBottom: '20px' }} />
 
-          {/* Card grid */}
+          {/* Card grid — Secrets.ai style */}
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(4, 1fr)',
-              gap: '12px',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(185px, 1fr))',
+              gap: '14px',
             }}
           >
             {displayArchetypes.map((archetype, i) => (
@@ -476,7 +328,7 @@ export default function DashboardPage() {
                 key={archetype.id}
                 archetype={archetype}
                 featured={archetype.id === featuredId}
-                delay={i * 0.035}
+                delay={i * 0.03}
                 imageUrl={archetypeImages[archetype.id] || null}
               />
             ))}

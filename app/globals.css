@@ -1,24 +1,47 @@
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap');
 @import "tailwindcss";
 
 :root {
-  --onyx: #0a0a0a;
-  --charcoal: #111111;
-  --charcoal-mid: #161616;
-  --charcoal-light: #1e1e1e;
-  --border-dark: #1a1a1a;
-  --border-mid: #242424;
-  --gold: #d4af37;
-  --gold-dim: rgba(212, 175, 55, 0.35);
-  --gold-glow: rgba(212, 175, 55, 0.08);
-  --gold-hover: rgba(212, 175, 55, 0.15);
-  --ivory: #fcfaf2;
-  --ivory-dim: #b8b4a4;
-  --ivory-muted: #6a6a5a;
-  --ivory-ghost: #3a3a2a;
+  /* Backgrounds */
+  --page-bg:       #f5f5f0;
+  --card-bg:       #ffffff;
+  --sidebar-bg:    #0a0a0a;
+  --topbar-bg:     #ffffff;
+  --status-bg:     #0a0a0a;
+
+  /* Text */
+  --text-primary:  #0a0a0a;
+  --text-inverse:  #ffffff;
+  --text-red:      #e63946;
+
+  /* Accent */
+  --red:           #e63946;
+  --red-dark:      #c0303b;
+
+  /* Borders */
+  --border-light:  #e0e0d8;
+  --border-dark:   #1e1e1e;
+  --border-mid:    #cccccc;
+
+  /* Legacy aliases — keep so existing components don't break */
+  --onyx:          #0a0a0a;
+  --charcoal:      #ffffff;
+  --charcoal-mid:  #ffffff;
+  --charcoal-light:#f5f5f0;
+  --border-mid-old:#e0e0d8;
+  --gold:          #e63946;
+  --gold-dim:      rgba(230,57,70,0.35);
+  --gold-glow:     rgba(230,57,70,0.08);
+  --gold-hover:    rgba(230,57,70,0.12);
+  --ivory:         #0a0a0a;
+  --ivory-dim:     #0a0a0a;
+  --ivory-muted:   #0a0a0a;
+  --ivory-ghost:   #0a0a0a;
+
+  /* Fonts */
   --font-display: 'Cormorant Garamond', Georgia, serif;
-  --font-body: 'DM Sans', system-ui, sans-serif;
-  --font-mono: 'DM Mono', monospace;
+  --font-body:    'DM Sans', system-ui, sans-serif;
+  --font-mono:    'DM Mono', monospace;
 }
 
 *, *::before, *::after {
@@ -29,10 +52,10 @@
 
 html, body {
   height: 100%;
-  background: var(--onyx);
-  color: var(--ivory);
+  background: var(--page-bg);
+  color: var(--text-primary);
   font-family: var(--font-body);
-  font-size: 14px;
+  font-size: 15px;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -40,120 +63,102 @@ html, body {
 
 /* Scrollbar */
 ::-webkit-scrollbar { width: 4px; height: 4px; }
-::-webkit-scrollbar-track { background: var(--onyx); }
+::-webkit-scrollbar-track { background: var(--page-bg); }
 ::-webkit-scrollbar-thumb { background: var(--border-mid); border-radius: 2px; }
-::-webkit-scrollbar-thumb:hover { background: var(--ivory-ghost); }
+::-webkit-scrollbar-thumb:hover { background: #aaa; }
 
 /* Selection */
-::selection { background: var(--gold-dim); color: var(--ivory); }
+::selection { background: rgba(230,57,70,0.15); color: var(--text-primary); }
 
-/* Gold rule utility */
+/* ── Utility classes ── */
+
 .gold-rule {
   height: 1px;
-  background: linear-gradient(90deg, var(--gold) 0%, rgba(212,175,55,0.1) 100%);
+  background: var(--border-light);
   border: none;
 }
 
-/* Portrait ambient glow — replaces scan lines */
-.scan-lines {
-  position: relative;
-}
-.scan-lines::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    135deg,
-    rgba(212, 175, 55, 0.06) 0%,
-    transparent 40%,
-    transparent 60%,
-    rgba(212, 175, 55, 0.04) 100%
-  );
-  pointer-events: none;
-  z-index: 1;
-  animation: portraitShimmer 6s ease-in-out infinite alternate;
-}
-.scan-lines::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  box-shadow: inset 0 0 40px rgba(0,0,0,0.45), inset 0 -60px 60px rgba(0,0,0,0.5);
-  pointer-events: none;
-  z-index: 2;
+/* Cards */
+.ax-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  overflow: hidden;
 }
 
-@keyframes portraitShimmer {
-  0%   { opacity: 0.6; }
-  100% { opacity: 1; }
+/* Buttons */
+.btn-gold,
+.btn-red {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 20px;
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: #ffffff;
+  background: var(--red);
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.15s;
 }
+.btn-gold:hover,
+.btn-red:hover { background: var(--red-dark); }
 
-/* Card hover glow */
-.card-hover {
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
-}
-.card-hover:hover {
-  border-color: var(--gold-dim) !important;
-  box-shadow: 0 0 24px rgba(212,175,55,0.06);
-}
-
-/* Dossier ID tag style */
-.dossier-tag {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--gold);
-}
-
-/* Archetype label */
-.archetype-label {
-  font-size: 9px;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  color: var(--ivory-muted);
-}
-
-/* Gold button */
-.btn-gold {
+.btn-ghost {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   padding: 8px 18px;
   font-family: var(--font-body);
-  font-size: 10px;
-  font-weight: 500;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--onyx);
-  background: var(--gold);
-  border: none;
-  border-radius: 2px;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--text-primary);
+  background: transparent;
+  border: 1px solid var(--text-primary);
+  border-radius: 4px;
   cursor: pointer;
-  transition: opacity 0.15s;
+  transition: background 0.15s;
 }
-.btn-gold:hover { opacity: 0.88; }
+.btn-ghost:hover { background: rgba(0,0,0,0.05); }
 
-/* Ghost button */
-.btn-ghost {
+/* Status badge */
+.badge-online {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 7px 16px;
-  font-family: var(--font-body);
-  font-size: 10px;
-  font-weight: 400;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--gold);
-  background: transparent;
-  border: 1px solid var(--gold-dim);
-  border-radius: 2px;
-  cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
+  gap: 5px;
+  background: var(--red);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 3px 10px;
+  border-radius: 20px;
 }
-.btn-ghost:hover {
-  background: var(--gold-hover);
-  border-color: var(--gold);
+
+/* Portrait frame */
+.portrait-frame {
+  position: relative;
+  overflow: hidden;
+  background: #1a1a1a;
+}
+.portrait-frame::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, transparent 55%, rgba(0,0,0,0.9) 100%);
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* Card hover */
+.card-hover {
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+.card-hover:hover {
+  box-shadow: 0 4px 24px rgba(0,0,0,0.12);
+  transform: translateY(-2px);
 }
 
 /* Fade-in animation */
@@ -161,11 +166,7 @@ html, body {
   from { opacity: 0; transform: translateY(10px); }
   to   { opacity: 1; transform: translateY(0); }
 }
-
-.fade-in {
-  animation: fadeSlideUp 0.4s ease both;
-}
-
+.fade-in { animation: fadeSlideUp 0.4s ease both; }
 .fade-in-1 { animation-delay: 0.05s; }
 .fade-in-2 { animation-delay: 0.1s; }
 .fade-in-3 { animation-delay: 0.15s; }
@@ -173,55 +174,21 @@ html, body {
 .fade-in-5 { animation-delay: 0.25s; }
 .fade-in-6 { animation-delay: 0.3s; }
 
-/* Scan-in animation for dossier opens */
+/* Scan-in animation */
 @keyframes scanReveal {
   from { clip-path: inset(0 100% 0 0); opacity: 0; }
   to   { clip-path: inset(0 0% 0 0);   opacity: 1; }
 }
+.scan-in { animation: scanReveal 0.5s cubic-bezier(0.16, 1, 0.3, 1) both; }
 
-.scan-in {
-  animation: scanReveal 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-/* Portrait image frame */
-.portrait-frame {
-  position: relative;
-  overflow: hidden;
-  background: var(--charcoal);
-}
-.portrait-frame::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(180deg, transparent 55%, rgba(0,0,0,0.85) 100%);
-  z-index: 1;
-  pointer-events: none;
+/* Spin */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
 }
 
-/* Vital stat row */
-.vital-stat {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-.vital-stat-label {
-  font-family: var(--font-mono);
-  font-size: 8px;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  color: var(--ivory-ghost);
-}
-.vital-stat-value {
-  font-size: 12px;
-  color: var(--ivory-dim);
-}
-
-/* Talking portrait CSS from original – preserved */
-.talking-portrait {
-  background:
-    radial-gradient(circle at 50% 38%, rgba(212, 175, 55, 0.06), transparent 34%),
-    #000;
-}
+/* Talking portrait (kept for call UI) */
+.talking-portrait { background: #1a1a1a; }
 .talking-portrait-image {
   transform-origin: 50% 45%;
   animation: portrait-idle 4.8s ease-in-out infinite;
@@ -237,7 +204,7 @@ html, body {
 }
 .talking-portrait-breath {
   position: absolute; inset: 0; pointer-events: none;
-  background: radial-gradient(circle at 50% 58%, rgba(212,175,55,0.04), transparent 30%);
+  background: radial-gradient(circle at 50% 58%, rgba(230,57,70,0.04), transparent 30%);
   opacity: 0.22;
   animation: portrait-presence 5.5s ease-in-out infinite;
 }
@@ -246,8 +213,8 @@ html, body {
   width: clamp(20px, 5vw, 54px); height: clamp(5px, 1.2vw, 11px);
   border-radius: 999px;
   transform: translate(-50%, -50%) scaleX(0.7);
-  background: radial-gradient(ellipse at center, rgba(212,175,55,0.5), rgba(212,175,55,0.05) 62%, transparent 72%);
-  box-shadow: 0 0 18px rgba(212,175,55,0.3);
+  background: radial-gradient(ellipse at center, rgba(230,57,70,0.5), rgba(230,57,70,0.05) 62%, transparent 72%);
+  box-shadow: 0 0 18px rgba(230,57,70,0.3);
   opacity: 0; pointer-events: none;
 }
 .talking-portrait.is-speaking .talking-portrait-mouth {
@@ -260,7 +227,7 @@ html, body {
 }
 .talking-portrait-presence {
   position: absolute; inset: auto 12% 8%; height: 28%; pointer-events: none;
-  background: radial-gradient(ellipse at center, rgba(212,175,55,0.1), transparent 62%);
+  background: radial-gradient(ellipse at center, rgba(230,57,70,0.08), transparent 62%);
   opacity: 0.3;
   animation: portrait-presence 4.8s ease-in-out infinite;
 }
@@ -272,8 +239,7 @@ html, body {
 }
 .talking-portrait-wave span {
   display: block; width: 4px; height: 18px; border-radius: 999px;
-  background: rgba(212,175,55,0.6);
-  box-shadow: 0 0 14px rgba(212,175,55,0.2);
+  background: rgba(230,57,70,0.7);
   transform-origin: center bottom;
 }
 .talking-portrait.is-speaking .talking-portrait-wave { opacity: 0.82; }
@@ -312,3 +278,6 @@ html, body {
   45% { transform: scaleY(1.75); opacity: 0.95; }
   72% { transform: scaleY(0.9); opacity: 0.62; }
 }
+
+/* scan-lines kept as no-op so class doesn't break anything */
+.scan-lines { position: relative; }
