@@ -170,7 +170,7 @@ export default function Sidebar() {
               Admin
             </div>
             {[
-              { label: 'Media Manager', href: '/admin/profile' },
+              { label: 'Media Manager', href: '/admin/archetypes' },
               { label: 'Generate', href: '/admin/generate' },
             ].map((item) => {
               const active = isActive(item.href);

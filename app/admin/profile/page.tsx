@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
 
-export default function AdminGeneratePage() {
+export default function AdminProfileIndexPage() {
   redirect('/admin/archetypes');
 }
