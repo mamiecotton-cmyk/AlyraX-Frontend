@@ -837,11 +837,38 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
                     <div key={vid.id} style={{ background: 'var(--charcoal)', border: `1px solid ${vid.is_featured ? 'var(--gold)' : 'var(--border-dark)'}`, borderRadius: '3px', overflow: 'hidden', display: 'grid', gridTemplateColumns: '180px 1fr' }}>
                       <div style={{ position: 'relative', background: '#000' }}>
                         {vid.video_url.includes('.webp') ? (
-                          <img
-                            src={vid.video_url}
-                            alt="Generated clip"
-                            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                          />
+                          <div style={{ width: '100%', height: '100%', position: 'relative', overflow: 'hidden' }}>
+                            <img
+                              src={vid.video_url}
+                              alt="Generated clip"
+                              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                            />
+                            <div style={{
+                              position: 'absolute',
+                              bottom: 0,
+                              left: 0,
+                              right: 0,
+                              height: '25%',
+                              background: 'linear-gradient(transparent, rgba(0,0,0,0.85))',
+                              pointerEvents: 'none',
+                            }} />
+                            <style>{`
+                              @keyframes loopFade {
+                                0%   { opacity: 1; }
+                                80%  { opacity: 1; }
+                                90%  { opacity: 0; }
+                                95%  { opacity: 0; }
+                                100% { opacity: 1; }
+                              }
+                            `}</style>
+                            <div style={{
+                              position: 'absolute',
+                              inset: 0,
+                              background: 'rgba(0,0,0,0)',
+                              animation: 'loopFade 5s ease-in-out infinite',
+                              pointerEvents: 'none',
+                            }} />
+                          </div>
                         ) : (
                           <video src={vid.video_url} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} controls playsInline preload="metadata" />
                         )}
