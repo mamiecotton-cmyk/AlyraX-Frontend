@@ -3,7 +3,7 @@
 import { use, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
-import { archetypes, type Archetype } from '../../../lib/archetypes';
+import { archetypes } from '../../../lib/archetypes';
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -71,7 +71,7 @@ export default function DossierPage({ params }: Props) {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            padding: '14px 28px',
+            padding: '18px 32px',
             borderBottom: '1px solid var(--border-dark)',
             background: 'var(--charcoal-mid)',
             flexShrink: 0,
@@ -125,7 +125,7 @@ export default function DossierPage({ params }: Props) {
         </header>
 
         <div style={{ flex: 1, overflowY: 'auto' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '300px 1fr', minHeight: '100%' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(340px, 380px) minmax(0, 1fr)', minHeight: '100%' }}>
 
             {/* Left — portrait + vitals */}
             <div
@@ -139,7 +139,7 @@ export default function DossierPage({ params }: Props) {
               <div
                 className="portrait-frame scan-lines"
                 style={{
-                  height: '380px',
+                  height: '430px',
                   background: archetype.imageGradient,
                   display: 'flex',
                   alignItems: 'center',
@@ -183,14 +183,14 @@ export default function DossierPage({ params }: Props) {
                   <div style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--gold)', marginBottom: '3px' }}>
                     {archetype.dossierId}
                   </div>
-                  <div style={{ fontFamily: 'var(--font-display)', fontSize: '26px', fontWeight: 500, color: 'var(--ivory)', lineHeight: 1 }}>
+                  <div style={{ fontFamily: 'var(--font-display)', fontSize: '32px', fontWeight: 500, color: 'var(--ivory)', lineHeight: 1 }}>
                     {archetype.name}
                   </div>
                 </div>
               </div>
 
               {/* Vital stats panel */}
-              <div style={{ padding: '18px', flex: 1 }}>
+              <div style={{ padding: '24px', flex: 1 }}>
                 <div style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', letterSpacing: '0.24em', textTransform: 'uppercase', color: 'var(--gold)', marginBottom: '14px' }}>
                   ◈ Vital Statistics
                 </div>
@@ -265,7 +265,7 @@ export default function DossierPage({ params }: Props) {
                     key={tab}
                     onClick={() => setActiveTab(tab)}
                     style={{
-                      padding: '12px 22px',
+                      padding: '14px 28px',
                       background: 'none',
                       border: 'none',
                       borderBottom: tab === activeTab ? '1px solid var(--gold)' : '1px solid transparent',
@@ -284,10 +284,10 @@ export default function DossierPage({ params }: Props) {
               </div>
 
               {/* Tab content */}
-              <div style={{ flex: 1, padding: '28px', overflowY: 'auto' }}>
+              <div style={{ flex: 1, padding: '34px 38px', overflowY: 'auto' }}>
 
                 {activeTab === 'profile' && (
-                  <div className="fade-in">
+                  <div className="fade-in" style={{ maxWidth: '760px' }}>
                     <div style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', letterSpacing: '0.24em', textTransform: 'uppercase', color: 'var(--gold)', marginBottom: '12px' }}>
                       ◈ Dossier Profile
                     </div>
@@ -295,7 +295,7 @@ export default function DossierPage({ params }: Props) {
                     {/* Quote */}
                     <blockquote
                       style={{
-                        padding: '18px 20px',
+                        padding: '22px 24px',
                         borderLeft: '2px solid var(--gold)',
                         background: 'var(--gold-glow)',
                         borderRadius: '0 3px 3px 0',
@@ -305,7 +305,7 @@ export default function DossierPage({ params }: Props) {
                       <div
                         style={{
                           fontFamily: 'var(--font-display)',
-                          fontSize: '17px',
+                          fontSize: '20px',
                           fontStyle: 'italic',
                           color: 'var(--ivory)',
                           lineHeight: 1.6,
@@ -328,7 +328,7 @@ export default function DossierPage({ params }: Props) {
                         fontSize: '13.5px',
                         color: 'var(--ivory-dim)',
                         lineHeight: 1.75,
-                        marginBottom: '28px',
+                        marginBottom: '30px',
                       }}
                     >
                       {archetype.bio}
@@ -356,13 +356,13 @@ export default function DossierPage({ params }: Props) {
                 )}
 
                 {activeTab === 'conversation' && (
-                  <div className="fade-in">
+                  <div className="fade-in" style={{ maxWidth: '720px' }}>
                     <div style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', letterSpacing: '0.24em', textTransform: 'uppercase', color: 'var(--gold)', marginBottom: '20px' }}>
                       ◈ First Spark — Simulated Opening
                     </div>
 
                     {/* Simulated chat */}
-                    <div style={{ maxWidth: '480px' }}>
+                    <div style={{ maxWidth: '560px' }}>
                       {/* Companion bubble */}
                       <div style={{ display: 'flex', gap: '10px', marginBottom: '16px' }}>
                         <div

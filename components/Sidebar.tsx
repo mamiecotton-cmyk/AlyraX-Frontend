@@ -42,8 +42,8 @@ export default function Sidebar() {
   return (
     <aside
       style={{
-        width: '320px',
-        minWidth: '320px',
+        width: 'clamp(260px, 22vw, 300px)',
+        minWidth: '260px',
         background: '#0a0a0a',
         borderRight: '1px solid #1e1e1e',
         display: 'flex',
@@ -57,7 +57,7 @@ export default function Sidebar() {
       {/* Logo */}
       <div
         style={{
-          padding: '48px 40px 34px',
+          padding: '38px 34px 30px',
           borderBottom: '1px solid #1e1e1e',
         }}
       >
@@ -68,7 +68,7 @@ export default function Sidebar() {
           <div
             style={{
               fontFamily: 'var(--font-display)',
-              fontSize: '46px',
+              fontSize: '38px',
               fontWeight: 500,
               color: '#ffffff',
               letterSpacing: '0.1em',
@@ -80,7 +80,7 @@ export default function Sidebar() {
           <div
             style={{
               fontFamily: 'var(--font-mono)',
-              fontSize: '23px',
+              fontSize: '17px',
               letterSpacing: '0.24em',
               textTransform: 'uppercase',
               color: '#ffffff',
@@ -94,14 +94,14 @@ export default function Sidebar() {
       </div>
 
       {/* Nav */}
-      <nav style={{ flex: 1, paddingTop: '30px' }}>
+      <nav style={{ flex: 1, paddingTop: '24px' }}>
         {NAV.map((group) => (
           <div key={group.section}>
             <div
               style={{
-                padding: '22px 40px 12px',
+                padding: '20px 34px 10px',
                 fontFamily: 'var(--font-mono)',
-                fontSize: '20px',
+                fontSize: '16px',
                 letterSpacing: '0.22em',
                 textTransform: 'uppercase',
                 color: '#ffffff',
@@ -119,15 +119,15 @@ export default function Sidebar() {
                   style={{
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '28px',
+                    gap: '22px',
                     width: '100%',
-                    padding: '18px 40px',
+                    padding: '16px 34px',
                     background: active ? 'rgba(230,57,70,0.18)' : 'none',
                     border: 'none',
                     borderLeft: active ? '2px solid #e63946' : '2px solid transparent',
                     cursor: 'pointer',
                     color: '#ffffff',
-                    fontSize: '26px',
+                    fontSize: '22px',
                     fontFamily: 'var(--font-body)',
                     fontWeight: active ? 500 : 400,
                     textAlign: 'left',
@@ -140,7 +140,7 @@ export default function Sidebar() {
                     if (!active) (e.currentTarget as HTMLButtonElement).style.background = 'none';
                   }}
                 >
-                  <span style={{ fontSize: '27px', opacity: active ? 1 : 0.9, lineHeight: 1 }}>□</span>
+                  <span style={{ fontSize: '22px', opacity: active ? 1 : 0.9, lineHeight: 1 }}>□</span>
                   {item.label}
                 </button>
               );
@@ -153,9 +153,9 @@ export default function Sidebar() {
           <div>
             <div
               style={{
-                padding: '22px 40px 12px',
+                padding: '20px 34px 10px',
                 fontFamily: 'var(--font-mono)',
-                fontSize: '20px',
+                fontSize: '16px',
                 letterSpacing: '0.22em',
                 textTransform: 'uppercase',
                 color: '#e63946',
@@ -176,21 +176,21 @@ export default function Sidebar() {
                   style={{
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '28px',
+                    gap: '22px',
                     width: '100%',
-                    padding: '18px 40px',
+                    padding: '16px 34px',
                     background: active ? 'rgba(230,57,70,0.18)' : 'none',
                     border: 'none',
                     borderLeft: active ? '2px solid #e63946' : '2px solid transparent',
                     cursor: 'pointer',
                     color: '#ffffff',
-                    fontSize: '26px',
+                    fontSize: '22px',
                     fontFamily: 'var(--font-body)',
                     fontWeight: active ? 500 : 400,
                     textAlign: 'left',
                   }}
                 >
-                  <span style={{ fontSize: '27px', opacity: active ? 1 : 0.9, lineHeight: 1 }}>□</span>
+                  <span style={{ fontSize: '22px', opacity: active ? 1 : 0.9, lineHeight: 1 }}>□</span>
                   {item.label}
                 </button>
               );
@@ -200,20 +200,20 @@ export default function Sidebar() {
       </nav>
 
       {/* Bottom */}
-      <div style={{ borderTop: '1px solid #1e1e1e', padding: '30px 0' }}>
+      <div style={{ borderTop: '1px solid #1e1e1e', padding: '22px 0' }}>
         <button
           onClick={() => (window.location.href = '/auth/signout')}
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '28px',
+            gap: '22px',
             width: '100%',
-            padding: '18px 40px',
+            padding: '16px 34px',
             background: 'none',
             border: 'none',
             cursor: 'pointer',
             color: '#ffffff',
-            fontSize: '26px',
+            fontSize: '22px',
             fontFamily: 'var(--font-body)',
             opacity: 0.5,
             textAlign: 'left',
@@ -221,7 +221,7 @@ export default function Sidebar() {
           onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.opacity = '1')}
           onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.opacity = '0.5')}
         >
-          <span style={{ fontSize: '27px', lineHeight: 1 }}>□</span> Sign Out
+          <span style={{ fontSize: '22px', lineHeight: 1 }}>□</span> Sign Out
         </button>
       </div>
     </aside>
