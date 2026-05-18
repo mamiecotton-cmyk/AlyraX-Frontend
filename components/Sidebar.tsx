@@ -24,18 +24,10 @@ export default function Sidebar() {
     {
       section: 'Archive',
       items: [
-        { label: 'Dashboard',     icon: '⊞', href: '/dashboard' },
-        { label: 'All Archetypes', icon: '◉', href: '/archive' },
-        { label: 'The Men',       icon: '△', href: '/archive?gender=M' },
-        { label: 'The Women',     icon: '▽', href: '/archive?gender=F' },
-        { label: 'Pulse Quiz',    icon: '◆', href: '/pulse-quiz' },
-      ],
-    },
-    {
-      section: 'Create',
-      items: [
-        { label: 'New Companion', icon: '+', href: '/onboarding' },
-        { label: 'Image Studio',  icon: '□', href: '/create' },
+        { label: 'Dashboard',  href: '/dashboard' },
+        { label: 'Archetypes', href: '/archive' },
+        { label: 'The Men',    href: '/archive?gender=M' },
+        { label: 'The Women',  href: '/archive?gender=F' },
       ],
     },
     {
@@ -50,8 +42,8 @@ export default function Sidebar() {
   return (
     <aside
       style={{
-        width: '220px',
-        minWidth: '220px',
+        width: '320px',
+        minWidth: '320px',
         background: '#0a0a0a',
         borderRight: '1px solid #1e1e1e',
         display: 'flex',
@@ -65,7 +57,7 @@ export default function Sidebar() {
       {/* Logo */}
       <div
         style={{
-          padding: '22px 20px 18px',
+          padding: '48px 40px 34px',
           borderBottom: '1px solid #1e1e1e',
         }}
       >
@@ -76,7 +68,7 @@ export default function Sidebar() {
           <div
             style={{
               fontFamily: 'var(--font-display)',
-              fontSize: '24px',
+              fontSize: '46px',
               fontWeight: 500,
               color: '#ffffff',
               letterSpacing: '0.1em',
@@ -88,7 +80,7 @@ export default function Sidebar() {
           <div
             style={{
               fontFamily: 'var(--font-mono)',
-              fontSize: '10px',
+              fontSize: '23px',
               letterSpacing: '0.24em',
               textTransform: 'uppercase',
               color: '#ffffff',
@@ -102,14 +94,14 @@ export default function Sidebar() {
       </div>
 
       {/* Nav */}
-      <nav style={{ flex: 1, paddingTop: '8px' }}>
+      <nav style={{ flex: 1, paddingTop: '30px' }}>
         {NAV.map((group) => (
           <div key={group.section}>
             <div
               style={{
-                padding: '16px 20px 6px',
+                padding: '22px 40px 12px',
                 fontFamily: 'var(--font-mono)',
-                fontSize: '10px',
+                fontSize: '20px',
                 letterSpacing: '0.22em',
                 textTransform: 'uppercase',
                 color: '#ffffff',
@@ -127,15 +119,15 @@ export default function Sidebar() {
                   style={{
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '12px',
+                    gap: '28px',
                     width: '100%',
-                    padding: '10px 20px',
-                    background: active ? 'rgba(230,57,70,0.1)' : 'none',
+                    padding: '18px 40px',
+                    background: active ? 'rgba(230,57,70,0.18)' : 'none',
                     border: 'none',
                     borderLeft: active ? '2px solid #e63946' : '2px solid transparent',
                     cursor: 'pointer',
                     color: '#ffffff',
-                    fontSize: '14px',
+                    fontSize: '26px',
                     fontFamily: 'var(--font-body)',
                     fontWeight: active ? 500 : 400,
                     textAlign: 'left',
@@ -148,7 +140,7 @@ export default function Sidebar() {
                     if (!active) (e.currentTarget as HTMLButtonElement).style.background = 'none';
                   }}
                 >
-                  <span style={{ fontSize: '14px', opacity: active ? 1 : 0.6 }}>{item.icon}</span>
+                  <span style={{ fontSize: '27px', opacity: active ? 1 : 0.9, lineHeight: 1 }}>□</span>
                   {item.label}
                 </button>
               );
@@ -161,9 +153,9 @@ export default function Sidebar() {
           <div>
             <div
               style={{
-                padding: '16px 20px 6px',
+                padding: '22px 40px 12px',
                 fontFamily: 'var(--font-mono)',
-                fontSize: '10px',
+                fontSize: '20px',
                 letterSpacing: '0.22em',
                 textTransform: 'uppercase',
                 color: '#e63946',
@@ -173,8 +165,8 @@ export default function Sidebar() {
               Admin
             </div>
             {[
-              { label: 'Archetypes',    href: '/admin/archetypes' },
               { label: 'Media Manager', href: '/admin/profile' },
+              { label: 'Generate', href: '/admin/generate' },
             ].map((item) => {
               const active = isActive(item.href);
               return (
@@ -184,21 +176,21 @@ export default function Sidebar() {
                   style={{
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '12px',
+                    gap: '28px',
                     width: '100%',
-                    padding: '10px 20px',
-                    background: active ? 'rgba(230,57,70,0.1)' : 'none',
+                    padding: '18px 40px',
+                    background: active ? 'rgba(230,57,70,0.18)' : 'none',
                     border: 'none',
                     borderLeft: active ? '2px solid #e63946' : '2px solid transparent',
                     cursor: 'pointer',
                     color: '#ffffff',
-                    fontSize: '14px',
+                    fontSize: '26px',
                     fontFamily: 'var(--font-body)',
                     fontWeight: active ? 500 : 400,
                     textAlign: 'left',
                   }}
                 >
-                  <span style={{ fontSize: '14px', opacity: 0.6 }}>◈</span>
+                  <span style={{ fontSize: '27px', opacity: active ? 1 : 0.9, lineHeight: 1 }}>□</span>
                   {item.label}
                 </button>
               );
@@ -208,20 +200,20 @@ export default function Sidebar() {
       </nav>
 
       {/* Bottom */}
-      <div style={{ borderTop: '1px solid #1e1e1e', padding: '8px 0' }}>
+      <div style={{ borderTop: '1px solid #1e1e1e', padding: '30px 0' }}>
         <button
           onClick={() => (window.location.href = '/auth/signout')}
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '12px',
+            gap: '28px',
             width: '100%',
-            padding: '10px 20px',
+            padding: '18px 40px',
             background: 'none',
             border: 'none',
             cursor: 'pointer',
             color: '#ffffff',
-            fontSize: '14px',
+            fontSize: '26px',
             fontFamily: 'var(--font-body)',
             opacity: 0.5,
             textAlign: 'left',
@@ -229,7 +221,7 @@ export default function Sidebar() {
           onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.opacity = '1')}
           onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.opacity = '0.5')}
         >
-          <span>◁</span> Sign Out
+          <span style={{ fontSize: '27px', lineHeight: 1 }}>□</span> Sign Out
         </button>
       </div>
     </aside>

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { archetypes, type Archetype, buildArchetypePrompt, NEGATIVE_PROMPT } from '@/lib/archetypes';
 import { getArchetypeImagePrompt } from '@/lib/archetype-image-prompts';
 import { createClient } from '@/lib/supabase';
+import Sidebar from '@/components/Sidebar';
 
 type GalleryImage = {
   id: string; archetype_id: string; image_url: string;
@@ -57,11 +58,56 @@ const REFERENCE_BEHAVIOR_OPTS: { key: ReferenceBehavior; label: string; denoise:
   { key: 'match', label: 'Match', denoise: 0.56, strength: 0.26 },
 ];
 
-const BTN_GOLD: React.CSSProperties = { padding: '8px 18px', background: 'var(--gold)', border: 'none', borderRadius: '2px', cursor: 'pointer', fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--onyx)', fontWeight: 500 };
-const BTN_GHOST: React.CSSProperties = { padding: '7px 14px', background: 'transparent', border: '1px solid var(--gold-dim)', borderRadius: '2px', cursor: 'pointer', fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--gold)' };
-const BTN_MUTED: React.CSSProperties = { padding: '7px 14px', background: 'transparent', border: '1px solid var(--border-mid)', borderRadius: '2px', cursor: 'pointer', fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--ivory-muted)' };
-const BTN_DANGER: React.CSSProperties = { padding: '5px 10px', background: 'transparent', border: '1px solid rgba(192,57,43,0.35)', borderRadius: '2px', cursor: 'pointer', fontFamily: 'var(--font-mono)', fontSize: '8px', letterSpacing: '0.12em', color: '#c0392b' };
-const FIELD_LABEL: React.CSSProperties = { fontFamily: 'var(--font-mono)', fontSize: '8px', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--ivory-muted)', marginBottom: '5px' };
+const BTN_GOLD: React.CSSProperties = {
+  padding: '9px 20px',
+  background: '#e63946',
+  border: 'none',
+  borderRadius: '4px',
+  cursor: 'pointer',
+  fontFamily: 'var(--font-body)',
+  fontSize: '13px',
+  fontWeight: 500,
+  color: '#ffffff',
+};
+const BTN_GHOST: React.CSSProperties = {
+  padding: '8px 18px',
+  background: 'transparent',
+  border: '1px solid #0a0a0a',
+  borderRadius: '4px',
+  cursor: 'pointer',
+  fontFamily: 'var(--font-body)',
+  fontSize: '13px',
+  color: '#0a0a0a',
+};
+const BTN_MUTED: React.CSSProperties = {
+  padding: '8px 16px',
+  background: 'transparent',
+  border: '1px solid #cccccc',
+  borderRadius: '4px',
+  cursor: 'pointer',
+  fontFamily: 'var(--font-body)',
+  fontSize: '13px',
+  color: '#0a0a0a',
+};
+const BTN_DANGER: React.CSSProperties = {
+  padding: '6px 12px',
+  background: 'transparent',
+  border: '1px solid #e63946',
+  borderRadius: '4px',
+  cursor: 'pointer',
+  fontFamily: 'var(--font-body)',
+  fontSize: '12px',
+  color: '#e63946',
+};
+const FIELD_LABEL: React.CSSProperties = {
+  fontFamily: 'var(--font-body)',
+  fontSize: '12px',
+  fontWeight: 500,
+  letterSpacing: '0.06em',
+  textTransform: 'uppercase',
+  color: '#0a0a0a',
+  marginBottom: '6px',
+};
 const FIELD_INPUT: React.CSSProperties = {
   width: '100%',
   padding: '10px 12px',
@@ -72,6 +118,20 @@ const FIELD_INPUT: React.CSSProperties = {
   fontFamily: 'var(--font-body)',
   fontSize: '14px',
   outline: 'none',
+};
+const HEADER_LABEL_STYLE: React.CSSProperties = {
+  fontFamily: 'var(--font-body)',
+  fontSize: '28px',
+  fontWeight: 500,
+  lineHeight: 1.1,
+  color: '#0a0a0a',
+};
+const HEADER_NAME_STYLE: React.CSSProperties = {
+  fontFamily: 'var(--font-display)',
+  fontSize: '36px',
+  color: '#0a0a0a',
+  fontWeight: 600,
+  lineHeight: 1,
 };
 
 const HUMAN_REALISM = 'RAW candid DSLR photo, photorealistic human, natural skin pores, realistic eyes';
@@ -570,62 +630,64 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
     await Promise.all(updates.map((v) => fetch(`/api/archetypes/videos/${v.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sort_order: v.sort_order }) })));
   }
 
-  if (loading) return <div style={{ minHeight: '100dvh', background: '#f5f5f0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><div style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.3em', color: 'var(--ivory-ghost)', textTransform: 'uppercase' }}>Loading...</div></div>;
+  if (loading) return <div style={{ minHeight: '100dvh', background: '#f5f5f0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><div style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.3em', color: '#0a0a0a', textTransform: 'uppercase' }}>Loading...</div></div>;
   if (!archetype) return <div style={{ minHeight: '100dvh', background: '#f5f5f0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><button onClick={() => router.push('/admin/archetypes')} style={BTN_MUTED}>◁ Back</button></div>;
 
   return (
-    <div style={{ minHeight: '100dvh', width: '100%', background: '#f5f5f0', padding: '28px' }}>
-      <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
+    <div style={{ display: 'flex', minHeight: '100dvh', width: '100%', background: '#f5f5f0', overflow: 'hidden' }}>
+      <Sidebar />
+      <main style={{ flex: 1, minWidth: 0, height: '100dvh', overflow: 'auto', background: '#f5f5f0' }}>
 
         {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
-          <div>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '0.28em', textTransform: 'uppercase', color: 'var(--gold)', marginBottom: '4px' }}>◈ Admin — Media Manager</div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-              <div style={{ fontFamily: 'var(--font-display)', fontSize: '26px', color: '#0a0a0a' }}>{archetype.name}</div>
-              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--gold)', border: '1px solid var(--gold-dim)', padding: '2px 8px', borderRadius: '2px' }}>{archetype.dossierId}</div>
-              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--ivory-muted)' }}>{archetype.gender === 'M' ? '♂ Man' : '♀ Woman'}</div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '36px 48px', background: '#ffffff', borderBottom: '1px solid #e0e0d8' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '28px', minWidth: 0 }}>
+            <div style={HEADER_LABEL_STYLE}>Media<br />Manager</div>
+            <div style={{ width: '28px', height: '2px', background: '#cccccc' }} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', minWidth: 0 }}>
+              <div style={HEADER_NAME_STYLE}>{archetype.name}</div>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', color: '#e63946', border: '1px solid rgba(230,57,70,0.45)', padding: '4px 10px', borderRadius: '4px', whiteSpace: 'nowrap' }}>{archetype.dossierId}</div>
+              <div style={{ fontFamily: 'var(--font-body)', fontSize: '14px', color: '#0a0a0a', opacity: 0.58, whiteSpace: 'nowrap' }}>{archetype.gender === 'M' ? 'Man' : 'Woman'}</div>
             </div>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '8.5px', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--ivory-muted)', marginTop: '3px' }}>{archetype.archetype}</div>
           </div>
           <div style={{ display: 'flex', gap: '8px' }}>
-            <button onClick={() => router.push('/admin/archetypes')} style={BTN_MUTED}>◁ Archetypes</button>
-            <button onClick={() => router.push(`/dossier/${id}`)} style={BTN_MUTED}>◎ Dossier</button>
+            <button onClick={() => router.push('/admin/archetypes')} style={BTN_MUTED}>Archetypes</button>
+            <button onClick={() => router.push(`/dossier/${id}`)} style={BTN_GHOST}>Dossier</button>
           </div>
         </div>
 
         {/* Tabs */}
-        <div style={{ display: 'flex', borderBottom: '1px solid var(--border-dark)', marginBottom: '20px' }}>
+        <div style={{ display: 'flex', background: '#ffffff', borderBottom: '1px solid #e0e0d8', padding: '0 48px' }}>
           {(['images', 'videos'] as Tab[]).map((t) => (
-            <button key={t} onClick={() => setTab(t)} style={{ padding: '10px 22px', background: 'none', border: 'none', borderBottom: tab === t ? '1px solid var(--gold)' : '1px solid transparent', cursor: 'pointer', fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '0.18em', textTransform: 'capitalize', color: tab === t ? 'var(--gold)' : 'var(--ivory-muted)' }}>
-              {t === 'images' ? `□ Images (${gallery.length})` : `▷ Videos (${videos.length})`}
+            <button key={t} onClick={() => setTab(t)} style={{ padding: '24px 48px 24px 0', background: 'none', border: 'none', borderBottom: tab === t ? '3px solid #e63946' : '3px solid transparent', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: '20px', fontWeight: tab === t ? 700 : 400, color: '#0a0a0a', opacity: tab === t ? 1 : 0.62 }}>
+              {t === 'images' ? `Images (${gallery.length})` : `Videos (${videos.length})`}
             </button>
           ))}
         </div>
 
-        {/* Status */}
-        {status && <div style={{ padding: '8px 14px', background: 'var(--charcoal)', border: '1px solid var(--border-dark)', borderRadius: '2px', marginBottom: '16px', fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--ivory-muted)' }}>{status}</div>}
+        <div style={{ padding: '48px', maxWidth: '1180px' }}>
+          {/* Status */}
+          {status && <div style={{ padding: '12px 16px', background: '#0a0a0a', borderRadius: '0', margin: '-48px -48px 24px', fontFamily: 'var(--font-body)', fontSize: '18px', color: '#ffffff', fontWeight: 500 }}><span style={{ color: '#e63946', marginRight: '12px' }}>●</span>{status}</div>}
 
         {/* IMAGES */}
           {tab === 'images' && (
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', alignItems: 'start' }}>
             <div>
-              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', letterSpacing: '0.24em', textTransform: 'uppercase', color: 'var(--gold)', marginBottom: '14px' }}>◈ Gallery — {gallery.length} image{gallery.length !== 1 ? 's' : ''}</div>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', letterSpacing: '0.24em', textTransform: 'uppercase', color: '#e63946', marginBottom: '14px' }}>◈ Gallery — {gallery.length} image{gallery.length !== 1 ? 's' : ''}</div>
               {gallery.length === 0 ? (
-                <div style={{ padding: '40px', border: '1px dashed var(--border-mid)', borderRadius: '3px', textAlign: 'center', fontFamily: 'var(--font-display)', fontSize: '14px', fontStyle: 'italic', color: 'var(--ivory-ghost)' }}>No images yet.</div>
+                <div style={{ padding: '40px', border: '1px dashed var(--border-mid)', borderRadius: '3px', textAlign: 'center', fontFamily: 'var(--font-display)', fontSize: '14px', fontStyle: 'italic', color: '#0a0a0a' }}>No images yet.</div>
               ) : (() => {
                 const mainImg = gallery.find((g) => g.is_main) ?? gallery[0];
                 const secondaryImgs = gallery.filter((g) => g.id !== mainImg.id);
                 const mainIdx = gallery.findIndex((g) => g.id === mainImg.id);
 
                 const ImageCard = ({ img, i, isHero }: { img: GalleryImage; i: number; isHero: boolean }) => (
-                  <div style={{ background: 'var(--charcoal)', border: `1px solid ${img.is_main ? 'var(--gold)' : 'var(--border-dark)'}`, borderRadius: '3px', overflow: 'hidden' }}>
+                  <div style={{ background: '#ffffff', border: `1px solid ${img.is_main ? 'var(--gold)' : 'var(--border-dark)'}`, borderRadius: '3px', overflow: 'hidden' }}>
                     <div style={{ position: 'relative', overflow: 'hidden', background: archetype.imageGradient, ...(isHero ? { display: 'flex', justifyContent: 'center', alignItems: 'center', maxHeight: '70vh' } : { aspectRatio: '3/4' }) }}>
                       <div style={isHero ? { maxWidth: '520px', width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center' } : undefined}>
                         <img src={img.image_url} alt="" style={isHero ? { width: '100%', height: 'auto', maxHeight: '70vh', objectFit: 'contain', objectPosition: 'center center', display: 'block' } : { width: '100%', height: '100%', objectFit: 'contain', objectPosition: 'center center', display: 'block' }} />
                       </div>
-                      {img.is_main && <div style={{ position: 'absolute', top: '8px', left: '8px', fontFamily: 'var(--font-mono)', fontSize: '7px', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--onyx)', background: 'var(--gold)', padding: '3px 8px', borderRadius: '2px' }}>Main</div>}
-                      {img.seed && <div style={{ position: 'absolute', bottom: '8px', left: '8px', fontFamily: 'var(--font-mono)', fontSize: '7px', color: 'var(--ivory-ghost)', background: 'rgba(0,0,0,0.75)', padding: '2px 6px', borderRadius: '2px' }}>{img.seed}</div>}
+                      {img.is_main && <div style={{ position: 'absolute', top: '8px', left: '8px', fontFamily: 'var(--font-mono)', fontSize: '7px', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--onyx)', background: '#e63946', padding: '3px 8px', borderRadius: '2px' }}>Main</div>}
+                      {img.seed && <div style={{ position: 'absolute', bottom: '8px', left: '8px', fontFamily: 'var(--font-mono)', fontSize: '7px', color: '#0a0a0a', background: 'rgba(0,0,0,0.75)', padding: '2px 6px', borderRadius: '2px' }}>{img.seed}</div>}
                     </div>
                     <div style={{ padding: isHero ? '10px' : '8px', display: 'flex', flexDirection: isHero ? 'row' : 'column', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
                       <div style={{ display: 'flex', gap: '4px', flex: isHero ? 0 : 1 }}>
@@ -653,25 +715,25 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
                     {/* Secondary images — medium grid */}
                     {secondaryImgs.length > 0 && (
                       <div>
-                        <div style={{ fontFamily: 'var(--font-mono)', fontSize: '7.5px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--ivory-ghost)', marginBottom: '10px' }}>◈ Other Images</div>
+                        <div style={{ fontFamily: 'var(--font-mono)', fontSize: '7.5px', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#0a0a0a', marginBottom: '10px' }}>◈ Other Images</div>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px' }}>
                           {secondaryImgs.map((img) => {
                             const origIdx = gallery.findIndex((g) => g.id === img.id);
                             return (
                               <div
-                                style={{ position: 'relative', aspectRatio: '3/4', overflow: 'hidden', borderRadius: '3px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f5f5f0', border: '1px solid var(--border-dark)' }}
+                                style={{ position: 'relative', aspectRatio: '3/4', overflow: 'hidden', borderRadius: '3px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f5f5f0', border: '1px solid #e0e0d8' }}
                                 key={img.id}
                                 onClick={() => { setViewerImageUrl(img.image_url); setViewerImage(img); }}
                                 title="View image"
                               >
                                 <img src={img.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center top', display: 'block' }} />
-                                {img.seed && <div style={{ position: 'absolute', top: '6px', left: '6px', fontFamily: 'var(--font-mono)', fontSize: '7px', color: 'var(--ivory-ghost)', background: 'rgba(0,0,0,0.75)', padding: '2px 6px', borderRadius: '2px' }}>{img.seed}</div>}
+                                {img.seed && <div style={{ position: 'absolute', top: '6px', left: '6px', fontFamily: 'var(--font-mono)', fontSize: '7px', color: '#0a0a0a', background: 'rgba(0,0,0,0.75)', padding: '2px 6px', borderRadius: '2px' }}>{img.seed}</div>}
                                 <div style={{ position: 'absolute', top: '6px', right: '6px', display: 'flex', gap: '4px' }}>
                                   <button
                                     onClick={(e) => { e.stopPropagation(); moveImage(origIdx, 'up'); }}
                                     disabled={origIdx === 0 || deletingImageId !== null}
                                     title="Move up"
-                                    style={{ width: '24px', height: '24px', background: 'rgba(0,0,0,0.72)', border: '1px solid var(--border-mid)', borderRadius: '2px', color: 'var(--ivory-muted)', cursor: origIdx === 0 || deletingImageId !== null ? 'not-allowed' : 'pointer', opacity: origIdx === 0 ? 0.45 : 1 }}
+                                    style={{ width: '24px', height: '24px', background: 'rgba(0,0,0,0.72)', border: '1px solid #e0e0d8', borderRadius: '2px', color: '#0a0a0a', cursor: origIdx === 0 || deletingImageId !== null ? 'not-allowed' : 'pointer', opacity: origIdx === 0 ? 0.45 : 1 }}
                                   >
                                     ▲
                                   </button>
@@ -679,7 +741,7 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
                                     onClick={(e) => { e.stopPropagation(); moveImage(origIdx, 'down'); }}
                                     disabled={origIdx === gallery.length - 1 || deletingImageId !== null}
                                     title="Move down"
-                                    style={{ width: '24px', height: '24px', background: 'rgba(0,0,0,0.72)', border: '1px solid var(--border-mid)', borderRadius: '2px', color: 'var(--ivory-muted)', cursor: origIdx === gallery.length - 1 || deletingImageId !== null ? 'not-allowed' : 'pointer', opacity: origIdx === gallery.length - 1 ? 0.45 : 1 }}
+                                    style={{ width: '24px', height: '24px', background: 'rgba(0,0,0,0.72)', border: '1px solid #e0e0d8', borderRadius: '2px', color: '#0a0a0a', cursor: origIdx === gallery.length - 1 || deletingImageId !== null ? 'not-allowed' : 'pointer', opacity: origIdx === gallery.length - 1 ? 0.45 : 1 }}
                                   >
                                     ▼
                                   </button>
@@ -696,14 +758,14 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
                                   <button
                                     onClick={(e) => { e.stopPropagation(); setMainImage(img); }}
                                     disabled={deletingImageId !== null}
-                                    style={{ padding: '3px 6px', background: 'rgba(0,0,0,0.72)', border: '1px solid var(--gold-dim)', borderRadius: '2px', color: 'var(--gold)', fontFamily: 'var(--font-mono)', fontSize: '7px', letterSpacing: '0.08em', cursor: deletingImageId !== null ? 'not-allowed' : 'pointer' }}
+                                    style={{ padding: '3px 6px', background: 'rgba(0,0,0,0.72)', border: '1px solid rgba(230,57,70,0.35)', borderRadius: '2px', color: '#e63946', fontFamily: 'var(--font-mono)', fontSize: '7px', letterSpacing: '0.08em', cursor: deletingImageId !== null ? 'not-allowed' : 'pointer' }}
                                   >
                                     Main
                                   </button>
                                   <button
                                     onClick={(e) => { e.stopPropagation(); setVideoSourceUrl(img.image_url); setTab('videos'); setStatus('Source frame set.'); }}
                                     disabled={deletingImageId !== null}
-                                    style={{ padding: '3px 6px', background: 'rgba(0,0,0,0.72)', border: '1px solid var(--border-mid)', borderRadius: '2px', color: 'var(--ivory-muted)', fontFamily: 'var(--font-mono)', fontSize: '7px', letterSpacing: '0.08em', cursor: deletingImageId !== null ? 'not-allowed' : 'pointer' }}
+                                    style={{ padding: '3px 6px', background: 'rgba(0,0,0,0.72)', border: '1px solid #e0e0d8', borderRadius: '2px', color: '#0a0a0a', fontFamily: 'var(--font-mono)', fontSize: '7px', letterSpacing: '0.08em', cursor: deletingImageId !== null ? 'not-allowed' : 'pointer' }}
                                   >
                                     Video
                                   </button>
@@ -720,11 +782,11 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', position: 'sticky', top: '28px', maxHeight: 'calc(100vh - 56px)', overflow: 'auto', alignSelf: 'start' }}>
-              <div style={{ background: 'var(--charcoal)', border: '1px solid var(--border-dark)', borderRadius: '3px', padding: '18px' }}>
-                <div style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', letterSpacing: '0.24em', textTransform: 'uppercase', color: 'var(--gold)', marginBottom: '12px' }}>◈ Generate</div>
+              <div style={{ background: '#ffffff', border: '1px solid #e0e0d8', borderRadius: '3px', padding: '18px' }}>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', letterSpacing: '0.24em', textTransform: 'uppercase', color: '#e63946', marginBottom: '12px' }}>◈ Generate</div>
 
                 {/* Gender toggle */}
-                <div style={{ fontFamily: 'var(--font-mono)', fontSize: '7.5px', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--ivory-ghost)', marginBottom: '5px' }}>Gender</div>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: '7.5px', letterSpacing: '0.16em', textTransform: 'uppercase', color: '#0a0a0a', marginBottom: '5px' }}>Gender</div>
 	                <div style={{ display: 'flex', gap: '4px', marginBottom: '12px' }}>
 	                  {(['M', 'F'] as const).map((g) => {
 	                    const active = structuredPrompt.gender === g;
@@ -743,7 +805,7 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
 	                  })}
 	                </div>
 
-	                <div style={{ fontFamily: 'var(--font-mono)', fontSize: '7.5px', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--ivory-ghost)', marginBottom: '6px' }}>Structured Subject</div>
+	                <div style={{ fontFamily: 'var(--font-mono)', fontSize: '7.5px', letterSpacing: '0.16em', textTransform: 'uppercase', color: '#0a0a0a', marginBottom: '6px' }}>Structured Subject</div>
 	                <div style={{ display: 'grid', gridTemplateColumns: '1fr 0.62fr', gap: '8px', marginBottom: '8px' }}>
 	                  <label>
 	                    <div style={FIELD_LABEL}>Race / Ethnicity</div>
@@ -767,8 +829,8 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
 		                  <input value={structuredPrompt.details} onChange={(e) => setStructuredField('details', e.target.value)} placeholder={sceneSuggestion.details} style={FIELD_INPUT} />
 	                </label>
 
-	                <div style={{ fontFamily: 'var(--font-mono)', fontSize: '7.5px', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--ivory-ghost)', marginBottom: '5px' }}>Advanced Prompt Details</div>
-	                <textarea value={imagePrompt} onChange={(e) => setImagePrompt(e.target.value)} rows={5} placeholder="Optional extra details. Structured fields stay first." style={{ width: '100%', padding: '12px', background: '#f5f5f0', border: '1px solid var(--border-mid)', borderRadius: '2px', color: '#0a0a0a', fontFamily: 'var(--font-mono)', fontSize: '12px', lineHeight: 1.7, resize: 'vertical', outline: 'none', marginBottom: '10px' }} />
+	                <div style={{ fontFamily: 'var(--font-mono)', fontSize: '7.5px', letterSpacing: '0.16em', textTransform: 'uppercase', color: '#0a0a0a', marginBottom: '5px' }}>Advanced Prompt Details</div>
+	                <textarea value={imagePrompt} onChange={(e) => setImagePrompt(e.target.value)} rows={5} placeholder="Optional extra details. Structured fields stay first." style={{ width: '100%', padding: '12px', background: '#f5f5f0', border: '1px solid #e0e0d8', borderRadius: '2px', color: '#0a0a0a', fontFamily: 'var(--font-mono)', fontSize: '12px', lineHeight: 1.7, resize: 'vertical', outline: 'none', marginBottom: '10px' }} />
 		                <div style={{ padding: '11px 12px', background: '#f5f5f0', border: '1px solid #e0e0d8', borderRadius: '2px', color: '#0a0a0a', fontFamily: 'var(--font-mono)', fontSize: '11px', lineHeight: 1.6, marginBottom: '10px' }}>
 		                  <div style={{ ...FIELD_LABEL, marginBottom: '5px' }}>Final Prompt Preview</div>
 		                  {finalPromptPreview || 'Fill the structured fields to preview the prompt.'}
@@ -786,7 +848,7 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
                 </label>
                 {useReferenceImage && (
                   <>
-                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: '7.5px', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--ivory-ghost)', marginBottom: '5px' }}>Reference Behavior</div>
+                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: '7.5px', letterSpacing: '0.16em', textTransform: 'uppercase', color: '#0a0a0a', marginBottom: '5px' }}>Reference Behavior</div>
                     <div style={{ display: 'flex', gap: '4px', marginBottom: '10px' }}>
                       {REFERENCE_BEHAVIOR_OPTS.map((option) => (
                         <button key={option.key} onClick={() => setReferenceBehavior(option.key)} style={{ flex: 1, padding: '6px 3px', textAlign: 'center', border: `1px solid ${referenceBehavior === option.key ? 'var(--gold)' : 'var(--border-mid)'}`, background: referenceBehavior === option.key ? 'var(--gold-glow)' : 'transparent', borderRadius: '2px', cursor: 'pointer', fontFamily: 'var(--font-mono)', fontSize: '7px', letterSpacing: '0.1em', textTransform: 'uppercase', color: referenceBehavior === option.key ? 'var(--gold)' : 'var(--ivory-muted)' }}>
@@ -796,7 +858,7 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
                     </div>
                   </>
                 )}
-                <div style={{ fontFamily: 'var(--font-mono)', fontSize: '7.5px', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--ivory-ghost)', marginBottom: '5px' }}>Style</div>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: '7.5px', letterSpacing: '0.16em', textTransform: 'uppercase', color: '#0a0a0a', marginBottom: '5px' }}>Style</div>
                 <div style={{ display: 'flex', gap: '4px', marginBottom: '10px' }}>
                   {STYLE_OPTS.map((s) => (
                     <button key={s.key} onClick={() => setImageStyle(s.key)} style={{ flex: 1, padding: '6px 3px', textAlign: 'center', border: `1px solid ${imageStyle === s.key ? 'var(--gold)' : 'var(--border-mid)'}`, background: imageStyle === s.key ? 'var(--gold-glow)' : 'transparent', borderRadius: '2px', cursor: 'pointer', fontFamily: 'var(--font-mono)', fontSize: '7px', letterSpacing: '0.1em', textTransform: 'uppercase', color: imageStyle === s.key ? 'var(--gold)' : 'var(--ivory-muted)' }}>
@@ -804,7 +866,7 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
                     </button>
                   ))}
                 </div>
-                <div style={{ fontFamily: 'var(--font-mono)', fontSize: '7.5px', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--ivory-ghost)', marginBottom: '5px' }}>Resolution</div>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: '7.5px', letterSpacing: '0.16em', textTransform: 'uppercase', color: '#0a0a0a', marginBottom: '5px' }}>Resolution</div>
                 <div style={{ display: 'flex', gap: '4px', marginBottom: '10px' }}>
                   {(['standard', 'high'] as const).map((r) => (
                     <button key={r} onClick={() => setResolution(r)} style={{ flex: 1, padding: '6px 3px', textAlign: 'center', border: `1px solid ${resolution === r ? 'var(--gold)' : 'var(--border-mid)'}`, background: resolution === r ? 'var(--gold-glow)' : 'transparent', borderRadius: '2px', cursor: 'pointer', fontFamily: 'var(--font-mono)', fontSize: '7px', letterSpacing: '0.1em', textTransform: 'uppercase', color: resolution === r ? 'var(--gold)' : 'var(--ivory-muted)' }}>
@@ -812,21 +874,21 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
                     </button>
                   ))}
                 </div>
-                <div style={{ fontFamily: 'var(--font-mono)', fontSize: '7.5px', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--ivory-ghost)', marginBottom: '5px' }}>Pack</div>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: '7.5px', letterSpacing: '0.16em', textTransform: 'uppercase', color: '#0a0a0a', marginBottom: '5px' }}>Pack</div>
                 <div style={{ display: 'flex', gap: '4px', marginBottom: '10px' }}>
                   {[1, 5, 10].map((p) => (
                     <button key={p} onClick={() => setPackSize(p as PackSize)} style={{ flex: 1, padding: '7px', border: `1px solid ${packSize === p ? 'var(--gold)' : 'var(--border-mid)'}`, background: packSize === p ? 'var(--gold-glow)' : 'transparent', borderRadius: '2px', cursor: 'pointer', fontFamily: 'var(--font-mono)', fontSize: '11px', color: packSize === p ? 'var(--gold)' : 'var(--ivory-muted)' }}>{p}</button>
                   ))}
                 </div>
-                <div style={{ fontFamily: 'var(--font-mono)', fontSize: '7.5px', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--ivory-ghost)', marginBottom: '5px' }}>Seed</div>
-                <input value={seed} onChange={(e) => setSeed(e.target.value)} placeholder="Random" inputMode="numeric" style={{ width: '100%', padding: '8px 10px', background: '#f5f5f0', border: '1px solid var(--border-mid)', borderRadius: '2px', color: '#0a0a0a', fontFamily: 'var(--font-mono)', fontSize: '11px', outline: 'none', marginBottom: '12px' }} />
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: '7.5px', letterSpacing: '0.16em', textTransform: 'uppercase', color: '#0a0a0a', marginBottom: '5px' }}>Seed</div>
+                <input value={seed} onChange={(e) => setSeed(e.target.value)} placeholder="Random" inputMode="numeric" style={{ width: '100%', padding: '8px 10px', background: '#f5f5f0', border: '1px solid #e0e0d8', borderRadius: '2px', color: '#0a0a0a', fontFamily: 'var(--font-mono)', fontSize: '11px', outline: 'none', marginBottom: '12px' }} />
                 <button onClick={generateImages} disabled={genImages} style={{ ...BTN_GOLD, width: '100%', justifyContent: 'center', opacity: genImages ? 0.6 : 1, cursor: genImages ? 'not-allowed' : 'pointer' }}>
                   {genImages ? '◈ Generating...' : `◆ Generate ${packSize === 1 ? 'Image' : `${packSize} Images`}`}
                 </button>
               </div>
-              <div style={{ background: 'var(--charcoal)', border: '1px solid var(--border-dark)', borderRadius: '3px', padding: '16px 18px' }}>
-                <div style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', letterSpacing: '0.24em', textTransform: 'uppercase', color: 'var(--gold)', marginBottom: '10px' }}>◈ Upload</div>
-                <label style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '9px 14px', border: '1px solid var(--border-mid)', borderRadius: '2px', cursor: 'pointer', fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--ivory-muted)' }}>
+              <div style={{ background: '#ffffff', border: '1px solid #e0e0d8', borderRadius: '3px', padding: '16px 18px' }}>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', letterSpacing: '0.24em', textTransform: 'uppercase', color: '#e63946', marginBottom: '10px' }}>◈ Upload</div>
+                <label style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '9px 14px', border: '1px solid #e0e0d8', borderRadius: '2px', cursor: 'pointer', fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '0.14em', textTransform: 'uppercase', color: '#0a0a0a' }}>
                   ◆ Choose File<input type="file" accept="image/*" onChange={handleImageUpload} style={{ display: 'none' }} />
                 </label>
               </div>
@@ -838,13 +900,13 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
         {tab === 'videos' && (
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: '20px', alignItems: 'start' }}>
             <div>
-              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', letterSpacing: '0.24em', textTransform: 'uppercase', color: 'var(--gold)', marginBottom: '14px' }}>▷ Videos — {videos.length} clip{videos.length !== 1 ? 's' : ''}</div>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', letterSpacing: '0.24em', textTransform: 'uppercase', color: '#e63946', marginBottom: '14px' }}>▷ Videos — {videos.length} clip{videos.length !== 1 ? 's' : ''}</div>
               {videos.length === 0 ? (
-                <div style={{ padding: '40px', border: '1px dashed var(--border-mid)', borderRadius: '3px', textAlign: 'center', fontFamily: 'var(--font-display)', fontSize: '14px', fontStyle: 'italic', color: 'var(--ivory-ghost)' }}>No videos yet.</div>
+                <div style={{ padding: '40px', border: '1px dashed var(--border-mid)', borderRadius: '3px', textAlign: 'center', fontFamily: 'var(--font-display)', fontSize: '14px', fontStyle: 'italic', color: '#0a0a0a' }}>No videos yet.</div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                   {videos.map((vid, i) => (
-                    <div key={vid.id} style={{ background: 'var(--charcoal)', border: `1px solid ${vid.is_featured ? 'var(--gold)' : 'var(--border-dark)'}`, borderRadius: '3px', overflow: 'hidden', display: 'grid', gridTemplateColumns: '180px 1fr' }}>
+                    <div key={vid.id} style={{ background: '#ffffff', border: `1px solid ${vid.is_featured ? 'var(--gold)' : 'var(--border-dark)'}`, borderRadius: '3px', overflow: 'hidden', display: 'grid', gridTemplateColumns: '180px 1fr' }}>
                       <div style={{ position: 'relative', background: '#000' }}>
                         {vid.video_url.includes('.webp') ? (
                           <div style={{ width: '100%', height: '100%', position: 'relative', overflow: 'hidden' }}>
@@ -882,10 +944,10 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
                         ) : (
                           <video src={vid.video_url} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} controls playsInline preload="metadata" />
                         )}
-                        {vid.is_featured && <div style={{ position: 'absolute', top: '6px', left: '6px', fontFamily: 'var(--font-mono)', fontSize: '7px', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--onyx)', background: 'var(--gold)', padding: '2px 6px', borderRadius: '2px' }}>Featured</div>}
+                        {vid.is_featured && <div style={{ position: 'absolute', top: '6px', left: '6px', fontFamily: 'var(--font-mono)', fontSize: '7px', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--onyx)', background: '#e63946', padding: '2px 6px', borderRadius: '2px' }}>Featured</div>}
                       </div>
                       <div style={{ padding: '14px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                        {vid.prompt_used && <div style={{ fontSize: '11px', color: 'var(--ivory-muted)', lineHeight: 1.5, fontStyle: 'italic' }}>{vid.prompt_used}</div>}
+                        {vid.prompt_used && <div style={{ fontSize: '11px', color: '#0a0a0a', lineHeight: 1.5, fontStyle: 'italic' }}>{vid.prompt_used}</div>}
                         <div style={{ display: 'flex', gap: '4px' }}>
                           <button onClick={() => moveVideo(i, 'up')} disabled={i === 0} style={{ ...BTN_MUTED, padding: '4px 12px', opacity: i === 0 ? 0.3 : 1 }}>▲</button>
                           <button onClick={() => moveVideo(i, 'down')} disabled={i === videos.length - 1} style={{ ...BTN_MUTED, padding: '4px 12px', opacity: i === videos.length - 1 ? 0.3 : 1 }}>▼</button>
@@ -902,43 +964,43 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <div style={{ background: 'var(--charcoal)', border: '1px solid var(--border-dark)', borderRadius: '3px', padding: '18px' }}>
-                <div style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', letterSpacing: '0.24em', textTransform: 'uppercase', color: 'var(--gold)', marginBottom: '12px' }}>◈ Source Frame</div>
+              <div style={{ background: '#ffffff', border: '1px solid #e0e0d8', borderRadius: '3px', padding: '18px' }}>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', letterSpacing: '0.24em', textTransform: 'uppercase', color: '#e63946', marginBottom: '12px' }}>◈ Source Frame</div>
                 {videoSourceUrl && (
                   <div style={{ marginBottom: '12px', display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    <img src={videoSourceUrl} alt="Source" style={{ width: '56px', height: '74px', objectFit: 'cover', objectPosition: 'center top', borderRadius: '2px', border: '1px solid var(--gold)' }} />
+                    <img src={videoSourceUrl} alt="Source" style={{ width: '56px', height: '74px', objectFit: 'cover', objectPosition: 'center top', borderRadius: '2px', border: '1px solid #e63946' }} />
                     <button onClick={() => setVideoSourceUrl(null)} style={BTN_DANGER}>✕ Clear</button>
                   </div>
                 )}
                 {gallery.length > 0 && (
                   <div style={{ marginBottom: '12px' }}>
-                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: '7.5px', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--ivory-ghost)', marginBottom: '6px' }}>Pick from Gallery</div>
+                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: '7.5px', letterSpacing: '0.14em', textTransform: 'uppercase', color: '#0a0a0a', marginBottom: '6px' }}>Pick from Gallery</div>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '5px' }}>
                       {gallery.map((img) => (
                         <div key={img.id} onClick={() => setVideoSourceUrl(img.image_url)} style={{ aspectRatio: '3/4', overflow: 'hidden', borderRadius: '2px', cursor: 'pointer', border: `1px solid ${videoSourceUrl === img.image_url ? 'var(--gold)' : 'var(--border-mid)'}`, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f5f5f0' }}>
                           <img src={img.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain', objectPosition: 'center center' }} />
-                          {img.is_main && <div style={{ position: 'absolute', bottom: '2px', left: '2px', right: '2px', fontFamily: 'var(--font-mono)', fontSize: '6px', textTransform: 'uppercase', color: 'var(--onyx)', background: 'var(--gold)', textAlign: 'center', padding: '1px', borderRadius: '1px' }}>Main</div>}
+                          {img.is_main && <div style={{ position: 'absolute', bottom: '2px', left: '2px', right: '2px', fontFamily: 'var(--font-mono)', fontSize: '6px', textTransform: 'uppercase', color: 'var(--onyx)', background: '#e63946', textAlign: 'center', padding: '1px', borderRadius: '1px' }}>Main</div>}
                         </div>
                       ))}
                     </div>
                   </div>
                 )}
-                <div style={{ fontFamily: 'var(--font-mono)', fontSize: '7.5px', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--ivory-ghost)', marginBottom: '5px' }}>Or Upload Frame</div>
-                <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '7px 12px', border: '1px solid var(--border-mid)', borderRadius: '2px', cursor: uploadingFrame ? 'not-allowed' : 'pointer', fontFamily: 'var(--font-mono)', fontSize: '8.5px', letterSpacing: '0.14em', textTransform: 'uppercase', color: uploadingFrame ? 'var(--ivory-ghost)' : 'var(--ivory-muted)' }}>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: '7.5px', letterSpacing: '0.14em', textTransform: 'uppercase', color: '#0a0a0a', marginBottom: '5px' }}>Or Upload Frame</div>
+                <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '7px 12px', border: '1px solid #e0e0d8', borderRadius: '2px', cursor: uploadingFrame ? 'not-allowed' : 'pointer', fontFamily: 'var(--font-mono)', fontSize: '8.5px', letterSpacing: '0.14em', textTransform: 'uppercase', color: uploadingFrame ? 'var(--ivory-ghost)' : 'var(--ivory-muted)' }}>
                   {uploadingFrame ? '◈ Uploading...' : '◆ Choose Image'}
                   <input type="file" accept="image/*" onChange={handleFrameUpload} style={{ display: 'none' }} disabled={uploadingFrame} />
                 </label>
               </div>
 
-              <div style={{ background: 'var(--charcoal)', border: '1px solid var(--border-dark)', borderRadius: '3px', padding: '18px' }}>
-                <div style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', letterSpacing: '0.24em', textTransform: 'uppercase', color: 'var(--gold)', marginBottom: '12px' }}>▷ Generate Video</div>
-                <div style={{ fontFamily: 'var(--font-mono)', fontSize: '7.5px', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--ivory-ghost)', marginBottom: '5px' }}>Video Prompt</div>
-                <textarea value={videoPrompt} onChange={(e) => setVideoPrompt(e.target.value)} rows={6} placeholder="Slow camera push-in, steady eye contact, subtle hand movement..." style={{ width: '100%', padding: '12px', background: '#f5f5f0', border: '1px solid var(--border-mid)', borderRadius: '2px', color: '#0a0a0a', fontFamily: 'var(--font-mono)', fontSize: '13px', lineHeight: 1.8, resize: 'vertical', outline: 'none', marginBottom: '12px' }} />
-                {!videoSourceUrl && gallery.length === 0 && <div style={{ padding: '8px 10px', background: 'rgba(212,175,55,0.05)', border: '1px solid var(--gold-dim)', borderRadius: '2px', fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--gold)', marginBottom: '10px' }}>◈ Add an image first to use as source.</div>}
+              <div style={{ background: '#ffffff', border: '1px solid #e0e0d8', borderRadius: '3px', padding: '18px' }}>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', letterSpacing: '0.24em', textTransform: 'uppercase', color: '#e63946', marginBottom: '12px' }}>▷ Generate Video</div>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: '7.5px', letterSpacing: '0.16em', textTransform: 'uppercase', color: '#0a0a0a', marginBottom: '5px' }}>Video Prompt</div>
+                <textarea value={videoPrompt} onChange={(e) => setVideoPrompt(e.target.value)} rows={6} placeholder="Slow camera push-in, steady eye contact, subtle hand movement..." style={{ width: '100%', padding: '12px', background: '#f5f5f0', border: '1px solid #e0e0d8', borderRadius: '2px', color: '#0a0a0a', fontFamily: 'var(--font-mono)', fontSize: '13px', lineHeight: 1.8, resize: 'vertical', outline: 'none', marginBottom: '12px' }} />
+                {!videoSourceUrl && gallery.length === 0 && <div style={{ padding: '8px 10px', background: 'rgba(212,175,55,0.05)', border: '1px solid rgba(230,57,70,0.35)', borderRadius: '2px', fontFamily: 'var(--font-mono)', fontSize: '9px', color: '#e63946', marginBottom: '10px' }}>◈ Add an image first to use as source.</div>}
                 <button onClick={generateVideo} disabled={genVideo} style={{ ...BTN_GOLD, width: '100%', justifyContent: 'center', opacity: genVideo ? 0.6 : 1, cursor: genVideo ? 'not-allowed' : 'pointer' }}>
                   {genVideo ? '▷ Generating...' : '▷ Generate Video'}
                 </button>
-                <div style={{ marginTop: '10px', fontFamily: 'var(--font-mono)', fontSize: '8px', color: 'var(--ivory-ghost)', lineHeight: 1.6 }}>Videos take 3–8 minutes and save automatically.</div>
+                <div style={{ marginTop: '10px', fontFamily: 'var(--font-mono)', fontSize: '8px', color: '#0a0a0a', lineHeight: 1.6 }}>Videos take 3–8 minutes and save automatically.</div>
               </div>
             </div>
           </div>
@@ -963,7 +1025,8 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
             </div>
           </div>
         )}
-      </div>
+        </div>
+      </main>
     </div>
   );
 }
