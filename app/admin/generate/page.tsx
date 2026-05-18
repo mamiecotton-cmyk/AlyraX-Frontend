@@ -3,7 +3,7 @@
 import { use, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
-import { archetypes, type Archetype } from '@/lib/archetypes';
+import { archetypes } from '@/lib/archetypes';
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -62,10 +62,11 @@ export default function DossierPage({ params }: Props) {
   ];
 
   return (
-    <div style={{ display: 'flex', width: '100%', height: '100dvh', overflow: 'hidden' }}>
+    <div className="app-shell" style={{ display: 'flex', width: '100%', height: '100dvh', overflow: 'hidden' }}>
       <Sidebar />
 
       <main
+        className="app-main"
         style={{
           flex: 1,
           display: 'flex',
@@ -77,6 +78,7 @@ export default function DossierPage({ params }: Props) {
       >
         {/* Top bar */}
         <header
+          className="app-topbar"
           style={{
             display: 'flex',
             alignItems: 'center',
@@ -134,7 +136,7 @@ export default function DossierPage({ params }: Props) {
           </div>
         </header>
 
-        <div style={{ flex: 1, overflowY: 'auto' }}>
+        <div className="app-content" style={{ flex: 1, overflowY: 'auto' }}>
           <div style={{ display: 'grid', gridTemplateColumns: '300px 1fr', minHeight: '100%' }}>
 
             {/* Left — portrait + vitals */}

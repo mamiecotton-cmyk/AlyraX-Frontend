@@ -41,6 +41,7 @@ export default function Sidebar() {
 
   return (
     <aside
+      className="app-sidebar"
       style={{
         width: 'clamp(260px, 22vw, 300px)',
         minWidth: '260px',
@@ -56,6 +57,7 @@ export default function Sidebar() {
     >
       {/* Logo */}
       <div
+        className="app-sidebar-logo"
         style={{
           padding: '38px 34px 30px',
           borderBottom: '1px solid #1e1e1e',
@@ -94,10 +96,11 @@ export default function Sidebar() {
       </div>
 
       {/* Nav */}
-      <nav style={{ flex: 1, paddingTop: '24px' }}>
+      <nav className="app-sidebar-nav" style={{ flex: 1, paddingTop: '24px' }}>
         {NAV.map((group) => (
-          <div key={group.section}>
+          <div key={group.section} className="app-sidebar-group">
             <div
+              className="app-sidebar-section"
               style={{
                 padding: '20px 34px 10px',
                 fontFamily: 'var(--font-mono)',
@@ -114,6 +117,7 @@ export default function Sidebar() {
               const active = isActive(item.href);
               return (
                 <button
+                  className="app-sidebar-item"
                   key={item.label}
                   onClick={() => router.push(item.href)}
                   style={{
@@ -150,8 +154,9 @@ export default function Sidebar() {
 
         {/* Admin section */}
         {isAdmin && (
-          <div>
+          <div className="app-sidebar-group app-sidebar-admin-group">
             <div
+              className="app-sidebar-section"
               style={{
                 padding: '20px 34px 10px',
                 fontFamily: 'var(--font-mono)',
@@ -171,6 +176,7 @@ export default function Sidebar() {
               const active = isActive(item.href);
               return (
                 <button
+                  className="app-sidebar-item"
                   key={item.label}
                   onClick={() => router.push(item.href)}
                   style={{
@@ -200,8 +206,9 @@ export default function Sidebar() {
       </nav>
 
       {/* Bottom */}
-      <div style={{ borderTop: '1px solid #1e1e1e', padding: '22px 0' }}>
+      <div className="app-sidebar-bottom" style={{ borderTop: '1px solid #1e1e1e', padding: '22px 0' }}>
         <button
+          className="app-sidebar-item"
           onClick={() => (window.location.href = '/auth/signout')}
           style={{
             display: 'flex',

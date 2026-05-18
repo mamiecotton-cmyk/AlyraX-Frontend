@@ -25,9 +25,9 @@ export default function SettingsPage() {
   }, []);
 
   return (
-    <div style={{ display: 'flex', width: '100%', minHeight: '100dvh' }}>
+    <div className="app-shell" style={{ display: 'flex', width: '100%', minHeight: '100dvh' }}>
       <Sidebar />
-      <main style={{ flex: 1, background: 'var(--onyx)', padding: '32px' }}>
+      <main className="app-main app-content" style={{ flex: 1, background: 'var(--onyx)', padding: '32px' }}>
         <div style={{ maxWidth: '900px', margin: '0 auto' }}>
           <div style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '0.28em', textTransform: 'uppercase', color: 'var(--gold)', marginBottom: '6px' }}>
             ◎ Account
@@ -37,7 +37,7 @@ export default function SettingsPage() {
           {loading ? (
             <div style={{ marginTop: '20px', color: 'var(--ivory-ghost)' }}>Loading account…</div>
           ) : (
-            <div style={{ marginTop: '16px', display: 'grid', gridTemplateColumns: '1fr 320px', gap: '20px' }}>
+            <div className="settings-grid" style={{ marginTop: '16px', display: 'grid', gridTemplateColumns: '1fr 320px', gap: '20px' }}>
               <section style={{ background: 'var(--charcoal)', border: '1px solid var(--border-dark)', borderRadius: '4px', padding: '18px' }}>
                 <div style={{ marginBottom: '10px', color: 'var(--ivory-muted)' }}>Signed in as</div>
                 <div style={{ fontFamily: 'var(--font-mono)', color: 'var(--ivory)', marginBottom: '12px' }}>{me?.user?.email ?? '—'}</div>

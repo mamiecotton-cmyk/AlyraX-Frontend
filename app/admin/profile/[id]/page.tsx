@@ -344,13 +344,15 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
       if (!user) router.push('/login');
     });
     return () => { mounted = false };
-  }, [router]);
+  }, [router, supabase.auth]);
 
   useEffect(() => {
     if (loading || structuredInitialized) return;
     const effectiveGender = genderOverride ?? archetype?.gender ?? 'M';
-    setStructuredPrompt(inferStructuredPrompt(archetype, imagePrompt, effectiveGender));
-    setStructuredInitialized(true);
+    queueMicrotask(() => {
+      setStructuredPrompt(inferStructuredPrompt(archetype, imagePrompt, effectiveGender));
+      setStructuredInitialized(true);
+    });
   }, [archetype, genderOverride, imagePrompt, loading, structuredInitialized]);
 
   const sceneSuggestion = buildSceneSuggestion(archetype, id);
@@ -634,12 +636,12 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
   if (!archetype) return <div style={{ minHeight: '100dvh', background: '#f5f5f0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><button onClick={() => router.push('/admin/archetypes')} style={BTN_MUTED}>◁ Back</button></div>;
 
   return (
-    <div style={{ display: 'flex', minHeight: '100dvh', width: '100%', background: '#f5f5f0', overflow: 'hidden' }}>
+    <div className="app-shell" style={{ display: 'flex', minHeight: '100dvh', width: '100%', background: '#f5f5f0', overflow: 'hidden' }}>
       <Sidebar />
-      <main style={{ flex: 1, minWidth: 0, height: '100dvh', overflow: 'auto', background: '#f5f5f0' }}>
+      <main className="app-main" style={{ flex: 1, minWidth: 0, height: '100dvh', overflow: 'auto', background: '#f5f5f0' }}>
 
         {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '36px 48px', background: '#ffffff', borderBottom: '1px solid #e0e0d8' }}>
+        <div className="app-topbar admin-profile-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '36px 48px', background: '#ffffff', borderBottom: '1px solid #e0e0d8' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '28px', minWidth: 0 }}>
             <div style={HEADER_LABEL_STYLE}>Media<br />Manager</div>
             <div style={{ width: '28px', height: '2px', background: '#cccccc' }} />
@@ -656,7 +658,7 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
         </div>
 
         {/* Tabs */}
-        <div style={{ display: 'flex', background: '#ffffff', borderBottom: '1px solid #e0e0d8', padding: '0 48px' }}>
+        <div className="admin-profile-tabs" style={{ display: 'flex', background: '#ffffff', borderBottom: '1px solid #e0e0d8', padding: '0 48px' }}>
           {(['images', 'videos'] as Tab[]).map((t) => (
             <button key={t} onClick={() => setTab(t)} style={{ padding: '24px 48px 24px 0', background: 'none', border: 'none', borderBottom: tab === t ? '3px solid #e63946' : '3px solid transparent', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: '20px', fontWeight: tab === t ? 700 : 400, color: '#0a0a0a', opacity: tab === t ? 1 : 0.62 }}>
               {t === 'images' ? `Images (${gallery.length})` : `Videos (${videos.length})`}
@@ -664,13 +666,13 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
           ))}
         </div>
 
-        <div style={{ padding: '48px', maxWidth: '1180px' }}>
+        <div className="admin-profile-content" style={{ padding: '48px', maxWidth: '1180px' }}>
           {/* Status */}
           {status && <div style={{ padding: '12px 16px', background: '#0a0a0a', borderRadius: '0', margin: '-48px -48px 24px', fontFamily: 'var(--font-body)', fontSize: '18px', color: '#ffffff', fontWeight: 500 }}><span style={{ color: '#e63946', marginRight: '12px' }}>●</span>{status}</div>}
 
         {/* IMAGES */}
           {tab === 'images' && (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', alignItems: 'start' }}>
+          <div className="admin-profile-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', alignItems: 'start' }}>
             <div>
               <div style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', letterSpacing: '0.24em', textTransform: 'uppercase', color: '#e63946', marginBottom: '14px' }}>◈ Gallery — {gallery.length} image{gallery.length !== 1 ? 's' : ''}</div>
               {gallery.length === 0 ? (
@@ -898,7 +900,7 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
 
         {/* VIDEOS */}
         {tab === 'videos' && (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: '20px', alignItems: 'start' }}>
+          <div className="admin-profile-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: '20px', alignItems: 'start' }}>
             <div>
               <div style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', letterSpacing: '0.24em', textTransform: 'uppercase', color: '#e63946', marginBottom: '14px' }}>▷ Videos — {videos.length} clip{videos.length !== 1 ? 's' : ''}</div>
               {videos.length === 0 ? (

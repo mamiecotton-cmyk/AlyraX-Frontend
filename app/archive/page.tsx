@@ -41,10 +41,11 @@ function ArchiveContent() {
   }, [filter, search]);
 
   return (
-    <div style={{ display: 'flex', width: '100%', height: '100dvh', overflow: 'hidden' }}>
+    <div className="app-shell" style={{ display: 'flex', width: '100%', height: '100dvh', overflow: 'hidden' }}>
       <Sidebar />
 
       <main
+        className="app-main"
         style={{
           flex: 1,
           display: 'flex',
@@ -56,6 +57,7 @@ function ArchiveContent() {
       >
         {/* Top bar */}
         <header
+          className="app-topbar"
           style={{
             display: 'flex',
             alignItems: 'center',
@@ -74,10 +76,11 @@ function ArchiveContent() {
           </div>
         </header>
 
-        <div style={{ flex: 1, overflowY: 'auto', padding: '24px 28px' }}>
+        <div className="app-content" style={{ flex: 1, overflowY: 'auto', padding: '24px 28px' }}>
 
           {/* Controls row */}
           <div
+            className="app-controls-row"
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -87,7 +90,7 @@ function ArchiveContent() {
             }}
           >
             {/* Filters */}
-            <div style={{ display: 'flex', gap: '4px' }}>
+            <div className="app-segment-row" style={{ display: 'flex', gap: '4px' }}>
               {(['all', 'M', 'F'] as Filter[]).map((f) => (
                 <button
                   key={f}
@@ -98,7 +101,7 @@ function ArchiveContent() {
                     fontSize: '9px',
                     letterSpacing: '0.16em',
                     textTransform: 'uppercase',
-                    color: filter === f ? 'var(--onyx)' : 'var(--ivory-muted)',
+                    color: filter === f ? '#0a0a0a' : '#ffffff',
                     background: filter === f ? 'var(--gold)' : 'transparent',
                     border: '1px solid ' + (filter === f ? 'var(--gold)' : 'var(--border-mid)'),
                     borderRadius: '2px',
@@ -113,6 +116,7 @@ function ArchiveContent() {
 
             {/* Search */}
             <input
+              className="app-search-input"
               type="text"
               placeholder="Search by name, archetype, vibe..."
               value={search}
@@ -151,6 +155,7 @@ function ArchiveContent() {
             </div>
           ) : (
             <div
+              className="archetype-grid"
               style={{
                 display: 'grid',
                 gridTemplateColumns: 'repeat(auto-fill, minmax(165px, 1fr))',

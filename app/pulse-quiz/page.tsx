@@ -117,10 +117,11 @@ export default function PulseQuizPage() {
   const progress = step === 'quiz' ? ((current) / QUESTIONS.length) * 100 : 0;
 
   return (
-    <div style={{ display: 'flex', width: '100%', height: '100dvh', overflow: 'hidden' }}>
+    <div className="app-shell" style={{ display: 'flex', width: '100%', height: '100dvh', overflow: 'hidden' }}>
       <Sidebar />
 
       <main
+        className="app-main"
         style={{
           flex: 1,
           display: 'flex',
@@ -132,6 +133,7 @@ export default function PulseQuizPage() {
       >
         {/* Top bar */}
         <header
+          className="app-topbar"
           style={{
             display: 'flex',
             alignItems: 'center',
@@ -166,7 +168,7 @@ export default function PulseQuizPage() {
           </div>
         )}
 
-        <div style={{ flex: 1, overflowY: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px 28px' }}>
+        <div className="app-content" style={{ flex: 1, overflowY: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px 28px' }}>
 
           {/* Gender select */}
           {step === 'gender' && (
@@ -437,7 +439,7 @@ export default function PulseQuizPage() {
                     {matchedArchetype.name}
                   </div>
                   <div style={{ fontFamily: 'var(--font-display)', fontSize: '14px', fontStyle: 'italic', color: 'var(--gold)', marginBottom: '14px' }}>
-                    "{matchedArchetype.tagline}"
+                    &ldquo;{matchedArchetype.tagline}&rdquo;
                   </div>
                   <div style={{ fontSize: '13px', color: 'var(--ivory-muted)', lineHeight: 1.65, marginBottom: '18px' }}>
                     {matchedArchetype.bio}
