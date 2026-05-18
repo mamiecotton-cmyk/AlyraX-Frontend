@@ -1,0 +1,22 @@
+name: Build and Push Docker Image
+
+on:
+  push:
+    paths:
+      - 'Dockerfile.wan21-vhs'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: docker/login-action@v2
+        with:
+          username: mamiecotton
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - uses: docker/build-push-action@v4
+        with:
+          context: .
+          file: Dockerfile.wan21-vhs
+          push: true
+          tags: mamiecotton/dockerfile.wan21-vhs:latest
