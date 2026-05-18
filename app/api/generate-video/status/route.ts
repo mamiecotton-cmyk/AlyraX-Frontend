@@ -104,7 +104,11 @@ async function checkRunPodVideoStatus(jobId: string): Promise<{
     } else if (typeof output === 'object' && output !== null) {
       // Single object output
       const outputObj = output as Record<string, unknown>;
+      // Handle ComfyUI wizard format: output.images[0].data
+      const images = Array.isArray(outputObj.images) ? outputObj.images : [];
+      const firstImage = images[0] as { data?: string; type?: string } | undefined;
       base64Data =
+        (typeof firstImage?.data === 'string' ? firstImage.data : null) ||
         (typeof outputObj.data === 'string' ? outputObj.data : null) ||
         (typeof outputObj.image === 'string' ? outputObj.image : null) ||
         null;
