@@ -119,7 +119,7 @@ function buildWan21Workflow(
         start_image: ['52', 0],
         width: 480,
         height: 832,
-        length: 33,
+        length: 81,
         batch_size: 1,
       },
       class_type: 'WanImageToVideo',
