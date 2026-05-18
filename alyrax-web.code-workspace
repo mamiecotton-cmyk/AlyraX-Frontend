@@ -1,7 +1,10 @@
 {
 	"folders": [
 		{
-			"path": "../alyrax-web"
+			"path": "."
+		},
+		{
+			"path": "../alyrax-flux-bridge"
 		}
 	],
 	"settings": {}
