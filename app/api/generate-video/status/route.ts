@@ -30,34 +30,39 @@ function getAtlasOutputUrl(response: AtlasPredictionResponse): string | null {
 
 // ─── RunPod polling ───────────────────────────────────────────────────────
 
-async function uploadVideoToSupabase(
+async function uploadVideoToR2(
   videoBuffer: Buffer,
   jobId: string,
 ): Promise<string> {
-  const { createClient } = await import('@supabase/supabase-js');
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_KEY!,
-  );
+  const accountId = process.env.CLOUDFLARE_R2_ACCOUNT_ID!;
+  const accessKeyId = process.env.CLOUDFLARE_R2_ACCESS_KEY_ID!;
+  const secretAccessKey = process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY!;
+  const bucketName = process.env.CLOUDFLARE_R2_BUCKET_NAME!;
+  const publicUrl = process.env.CLOUDFLARE_R2_PUBLIC_URL!;
 
   const fileName = `videos/${Date.now()}-${jobId.replace(/[^a-zA-Z0-9_-]/g, '-')}.webp`;
+  const endpoint = `https://${accountId}.r2.cloudflarestorage.com`;
 
-  const { error: uploadError } = await supabase.storage
-    .from('companions')
-    .upload(fileName, videoBuffer, {
-      contentType: 'image/webp',
-      upsert: true,
-    });
+  // AWS S3-compatible upload (R2 is S3-compatible)
+  const { S3Client, PutObjectCommand } = await import('@aws-sdk/client-s3');
 
-  if (uploadError) {
-    throw new Error(`Supabase video upload failed: ${uploadError.message}`);
-  }
+  const s3 = new S3Client({
+    region: 'auto',
+    endpoint,
+    credentials: {
+      accessKeyId,
+      secretAccessKey,
+    },
+  });
 
-  const { data: urlData } = supabase.storage
-    .from('companions')
-    .getPublicUrl(fileName);
+  await s3.send(new PutObjectCommand({
+    Bucket: bucketName,
+    Key: fileName,
+    Body: videoBuffer,
+    ContentType: 'image/webp',
+  }));
 
-  return urlData.publicUrl;
+  return `${publicUrl}/${fileName}`;
 }
 
 async function checkRunPodVideoStatus(jobId: string): Promise<{
@@ -131,10 +136,10 @@ async function checkRunPodVideoStatus(jobId: string): Promise<{
 
     try {
       const videoBuffer = Buffer.from(rawBase64, 'base64');
-      const videoUrl = await uploadVideoToSupabase(videoBuffer, jobId);
+      const videoUrl = await uploadVideoToR2(videoBuffer, jobId);
       return { status: 'succeeded', video_url: videoUrl };
     } catch (err) {
-      console.error('Failed to upload RunPod video to Supabase:', err);
+      console.error('Failed to upload RunPod video to R2:', err);
       // Return as data URL fallback
       return {
         status: 'succeeded',
