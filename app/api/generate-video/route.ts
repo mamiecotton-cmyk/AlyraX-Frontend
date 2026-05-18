@@ -47,6 +47,260 @@ type ConversationMessage = {
   content: string;
 };
 
+// ─── Video Provider ────────────────────────────────────────────────────────
+
+type VideoProvider = 'runpod' | 'atlas';
+
+type VideoSubmitResult = {
+  provider: VideoProvider;
+  predictionId: string;
+  endWardrobeState: WardrobeState;
+  onWait1: string;
+  onWait2: string;
+  onMid: string;
+};
+
+// ─── RunPod Wan2.1 I2V ────────────────────────────────────────────────────
+
+function buildWan21Workflow(
+  imageFilename: string,
+  positivePrompt: string,
+): Record<string, unknown> {
+  return {
+    '37': {
+      inputs: {
+        unet_name: 'wan2.1_i2v_480p_14B_fp16.safetensors',
+        weight_dtype: 'default',
+      },
+      class_type: 'UNETLoader',
+    },
+    '38': {
+      inputs: {
+        clip_name: 'umt5_xxl_fp8_e4m3fn_scaled.safetensors',
+        type: 'wan',
+        device: 'default',
+      },
+      class_type: 'CLIPLoader',
+    },
+    '39': {
+      inputs: { vae_name: 'wan_2.1_vae.safetensors' },
+      class_type: 'VAELoader',
+    },
+    '49': {
+      inputs: { clip_name: 'clip_vision_h.safetensors' },
+      class_type: 'CLIPVisionLoader',
+    },
+    '52': {
+      inputs: {
+        image: imageFilename,
+        upload: 'image',
+      },
+      class_type: 'LoadImage',
+    },
+    '6': {
+      inputs: {
+        text: positivePrompt,
+        clip: ['38', 0],
+      },
+      class_type: 'CLIPTextEncode',
+    },
+    '7': {
+      inputs: {
+        text: 'static, blurry, low quality, deformed, ugly, bad anatomy, watermark',
+        clip: ['38', 0],
+      },
+      class_type: 'CLIPTextEncode',
+    },
+    '51': {
+      inputs: {
+        clip_vision: ['49', 0],
+        image: ['52', 0],
+        crop: 'none',
+      },
+      class_type: 'CLIPVisionEncode',
+    },
+    '50': {
+      inputs: {
+        positive: ['6', 0],
+        negative: ['7', 0],
+        vae: ['39', 0],
+        clip_vision_output: ['51', 0],
+        start_image: ['52', 0],
+        width: 480,
+        height: 832,
+        length: 33,
+        batch_size: 1,
+      },
+      class_type: 'WanImageToVideo',
+    },
+    '54': {
+      inputs: {
+        model: ['37', 0],
+        shift: 8,
+      },
+      class_type: 'ModelSamplingSD3',
+    },
+    '3': {
+      inputs: {
+        seed: Math.floor(Math.random() * 2 ** 32),
+        steps: 20,
+        cfg: 6,
+        sampler_name: 'uni_pc',
+        scheduler: 'simple',
+        denoise: 1,
+        model: ['54', 0],
+        positive: ['50', 0],
+        negative: ['50', 1],
+        latent_image: ['50', 2],
+      },
+      class_type: 'KSampler',
+    },
+    '8': {
+      inputs: {
+        samples: ['3', 0],
+        vae: ['39', 0],
+      },
+      class_type: 'VAEDecode',
+    },
+    '28': {
+      inputs: {
+        images: ['8', 0],
+        filename_prefix: 'alyrax_video',
+        fps: 16,
+        lossless: false,
+        quality: 90,
+        method: 'default',
+      },
+      class_type: 'SaveAnimatedWEBP',
+    },
+  };
+}
+
+async function submitRunPodVideo(
+  imageUrl: string,
+  positivePrompt: string,
+  requestId: string,
+): Promise<string | null> {
+  const endpointId = process.env.RUNPOD_VIDEO_ENDPOINT_ID;
+  if (!endpointId) {
+    console.warn(`[${requestId}] RUNPOD_VIDEO_ENDPOINT_ID not set — skipping RunPod`);
+    return null;
+  }
+
+  // Fetch companion image and convert to base64
+  // The RunPod ComfyUI worker accepts images via the `images` input field
+  // and saves them to /comfyui/input/ before running the workflow
+  let imageBase64: string;
+  let imageMimeType = 'image/png';
+  try {
+    const imageRes = await fetch(imageUrl);
+    if (!imageRes.ok) throw new Error(`Image fetch failed: ${imageRes.status}`);
+    const contentType = imageRes.headers.get('content-type') || 'image/png';
+    imageMimeType = contentType.split(';')[0].trim();
+    const imageBuffer = await imageRes.arrayBuffer();
+    imageBase64 = Buffer.from(imageBuffer).toString('base64');
+  } catch (err) {
+    console.error(`[${requestId}] Failed to fetch companion image:`, err);
+    return null;
+  }
+
+  const imageFilename = 'companion_input.png';
+  const workflow = buildWan21Workflow(imageFilename, positivePrompt);
+
+  try {
+    const res = await fetch(
+      `https://api.runpod.ai/v2/${endpointId}/run`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${process.env.RUNPOD_API_KEY}`,
+        },
+        body: JSON.stringify({
+          input: {
+            workflow,
+            images: [
+              {
+                name: imageFilename,
+                image: imageBase64,
+              },
+            ],
+          },
+        }),
+      },
+    );
+
+    if (!res.ok) {
+      const body = await res.text();
+      console.error(`[${requestId}] RunPod video submit failed (${res.status}):`, body);
+      return null;
+    }
+
+    const data = await res.json();
+    const jobId = data?.id;
+
+    if (!jobId) {
+      console.error(`[${requestId}] RunPod returned no job ID:`, data);
+      return null;
+    }
+
+    console.log(`[${requestId}] RunPod video job submitted: ${jobId}`);
+    return jobId as string;
+  } catch (err) {
+    console.error(`[${requestId}] RunPod video submit exception:`, err);
+    return null;
+  }
+}
+
+// ─── Atlas fallback ───────────────────────────────────────────────────────
+
+async function submitAtlasVideo(
+  imageUrl: string,
+  prompts: string[],
+  requestId: string,
+): Promise<string> {
+  console.log(`[${requestId}] Atlas submit starting:`, {
+    model: ATLAS_MODEL,
+    imageUrl,
+    promptCount: prompts.length,
+  });
+
+  const submitResponse = await fetch(
+    'https://api.atlascloud.ai/api/v1/model/generateVideo',
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${ATLAS_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: ATLAS_MODEL,
+        image: imageUrl,
+        prompt: prompts,
+        duration: 5,
+        resolution: '480p',
+        seed: -1,
+      }),
+    },
+  );
+
+  if (!submitResponse.ok) {
+    const error = await submitResponse.text();
+    console.error(`[${requestId}] Atlas submit FAILED:`, {
+      status: submitResponse.status,
+      body: error,
+    });
+    throw new Error(`Atlas Cloud submission failed: ${error}`);
+  }
+
+  const submitData = await submitResponse.json();
+  const predictionId = submitData.data?.id || submitData.id;
+  if (!predictionId) throw new Error('No prediction ID returned from Atlas');
+  return predictionId as string;
+}
+
+// ─── Scene planning (unchanged) ───────────────────────────────────────────
+
 function getPersonaVoice(personaName?: string | null) {
   const n = personaName?.toLowerCase() || '';
   if (n.includes('dominant')) return 'Voice: commanding, possessive. She tells him what he is seeing.';
@@ -69,7 +323,7 @@ function clampEndWardrobeState(value: unknown, fallback: WardrobeState): Wardrob
 
 function sanitizePrompts(prompts: string[]): string[] {
   return prompts
-    .map(prompt => prompt.replace(/\s+/g, ' ').trim())
+    .map((prompt) => prompt.replace(/\s+/g, ' ').trim())
     .filter(Boolean)
     .slice(0, 6);
 }
@@ -77,10 +331,9 @@ function sanitizePrompts(prompts: string[]): string[] {
 function extractJsonObject(content: string): Record<string, unknown> | null {
   const jsonMatch = content.match(/\{[\s\S]*\}/);
   if (!jsonMatch) return null;
-
   try {
     const parsed = JSON.parse(jsonMatch[0]);
-    return parsed && typeof parsed === 'object' ? parsed as Record<string, unknown> : null;
+    return parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : null;
   } catch {
     return null;
   }
@@ -94,20 +347,23 @@ function parseScenePlan(
   if (!parsed) return null;
 
   const rawPrompts = Array.isArray(parsed.prompts)
-    ? parsed.prompts.filter((prompt): prompt is string => typeof prompt === 'string')
+    ? parsed.prompts.filter((p): p is string => typeof p === 'string')
     : [];
   const prompts = sanitizePrompts(rawPrompts);
   if (prompts.length < 3 || prompts.length > 6) return null;
 
-  const onWait1 = typeof parsed.onWait1 === 'string' && parsed.onWait1.trim()
-    ? parsed.onWait1.trim()
-    : '';
-  const onWait2 = typeof parsed.onWait2 === 'string' && parsed.onWait2.trim()
-    ? parsed.onWait2.trim()
-    : '';
-  const onMid = typeof parsed.onMid === 'string' && parsed.onMid.trim()
-    ? parsed.onMid.trim()
-    : '';
+  const onWait1 =
+    typeof parsed.onWait1 === 'string' && parsed.onWait1.trim()
+      ? parsed.onWait1.trim()
+      : '';
+  const onWait2 =
+    typeof parsed.onWait2 === 'string' && parsed.onWait2.trim()
+      ? parsed.onWait2.trim()
+      : '';
+  const onMid =
+    typeof parsed.onMid === 'string' && parsed.onMid.trim()
+      ? parsed.onMid.trim()
+      : '';
 
   return {
     prompts,
@@ -128,17 +384,18 @@ async function askEuryaleForScenePlan(
   if (!OPENROUTER_API_KEY) return null;
 
   const recentHistory = conversationHistory.slice(-12);
-  const continuityInstruction = wardrobeState === 'nude'
-    ? 'Internal continuity state: complete. Let the anchor image define the visible starting point and preserve visual continuity.'
-    : wardrobeState === 'partial'
-      ? 'Internal continuity state: middle. Let the anchor image define the visible starting point and continue the narrated action naturally.'
-      : 'Internal continuity state: start. Let the anchor image define the visible starting point and begin the narrated action naturally.';
+  const continuityInstruction =
+    wardrobeState === 'nude'
+      ? 'Internal continuity state: complete. Let the anchor image define the visible starting point and preserve visual continuity.'
+      : wardrobeState === 'partial'
+        ? 'Internal continuity state: middle. Let the anchor image define the visible starting point and continue the narrated action naturally.'
+        : 'Internal continuity state: start. Let the anchor image define the visible starting point and begin the narrated action naturally.';
 
   const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+      Authorization: `Bearer ${OPENROUTER_API_KEY}`,
       'HTTP-Referer': 'https://alyra-x-frontend.vercel.app',
       'X-Title': 'AlyraX',
     },
@@ -190,30 +447,16 @@ Return ONLY valid JSON:
   if (!response.ok) {
     console.error('OpenRouter HTTP error:', {
       status: response.status,
-      statusText: response.statusText,
       error: data?.error || data,
-      model: OPENROUTER_MODEL,
     });
     return null;
   }
 
   const content = data.choices?.[0]?.message?.content;
-
   if (!content) {
-    console.error('OpenRouter returned 200 but no content:', {
-      finishReason: data.choices?.[0]?.finish_reason,
-      fullResponse: JSON.stringify(data).slice(0, 800),
-    });
+    console.error('OpenRouter returned 200 but no content');
     return null;
   }
-
-  console.log('OpenRouter success:', {
-    model: OPENROUTER_MODEL,
-    status: response.status,
-    contentLength: content.length,
-    finishReason: data.choices?.[0]?.finish_reason,
-    usage: data.usage,
-  });
 
   return content.trim();
 }
@@ -232,8 +475,6 @@ async function generateVideoScenePlan(
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
       trace?.push(`euryale-attempt-${attempt + 1}`);
-      console.log(`${tag} euryale attempt ${attempt + 1}/3${retryReason ? ` (retry: ${retryReason})` : ''}`);
-
       const content = await askEuryaleForScenePlan(
         userMessage,
         conversationHistory,
@@ -244,96 +485,45 @@ async function generateVideoScenePlan(
 
       if (!content) {
         retryReason = 'provider returned no message content';
-        console.warn(`${tag} euryale returned no content (attempt ${attempt + 1}) — retrying`);
         trace?.push('euryale-empty-response');
         continue;
       }
 
-      console.log(`${tag} euryale raw response (${content.length} chars):`, content.slice(0, 400));
-
       const parsedJson = extractJsonObject(content);
       if (!parsedJson) {
-        console.warn(`${tag} euryale response did not contain parseable JSON`);
-        trace?.push('json-parse-failed');
         retryReason = 'response was not valid JSON';
+        trace?.push('json-parse-failed');
         continue;
       }
 
       const rawPrompts = Array.isArray(parsedJson?.prompts)
-        ? parsedJson.prompts.filter((prompt): prompt is string => typeof prompt === 'string')
+        ? parsedJson.prompts.filter((p): p is string => typeof p === 'string')
         : [];
 
       if (rawPrompts.length < 3 || rawPrompts.length > 6) {
         retryReason = `prompt count was ${rawPrompts.length}, expected 3-6`;
-        console.warn(`${tag} validation failed: ${retryReason}`);
         trace?.push('bad-prompt-count');
         continue;
       }
 
-      console.log(`${tag} euryale plan accepted on attempt ${attempt + 1}`);
       trace?.push(`euryale-success-attempt-${attempt + 1}`);
       const plan = parseScenePlan(content, wardrobeState);
       if (plan) return plan;
 
-      trace?.push('accepted-plan-parse-failed');
       retryReason = 'accepted plan failed final parsing';
     } catch (error) {
       console.error(`${tag} euryale exception on attempt ${attempt + 1}:`, error);
-      trace?.push(`euryale-exception-attempt-${attempt + 1}`);
       retryReason = 'provider error';
     }
   }
 
-  console.warn(`${tag} scene planning failed after all attempts; no fallback prompts will be submitted`);
-  trace?.push('scene-plan-failed-no-fallback');
   throw new Error('Scene planning failed');
 }
 
-async function submitAtlasVideo(imageUrl: string, prompts: string[], requestId?: string): Promise<string> {
-  const tag = requestId ? `[${requestId}]` : '';
-  console.log(`${tag} Atlas submit starting:`, {
-    model: ATLAS_MODEL,
-    imageUrl,
-    promptCount: prompts.length,
-    prompts,
-  });
-
-  const submitResponse = await fetch(
-    'https://api.atlascloud.ai/api/v1/model/generateVideo',
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${ATLAS_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: ATLAS_MODEL,
-        image: imageUrl,
-        prompt: prompts,
-        duration: 5,
-        resolution: '480p',
-        seed: -1,
-      }),
-    }
-  );
-
-  if (!submitResponse.ok) {
-    const error = await submitResponse.text();
-    console.error(`${tag} Atlas submit FAILED:`, { status: submitResponse.status, body: error });
-    throw new Error(`Atlas Cloud submission failed: ${error}`);
-  }
-
-  const submitData = await submitResponse.json();
-  console.log(`${tag} Atlas submit response:`, JSON.stringify(submitData).slice(0, 500));
-  const predictionId = submitData.data?.id || submitData.id;
-  if (!predictionId) throw new Error('No prediction ID returned');
-  return predictionId;
-}
+// ─── Main handler ─────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
-  // Per-request trace ID so you can correlate logs across an async flow.
   const requestId = `vid-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-  // Tracks which code paths fired during this request.
   const trace: string[] = [];
   const t0 = Date.now();
 
@@ -363,7 +553,9 @@ export async function POST(req: NextRequest) {
     }
 
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     const activeCompanionId = companionId || user?.user_metadata?.active_companion_id;
 
     let companionQuery = supabase
@@ -384,8 +576,9 @@ export async function POST(req: NextRequest) {
     const imageUrl = frameUrl || companion.image_url;
     const persona = Array.isArray(companion.personas)
       ? companion.personas[0]
-      : companion.personas as CompanionPersona | null;
+      : (companion.personas as CompanionPersona | null);
 
+    // Generate scene plan (same for both providers)
     const scenePlan = await generateVideoScenePlan(
       userMessage || '',
       Array.isArray(conversationHistory) ? conversationHistory : [],
@@ -397,23 +590,47 @@ export async function POST(req: NextRequest) {
 
     console.log(`[${requestId}] scene plan ready:`, {
       promptCount: scenePlan.prompts.length,
-      allPrompts: scenePlan.prompts,
       endWardrobeState: scenePlan.endWardrobeState,
-      onWait1: scenePlan.onWait1,
-      onWait2: scenePlan.onWait2,
-      onMid: scenePlan.onMid,
-      usingFrameUrl: Boolean(frameUrl),
-      frameUrl: frameUrl || null,
       trace: trace.join(' → '),
       elapsedMs: Date.now() - t0,
     });
 
-    const predictionId = await submitAtlasVideo(imageUrl, scenePlan.prompts, requestId);
-    console.log(`[${requestId}] === VIDEO REQUEST END === predictionId=${predictionId} totalMs=${Date.now() - t0}`);
+    // Build a single combined prompt for Wan2.1 (join scene prompts)
+    const wan21Prompt = scenePlan.prompts.join(', ');
+
+    // ── Try RunPod Wan2.1 first ──
+    let provider: VideoProvider = 'runpod';
+    let predictionId: string | null = null;
+
+    if (process.env.RUNPOD_VIDEO_ENDPOINT_ID) {
+      trace.push('runpod-attempt');
+      predictionId = await submitRunPodVideo(imageUrl, wan21Prompt, requestId);
+    }
+
+    // ── Fall back to Atlas if RunPod failed or not configured ──
+    if (!predictionId) {
+      console.warn(`[${requestId}] RunPod unavailable — falling back to Atlas`);
+      trace.push('atlas-fallback');
+      provider = 'atlas';
+
+      if (!ATLAS_API_KEY) {
+        return NextResponse.json(
+          { error: 'No video provider available' },
+          { status: 500 },
+        );
+      }
+
+      predictionId = await submitAtlasVideo(imageUrl, scenePlan.prompts, requestId);
+    }
+
+    console.log(
+      `[${requestId}] === VIDEO REQUEST END === provider=${provider} predictionId=${predictionId} totalMs=${Date.now() - t0}`,
+    );
 
     return NextResponse.json({
       success: true,
       prediction_id: predictionId,
+      provider,
       endWardrobeState: scenePlan.endWardrobeState,
       onWait1: scenePlan.onWait1,
       onWait2: scenePlan.onWait2,
