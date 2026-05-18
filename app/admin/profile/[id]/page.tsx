@@ -487,14 +487,14 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
     setUploadingFrame(false);
   }
 
-  const pollForVideo = useCallback(async (predictionId: string, sourceUrl: string) => {
+  const pollForVideo = useCallback(async (predictionId: string, sourceUrl: string, provider: string = 'atlas') => {
     let attempts = 0;
     const poll = async () => {
       if (attempts >= 120) { setStatus('Video timed out.'); setGenVideo(false); return; }
       attempts++;
       setStatus(`Rendering video... (${attempts * 5}s elapsed)`);
       try {
-        const res = await fetch('/api/generate-video/status', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ predictionId }) });
+        const res = await fetch('/api/generate-video/status', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ predictionId, provider }) });
         const data = await res.json();
         if (data.video_url) {
           const proxyUrl = `/api/video-proxy?url=${encodeURIComponent(data.video_url as string)}`;
@@ -522,7 +522,7 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
       const data = await res.json();
       if (!res.ok || !data.prediction_id) throw new Error(data.error || 'Submission failed');
       setStatus('Video submitted — polling...');
-      pollForVideo(data.prediction_id, sourceUrl);
+      pollForVideo(data.prediction_id, sourceUrl, data.provider || 'atlas');
     } catch (err) { setStatus(err instanceof Error ? err.message : 'Failed'); setGenVideo(false); }
   }
 
