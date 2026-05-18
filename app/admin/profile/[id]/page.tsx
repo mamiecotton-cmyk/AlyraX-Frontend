@@ -62,7 +62,17 @@ const BTN_GHOST: React.CSSProperties = { padding: '7px 14px', background: 'trans
 const BTN_MUTED: React.CSSProperties = { padding: '7px 14px', background: 'transparent', border: '1px solid var(--border-mid)', borderRadius: '2px', cursor: 'pointer', fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--ivory-muted)' };
 const BTN_DANGER: React.CSSProperties = { padding: '5px 10px', background: 'transparent', border: '1px solid rgba(192,57,43,0.35)', borderRadius: '2px', cursor: 'pointer', fontFamily: 'var(--font-mono)', fontSize: '8px', letterSpacing: '0.12em', color: '#c0392b' };
 const FIELD_LABEL: React.CSSProperties = { fontFamily: 'var(--font-mono)', fontSize: '8px', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--ivory-muted)', marginBottom: '5px' };
-const FIELD_INPUT: React.CSSProperties = { width: '100%', padding: '10px 11px', background: '#0e0d0c', border: '1px solid #3a332f', borderRadius: '2px', color: 'var(--ivory)', fontFamily: 'var(--font-mono)', fontSize: '12px', outline: 'none' };
+const FIELD_INPUT: React.CSSProperties = {
+  width: '100%',
+  padding: '10px 12px',
+  background: '#f5f5f0',
+  border: '1px solid #e0e0d8',
+  borderRadius: '4px',
+  color: '#0a0a0a',
+  fontFamily: 'var(--font-body)',
+  fontSize: '14px',
+  outline: 'none',
+};
 
 const HUMAN_REALISM = 'RAW candid DSLR photo, photorealistic human, natural skin pores, realistic eyes';
 const WARDROBE_IDEAS = [
@@ -560,11 +570,11 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
     await Promise.all(updates.map((v) => fetch(`/api/archetypes/videos/${v.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sort_order: v.sort_order }) })));
   }
 
-  if (loading) return <div style={{ minHeight: '100dvh', background: 'var(--onyx)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><div style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.3em', color: 'var(--ivory-ghost)', textTransform: 'uppercase' }}>Loading...</div></div>;
-  if (!archetype) return <div style={{ minHeight: '100dvh', background: 'var(--onyx)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><button onClick={() => router.push('/admin/archetypes')} style={BTN_MUTED}>◁ Back</button></div>;
+  if (loading) return <div style={{ minHeight: '100dvh', background: '#f5f5f0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><div style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.3em', color: 'var(--ivory-ghost)', textTransform: 'uppercase' }}>Loading...</div></div>;
+  if (!archetype) return <div style={{ minHeight: '100dvh', background: '#f5f5f0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><button onClick={() => router.push('/admin/archetypes')} style={BTN_MUTED}>◁ Back</button></div>;
 
   return (
-    <div style={{ minHeight: '100dvh', width: '100%', background: 'var(--onyx)', padding: '28px' }}>
+    <div style={{ minHeight: '100dvh', width: '100%', background: '#f5f5f0', padding: '28px' }}>
       <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
 
         {/* Header */}
@@ -572,7 +582,7 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
           <div>
             <div style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '0.28em', textTransform: 'uppercase', color: 'var(--gold)', marginBottom: '4px' }}>◈ Admin — Media Manager</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-              <div style={{ fontFamily: 'var(--font-display)', fontSize: '26px', color: 'var(--ivory)' }}>{archetype.name}</div>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: '26px', color: '#0a0a0a' }}>{archetype.name}</div>
               <div style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--gold)', border: '1px solid var(--gold-dim)', padding: '2px 8px', borderRadius: '2px' }}>{archetype.dossierId}</div>
               <div style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--ivory-muted)' }}>{archetype.gender === 'M' ? '♂ Man' : '♀ Woman'}</div>
             </div>
@@ -649,7 +659,7 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
                             const origIdx = gallery.findIndex((g) => g.id === img.id);
                             return (
                               <div
-                                style={{ position: 'relative', aspectRatio: '3/4', overflow: 'hidden', borderRadius: '3px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--onyx)', border: '1px solid var(--border-dark)' }}
+                                style={{ position: 'relative', aspectRatio: '3/4', overflow: 'hidden', borderRadius: '3px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f5f5f0', border: '1px solid var(--border-dark)' }}
                                 key={img.id}
                                 onClick={() => { setViewerImageUrl(img.image_url); setViewerImage(img); }}
                                 title="View image"
@@ -758,8 +768,8 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
 	                </label>
 
 	                <div style={{ fontFamily: 'var(--font-mono)', fontSize: '7.5px', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--ivory-ghost)', marginBottom: '5px' }}>Advanced Prompt Details</div>
-	                <textarea value={imagePrompt} onChange={(e) => setImagePrompt(e.target.value)} rows={5} placeholder="Optional extra details. Structured fields stay first." style={{ width: '100%', padding: '12px', background: 'var(--onyx)', border: '1px solid var(--border-mid)', borderRadius: '2px', color: 'var(--ivory)', fontFamily: 'var(--font-mono)', fontSize: '12px', lineHeight: 1.7, resize: 'vertical', outline: 'none', marginBottom: '10px' }} />
-		                <div style={{ padding: '11px 12px', background: '#0e0d0c', border: '1px solid #3a332f', borderRadius: '2px', color: 'var(--ivory)', fontFamily: 'var(--font-mono)', fontSize: '11px', lineHeight: 1.6, marginBottom: '10px' }}>
+	                <textarea value={imagePrompt} onChange={(e) => setImagePrompt(e.target.value)} rows={5} placeholder="Optional extra details. Structured fields stay first." style={{ width: '100%', padding: '12px', background: '#f5f5f0', border: '1px solid var(--border-mid)', borderRadius: '2px', color: '#0a0a0a', fontFamily: 'var(--font-mono)', fontSize: '12px', lineHeight: 1.7, resize: 'vertical', outline: 'none', marginBottom: '10px' }} />
+		                <div style={{ padding: '11px 12px', background: '#f5f5f0', border: '1px solid #e0e0d8', borderRadius: '2px', color: '#0a0a0a', fontFamily: 'var(--font-mono)', fontSize: '11px', lineHeight: 1.6, marginBottom: '10px' }}>
 		                  <div style={{ ...FIELD_LABEL, marginBottom: '5px' }}>Final Prompt Preview</div>
 		                  {finalPromptPreview || 'Fill the structured fields to preview the prompt.'}
 		                </div>
@@ -809,7 +819,7 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
                   ))}
                 </div>
                 <div style={{ fontFamily: 'var(--font-mono)', fontSize: '7.5px', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--ivory-ghost)', marginBottom: '5px' }}>Seed</div>
-                <input value={seed} onChange={(e) => setSeed(e.target.value)} placeholder="Random" inputMode="numeric" style={{ width: '100%', padding: '8px 10px', background: 'var(--onyx)', border: '1px solid var(--border-mid)', borderRadius: '2px', color: 'var(--ivory)', fontFamily: 'var(--font-mono)', fontSize: '11px', outline: 'none', marginBottom: '12px' }} />
+                <input value={seed} onChange={(e) => setSeed(e.target.value)} placeholder="Random" inputMode="numeric" style={{ width: '100%', padding: '8px 10px', background: '#f5f5f0', border: '1px solid var(--border-mid)', borderRadius: '2px', color: '#0a0a0a', fontFamily: 'var(--font-mono)', fontSize: '11px', outline: 'none', marginBottom: '12px' }} />
                 <button onClick={generateImages} disabled={genImages} style={{ ...BTN_GOLD, width: '100%', justifyContent: 'center', opacity: genImages ? 0.6 : 1, cursor: genImages ? 'not-allowed' : 'pointer' }}>
                   {genImages ? '◈ Generating...' : `◆ Generate ${packSize === 1 ? 'Image' : `${packSize} Images`}`}
                 </button>
@@ -905,7 +915,7 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
                     <div style={{ fontFamily: 'var(--font-mono)', fontSize: '7.5px', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--ivory-ghost)', marginBottom: '6px' }}>Pick from Gallery</div>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '5px' }}>
                       {gallery.map((img) => (
-                        <div key={img.id} onClick={() => setVideoSourceUrl(img.image_url)} style={{ aspectRatio: '3/4', overflow: 'hidden', borderRadius: '2px', cursor: 'pointer', border: `1px solid ${videoSourceUrl === img.image_url ? 'var(--gold)' : 'var(--border-mid)'}`, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--onyx)' }}>
+                        <div key={img.id} onClick={() => setVideoSourceUrl(img.image_url)} style={{ aspectRatio: '3/4', overflow: 'hidden', borderRadius: '2px', cursor: 'pointer', border: `1px solid ${videoSourceUrl === img.image_url ? 'var(--gold)' : 'var(--border-mid)'}`, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f5f5f0' }}>
                           <img src={img.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain', objectPosition: 'center center' }} />
                           {img.is_main && <div style={{ position: 'absolute', bottom: '2px', left: '2px', right: '2px', fontFamily: 'var(--font-mono)', fontSize: '6px', textTransform: 'uppercase', color: 'var(--onyx)', background: 'var(--gold)', textAlign: 'center', padding: '1px', borderRadius: '1px' }}>Main</div>}
                         </div>
@@ -923,7 +933,7 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
               <div style={{ background: 'var(--charcoal)', border: '1px solid var(--border-dark)', borderRadius: '3px', padding: '18px' }}>
                 <div style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', letterSpacing: '0.24em', textTransform: 'uppercase', color: 'var(--gold)', marginBottom: '12px' }}>▷ Generate Video</div>
                 <div style={{ fontFamily: 'var(--font-mono)', fontSize: '7.5px', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--ivory-ghost)', marginBottom: '5px' }}>Video Prompt</div>
-                <textarea value={videoPrompt} onChange={(e) => setVideoPrompt(e.target.value)} rows={6} placeholder="Slow camera push-in, steady eye contact, subtle hand movement..." style={{ width: '100%', padding: '12px', background: 'var(--onyx)', border: '1px solid var(--border-mid)', borderRadius: '2px', color: 'var(--ivory)', fontFamily: 'var(--font-mono)', fontSize: '13px', lineHeight: 1.8, resize: 'vertical', outline: 'none', marginBottom: '12px' }} />
+                <textarea value={videoPrompt} onChange={(e) => setVideoPrompt(e.target.value)} rows={6} placeholder="Slow camera push-in, steady eye contact, subtle hand movement..." style={{ width: '100%', padding: '12px', background: '#f5f5f0', border: '1px solid var(--border-mid)', borderRadius: '2px', color: '#0a0a0a', fontFamily: 'var(--font-mono)', fontSize: '13px', lineHeight: 1.8, resize: 'vertical', outline: 'none', marginBottom: '12px' }} />
                 {!videoSourceUrl && gallery.length === 0 && <div style={{ padding: '8px 10px', background: 'rgba(212,175,55,0.05)', border: '1px solid var(--gold-dim)', borderRadius: '2px', fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--gold)', marginBottom: '10px' }}>◈ Add an image first to use as source.</div>}
                 <button onClick={generateVideo} disabled={genVideo} style={{ ...BTN_GOLD, width: '100%', justifyContent: 'center', opacity: genVideo ? 0.6 : 1, cursor: genVideo ? 'not-allowed' : 'pointer' }}>
                   {genVideo ? '▷ Generating...' : '▷ Generate Video'}
