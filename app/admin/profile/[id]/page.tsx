@@ -826,7 +826,15 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
                   {videos.map((vid, i) => (
                     <div key={vid.id} style={{ background: 'var(--charcoal)', border: `1px solid ${vid.is_featured ? 'var(--gold)' : 'var(--border-dark)'}`, borderRadius: '3px', overflow: 'hidden', display: 'grid', gridTemplateColumns: '180px 1fr' }}>
                       <div style={{ position: 'relative', background: '#000' }}>
-                        <video src={vid.video_url} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} controls playsInline preload="metadata" />
+                        {vid.video_url.includes('.webp') ? (
+                          <img
+                            src={vid.video_url}
+                            alt="Generated clip"
+                            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                          />
+                        ) : (
+                          <video src={vid.video_url} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} controls playsInline preload="metadata" />
+                        )}
                         {vid.is_featured && <div style={{ position: 'absolute', top: '6px', left: '6px', fontFamily: 'var(--font-mono)', fontSize: '7px', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--onyx)', background: 'var(--gold)', padding: '2px 6px', borderRadius: '2px' }}>Featured</div>}
                       </div>
                       <div style={{ padding: '14px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
