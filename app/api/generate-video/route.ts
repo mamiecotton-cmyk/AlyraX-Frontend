@@ -51,15 +51,6 @@ type ConversationMessage = {
 
 type VideoProvider = 'runpod' | 'atlas';
 
-type VideoSubmitResult = {
-  provider: VideoProvider;
-  predictionId: string;
-  endWardrobeState: WardrobeState;
-  onWait1: string;
-  onWait2: string;
-  onMid: string;
-};
-
 // ─── RunPod Wan2.1 I2V ────────────────────────────────────────────────────
 
 function buildWan21Workflow(
@@ -191,12 +182,9 @@ async function submitRunPodVideo(
   // The RunPod ComfyUI worker accepts images via the `images` input field
   // and saves them to /comfyui/input/ before running the workflow
   let imageBase64: string;
-  let imageMimeType = 'image/png';
   try {
     const imageRes = await fetch(imageUrl);
     if (!imageRes.ok) throw new Error(`Image fetch failed: ${imageRes.status}`);
-    const contentType = imageRes.headers.get('content-type') || 'image/png';
-    imageMimeType = contentType.split(';')[0].trim();
     const imageBuffer = await imageRes.arrayBuffer();
     imageBase64 = Buffer.from(imageBuffer).toString('base64');
   } catch (err) {
@@ -604,7 +592,9 @@ export async function POST(req: NextRequest) {
 
     if (process.env.RUNPOD_VIDEO_ENDPOINT_ID) {
       trace.push('runpod-attempt');
+      console.log(`[${requestId}] RUNPOD_VIDEO_ENDPOINT_ID=${process.env.RUNPOD_VIDEO_ENDPOINT_ID} imageUrl=${imageUrl}`);
       predictionId = await submitRunPodVideo(imageUrl, wan21Prompt, requestId);
+      console.log(`[${requestId}] RunPod predictionId=${predictionId}`);
     }
 
     // ── Fall back to Atlas if RunPod failed or not configured ──
