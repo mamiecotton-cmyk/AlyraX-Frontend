@@ -34,8 +34,11 @@ async function uploadVideoToSupabase(
   videoBuffer: Buffer,
   jobId: string,
 ): Promise<string> {
-  const { createClient } = await import('@/lib/supabase-server');
-  const supabase = await createClient();
+  const { createClient } = await import('@supabase/supabase-js');
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  );
 
   const fileName = `videos/${Date.now()}-${jobId.replace(/[^a-zA-Z0-9_-]/g, '-')}.webp`;
 
