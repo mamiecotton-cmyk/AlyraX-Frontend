@@ -497,8 +497,18 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
         const res = await fetch('/api/generate-video/status', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ predictionId, provider }) });
         const data = await res.json();
         if (data.video_url) {
-          const proxyUrl = `/api/video-proxy?url=${encodeURIComponent(data.video_url as string)}`;
-          const saveRes = await fetch('/api/archetypes/videos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ archetype_id: id, video_url: proxyUrl, source_image_url: sourceUrl, prompt_used: videoPrompt, is_featured: videos.length === 0 }) });
+          const finalUrl = provider === 'runpod' ? data.video_url as string : `/api/video-proxy?url=${encodeURIComponent(data.video_url as string)}`;
+          const saveRes = await fetch('/api/archetypes/videos', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              archetype_id: id,
+              video_url: finalUrl,
+              source_image_url: sourceUrl,
+              prompt_used: videoPrompt,
+              is_featured: videos.length === 0,
+            }),
+          });
           const saved = await saveRes.json();
           if (saved.video) setVideos((prev) => [...prev, saved.video]);
           setStatus('Video ready.'); setGenVideo(false); return;
