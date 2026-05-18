@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - 'Dockerfile.wan21-vhs'
+  workflow_dispatch:
 
 jobs:
   build:
