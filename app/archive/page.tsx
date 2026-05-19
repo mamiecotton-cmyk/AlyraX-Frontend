@@ -41,7 +41,7 @@ function ArchiveContent() {
   }, [filter, search]);
 
   return (
-    <div className="app-shell" style={{ display: 'flex', width: '100%', height: '100dvh', overflow: 'hidden' }}>
+    <div className="app-shell theme-dark" style={{ display: 'flex', width: '100%', height: '100dvh', overflow: 'hidden' }}>
       <Sidebar />
 
       <main
@@ -176,7 +176,7 @@ function ArchiveContent() {
 
 export default function ArchivePage() {
   return (
-    <Suspense fallback={<div style={{ background: 'var(--onyx)', color: 'var(--ivory-ghost)', display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100dvh', fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '0.3em' }}>LOADING...</div>}>
+    <Suspense fallback={<div className="theme-dark" style={{ background: 'var(--onyx)', color: 'var(--ivory-ghost)', display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100dvh', fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '0.3em' }}>LOADING...</div>}>
       <ArchiveContent />
     </Suspense>
   );

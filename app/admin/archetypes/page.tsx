@@ -559,7 +559,7 @@ export default function AdminArchetypesPage() {
 
   if (checking) {
     return (
-      <div style={{ minHeight: '100dvh', background: 'var(--onyx)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div className="theme-dark" style={{ minHeight: '100dvh', background: 'var(--onyx)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.3em', color: 'var(--ivory-ghost)', textTransform: 'uppercase' }}>
           Verifying access...
         </div>
@@ -568,7 +568,7 @@ export default function AdminArchetypesPage() {
   }
 
   return (
-    <div style={{ minHeight: '100dvh', width: '100%', background: 'var(--onyx)', padding: '32px' }}>
+    <div className="theme-dark" style={{ minHeight: '100dvh', width: '100%', background: 'var(--onyx)', padding: '32px' }}>
       <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
 
         {/* Header */}

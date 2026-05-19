@@ -179,7 +179,7 @@ export default function NewArchetypePage() {
   }
 
   return (
-    <div style={{ minHeight: '100dvh', width: '100%', background: 'var(--onyx)', padding: '32px' }}>
+    <div className="theme-dark" style={{ minHeight: '100dvh', width: '100%', background: 'var(--onyx)', padding: '32px' }}>
       <div style={{ maxWidth: '900px', margin: '0 auto' }}>
 
         {/* Header */}
@@ -454,7 +454,7 @@ export default function NewArchetypePage() {
               <div style={{ padding: '14px' }}>
                 {form.tagline && (
                   <div style={{ fontFamily: 'var(--font-display)', fontSize: '12px', fontStyle: 'italic', color: 'var(--gold)', marginBottom: '8px', lineHeight: 1.4 }}>
-                    "{form.tagline}"
+                    &ldquo;{form.tagline}&rdquo;
                   </div>
                 )}
                 {form.vibe && (

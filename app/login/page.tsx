@@ -71,6 +71,7 @@ export default function LoginPage() {
 
   return (
     <div
+      className="theme-dark"
       style={{
         minHeight: '100dvh',
         width: '100%',

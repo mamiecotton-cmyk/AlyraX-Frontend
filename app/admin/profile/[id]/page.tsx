@@ -689,7 +689,7 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
                         <img src={img.image_url} alt="" style={isHero ? { width: '100%', height: 'auto', maxHeight: '70vh', objectFit: 'contain', objectPosition: 'center center', display: 'block' } : { width: '100%', height: '100%', objectFit: 'contain', objectPosition: 'center center', display: 'block' }} />
                       </div>
                       {img.is_main && <div style={{ position: 'absolute', top: '8px', left: '8px', fontFamily: 'var(--font-mono)', fontSize: '7px', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--onyx)', background: '#e63946', padding: '3px 8px', borderRadius: '2px' }}>Main</div>}
-                      {img.seed && <div style={{ position: 'absolute', bottom: '8px', left: '8px', fontFamily: 'var(--font-mono)', fontSize: '7px', color: '#0a0a0a', background: 'rgba(0,0,0,0.75)', padding: '2px 6px', borderRadius: '2px' }}>{img.seed}</div>}
+                      {img.seed && <div style={{ position: 'absolute', bottom: '8px', left: '8px', fontFamily: 'var(--font-mono)', fontSize: '7px', color: '#ffffff', background: 'rgba(0,0,0,0.75)', padding: '2px 6px', borderRadius: '2px' }}>{img.seed}</div>}
                     </div>
                     <div style={{ padding: isHero ? '10px' : '8px', display: 'flex', flexDirection: isHero ? 'row' : 'column', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
                       <div style={{ display: 'flex', gap: '4px', flex: isHero ? 0 : 1 }}>
@@ -729,13 +729,13 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
                                 title="View image"
                               >
                                 <img src={img.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center top', display: 'block' }} />
-                                {img.seed && <div style={{ position: 'absolute', top: '6px', left: '6px', fontFamily: 'var(--font-mono)', fontSize: '7px', color: '#0a0a0a', background: 'rgba(0,0,0,0.75)', padding: '2px 6px', borderRadius: '2px' }}>{img.seed}</div>}
+                                {img.seed && <div style={{ position: 'absolute', top: '6px', left: '6px', fontFamily: 'var(--font-mono)', fontSize: '7px', color: '#ffffff', background: 'rgba(0,0,0,0.75)', padding: '2px 6px', borderRadius: '2px' }}>{img.seed}</div>}
                                 <div style={{ position: 'absolute', top: '6px', right: '6px', display: 'flex', gap: '4px' }}>
                                   <button
                                     onClick={(e) => { e.stopPropagation(); moveImage(origIdx, 'up'); }}
                                     disabled={origIdx === 0 || deletingImageId !== null}
                                     title="Move up"
-                                    style={{ width: '24px', height: '24px', background: 'rgba(0,0,0,0.72)', border: '1px solid #e0e0d8', borderRadius: '2px', color: '#0a0a0a', cursor: origIdx === 0 || deletingImageId !== null ? 'not-allowed' : 'pointer', opacity: origIdx === 0 ? 0.45 : 1 }}
+                                    style={{ width: '24px', height: '24px', background: 'rgba(0,0,0,0.72)', border: '1px solid #e0e0d8', borderRadius: '2px', color: '#ffffff', cursor: origIdx === 0 || deletingImageId !== null ? 'not-allowed' : 'pointer', opacity: origIdx === 0 ? 0.45 : 1 }}
                                   >
                                     ▲
                                   </button>
@@ -743,7 +743,7 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
                                     onClick={(e) => { e.stopPropagation(); moveImage(origIdx, 'down'); }}
                                     disabled={origIdx === gallery.length - 1 || deletingImageId !== null}
                                     title="Move down"
-                                    style={{ width: '24px', height: '24px', background: 'rgba(0,0,0,0.72)', border: '1px solid #e0e0d8', borderRadius: '2px', color: '#0a0a0a', cursor: origIdx === gallery.length - 1 || deletingImageId !== null ? 'not-allowed' : 'pointer', opacity: origIdx === gallery.length - 1 ? 0.45 : 1 }}
+                                    style={{ width: '24px', height: '24px', background: 'rgba(0,0,0,0.72)', border: '1px solid #e0e0d8', borderRadius: '2px', color: '#ffffff', cursor: origIdx === gallery.length - 1 || deletingImageId !== null ? 'not-allowed' : 'pointer', opacity: origIdx === gallery.length - 1 ? 0.45 : 1 }}
                                   >
                                     ▼
                                   </button>
@@ -767,7 +767,7 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
                                   <button
                                     onClick={(e) => { e.stopPropagation(); setVideoSourceUrl(img.image_url); setTab('videos'); setStatus('Source frame set.'); }}
                                     disabled={deletingImageId !== null}
-                                    style={{ padding: '3px 6px', background: 'rgba(0,0,0,0.72)', border: '1px solid #e0e0d8', borderRadius: '2px', color: '#0a0a0a', fontFamily: 'var(--font-mono)', fontSize: '7px', letterSpacing: '0.08em', cursor: deletingImageId !== null ? 'not-allowed' : 'pointer' }}
+                                    style={{ padding: '3px 6px', background: 'rgba(0,0,0,0.72)', border: '1px solid #e0e0d8', borderRadius: '2px', color: '#ffffff', fontFamily: 'var(--font-mono)', fontSize: '7px', letterSpacing: '0.08em', cursor: deletingImageId !== null ? 'not-allowed' : 'pointer' }}
                                   >
                                     Video
                                   </button>

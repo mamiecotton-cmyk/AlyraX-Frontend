@@ -25,7 +25,7 @@ export default function SettingsPage() {
   }, []);
 
   return (
-    <div className="app-shell" style={{ display: 'flex', width: '100%', minHeight: '100dvh' }}>
+    <div className="app-shell theme-dark" style={{ display: 'flex', width: '100%', minHeight: '100dvh' }}>
       <Sidebar />
       <main className="app-main app-content" style={{ flex: 1, background: 'var(--onyx)', padding: '32px' }}>
         <div style={{ maxWidth: '900px', margin: '0 auto' }}>

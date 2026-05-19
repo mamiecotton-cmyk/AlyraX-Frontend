@@ -44,6 +44,19 @@
   --font-mono:    'DM Mono', monospace;
 }
 
+.theme-dark {
+  --charcoal:      #151515;
+  --charcoal-mid:  #101010;
+  --charcoal-light:#1a1a1a;
+  --border-light:  #303030;
+  --border-dark:   #242424;
+  --border-mid:    #3a3a3a;
+  --ivory:         #ffffff;
+  --ivory-dim:     rgba(255,255,255,0.86);
+  --ivory-muted:   rgba(255,255,255,0.68);
+  --ivory-ghost:   rgba(255,255,255,0.44);
+}
+
 *, *::before, *::after {
   box-sizing: border-box;
   margin: 0;

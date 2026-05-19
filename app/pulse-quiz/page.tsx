@@ -117,7 +117,7 @@ export default function PulseQuizPage() {
   const progress = step === 'quiz' ? ((current) / QUESTIONS.length) * 100 : 0;
 
   return (
-    <div className="app-shell" style={{ display: 'flex', width: '100%', height: '100dvh', overflow: 'hidden' }}>
+    <div className="app-shell theme-dark" style={{ display: 'flex', width: '100%', height: '100dvh', overflow: 'hidden' }}>
       <Sidebar />
 
       <main
