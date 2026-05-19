@@ -33,16 +33,37 @@ function getRunPodImageEndpointId() {
   return process.env.RUNPOD_COMFYUI_ENDPOINT_ID || process.env.RUNPOD_IMAGE_ENDPOINT_ID;
 }
 
-function getImagePayload(output: Record<string, unknown> | undefined) {
-  const legacyImage = typeof output?.image === 'string' ? output.image : '';
-  if (legacyImage) return { base64: legacyImage };
+function getImagePayload(output: unknown) {
+  if (typeof output === 'string' && output.length > 0) {
+    return output.startsWith('http') ? { url: output } : { base64: output };
+  }
 
-  const message = typeof output?.message === 'string' ? output.message : '';
+  if (Array.isArray(output)) {
+    return getImagePayload(output[0]);
+  }
+
+  const outputObj = typeof output === 'object' && output !== null ? output as Record<string, unknown> : undefined;
+
+  const legacyImage = typeof outputObj?.image === 'string' ? outputObj.image : '';
+  if (legacyImage) return legacyImage.startsWith('http') ? { url: legacyImage } : { base64: legacyImage };
+
+  const directData =
+    (typeof outputObj?.data === 'string' ? outputObj.data : '') ||
+    (typeof outputObj?.base64 === 'string' ? outputObj.base64 : '') ||
+    (typeof outputObj?.url === 'string' ? outputObj.url : '') ||
+    (typeof outputObj?.s3_url === 'string' ? outputObj.s3_url : '');
+  if (directData) {
+    return directData.startsWith('http') || outputObj?.type === 's3_url'
+      ? { url: directData }
+      : { base64: directData };
+  }
+
+  const message = typeof outputObj?.message === 'string' ? outputObj.message : '';
   if (message) {
     return message.startsWith('http') ? { url: message } : { base64: message };
   }
 
-  const images = Array.isArray(output?.images) ? output.images : [];
+  const images = Array.isArray(outputObj?.images) ? outputObj.images : [];
   const firstImage = images[0] as string | RunPodImageOutput | undefined;
 
   if (typeof firstImage === 'string') {

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { resolveGeneratedImageResponse } from '@/lib/image-generation-client';
 
 const DIMS = ['Intensity', 'Warmth', 'Intellect', 'Street', 'Dominance'];
 
@@ -127,9 +128,9 @@ export default function NewArchetypePage() {
         }),
       });
       const data = await res.json();
-      if (!res.ok || !data.image_url) throw new Error(data.error || 'Generation failed');
-      setPreviewImage(data.image_url);
-      setPreviewSeed(data.seed ?? null);
+      const generated = await resolveGeneratedImageResponse(res, data);
+      setPreviewImage(generated.imageUrl);
+      setPreviewSeed(generated.seed);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Generation failed');
     }

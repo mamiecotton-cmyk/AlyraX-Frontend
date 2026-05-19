@@ -2,6 +2,7 @@
 import { type ChangeEvent, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase';
+import { resolveGeneratedImageResponse } from '@/lib/image-generation-client';
 
 const BODY_TYPES = ['Petite', 'Slim', 'Athletic', 'Curvy', 'Plus size'];
 const HAIR_COLORS = ['Black', 'Brown', 'Blonde', 'Red', 'Silver', 'Auburn'];
@@ -157,10 +158,9 @@ export default function OnboardingPage() {
         }),
       });
       const data = await response.json();
-      if (data.image_url) {
-        setGeneratedImage(data.image_url);
-        setStep(3);
-      }
+      const generated = await resolveGeneratedImageResponse(response, data);
+      setGeneratedImage(generated.imageUrl);
+      setStep(3);
     } catch (error) {
       console.error('Generation failed:', error);
     }

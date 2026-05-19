@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase';
+import { resolveGeneratedImageResponse } from '@/lib/image-generation-client';
 
 type ImageStyle = 'portrait' | 'fullbody' | 'fullscreen';
 type PackSize = 1 | 5 | 10 | 20 | 30;
@@ -270,14 +271,16 @@ export default function CreatePage() {
       }),
     });
     const data = await response.json();
-    if (!response.ok) throw new Error(data.error || 'Image generation failed');
+    const generated = await resolveGeneratedImageResponse(response, data, {
+      onProgress: (message) => setImageStatus(`Image ${index + 1}: ${message}`),
+    });
 
     return {
-      id: `${Date.now()}-${index}-${data.seed ?? imageSeed}`,
-      image_url: data.image_url,
-      seed: data.seed,
-      width: data.width,
-      height: data.height,
+      id: `${Date.now()}-${index}-${generated.seed ?? imageSeed}`,
+      image_url: generated.imageUrl,
+      seed: generated.seed ?? undefined,
+      width: generated.width,
+      height: generated.height,
       prompt: basePrompt,
     };
   }
