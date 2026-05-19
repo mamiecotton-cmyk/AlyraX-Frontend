@@ -38,7 +38,9 @@ export default function DossierPage({ params }: Props) {
   }, [id]);
 
   const carouselImages = useMemo(() => {
-    const images = galleryImages.length ? galleryImages : [];
+    const images = galleryImages.length
+      ? [...galleryImages].sort((a, b) => Number(b.is_main) - Number(a.is_main))
+      : [];
 
     if (!images.length && archetypeImage) {
       return [{ id: 'main', image_url: archetypeImage, is_main: true }];
