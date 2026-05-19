@@ -176,7 +176,7 @@ function getComfyCheckpoint() {
 }
 
 function getRunPodComfyEndpointId() {
-  return process.env.RUNPOD_IMAGE_COMFYUI_ENDPOINT_ID || process.env.RUNPOD_COMFYUI_ENDPOINT_ID;
+  return process.env.RUNPOD_COMFYUI_ENDPOINT_ID;
 }
 
 function getImageGenerationProvider() {
@@ -429,7 +429,7 @@ export async function POST(req: NextRequest) {
     if (provider === 'runpod-comfyui' || provider === 'runpod-comfy' || provider === 'comfy-runpod') {
       const comfyEndpointId = getRunPodComfyEndpointId();
       if (!comfyEndpointId) {
-        return NextResponse.json({ error: 'Missing RUNPOD_IMAGE_COMFYUI_ENDPOINT_ID or RUNPOD_COMFYUI_ENDPOINT_ID' }, { status: 500 });
+        return NextResponse.json({ error: 'Missing RUNPOD_COMFYUI_ENDPOINT_ID' }, { status: 500 });
       }
 
       const workflow = buildComfySdxlWorkflow({

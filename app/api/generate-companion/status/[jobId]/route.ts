@@ -34,7 +34,7 @@ function getRunPodImageEndpointId() {
 }
 
 function getRunPodComfyImageEndpointId() {
-  return process.env.RUNPOD_IMAGE_COMFYUI_ENDPOINT_ID || process.env.RUNPOD_COMFYUI_ENDPOINT_ID;
+  return process.env.RUNPOD_COMFYUI_ENDPOINT_ID;
 }
 
 function getImageGenerationProvider() {
@@ -54,7 +54,7 @@ function resolveRunPodStatusTarget(jobId: string) {
     return {
       endpointId: getRunPodComfyImageEndpointId(),
       runpodJobId: jobId.slice('runpod-comfy:'.length),
-      missingMessage: 'Missing RUNPOD_IMAGE_COMFYUI_ENDPOINT_ID or RUNPOD_COMFYUI_ENDPOINT_ID',
+      missingMessage: 'Missing RUNPOD_COMFYUI_ENDPOINT_ID',
     };
   }
 
