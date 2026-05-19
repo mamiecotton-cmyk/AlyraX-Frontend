@@ -422,36 +422,9 @@ export async function POST(req: NextRequest) {
     }
 
     if (process.env.IMAGE_GENERATION_PROVIDER === 'runpod-comfyui') {
-      if (process.env.RUNPOD_IMAGE_ENDPOINT_ID && !process.env.RUNPOD_IMAGE_COMFYUI_ENDPOINT_ID) {
-        console.warn('IMAGE_GENERATION_PROVIDER=runpod-comfyui but no RUNPOD_IMAGE_COMFYUI_ENDPOINT_ID is set; using RUNPOD_IMAGE_ENDPOINT_ID for image generation.');
-        return submitRunPodImage({
-          prompt,
-          negative,
-          numInferenceSteps: num_inference_steps,
-          guidanceScale: guidance_scale,
-          width,
-          height,
-          seed,
-          referenceImageUrl: reference_image_url,
-          referenceStrength: reference_strength,
-          denoiseStrength: effectiveDenoiseStrength,
-        });
-      }
-
       const comfyEndpointId = getRunPodComfyEndpointId();
       if (!comfyEndpointId) {
-        return submitRunPodImage({
-          prompt,
-          negative,
-          numInferenceSteps: num_inference_steps,
-          guidanceScale: guidance_scale,
-          width,
-          height,
-          seed,
-          referenceImageUrl: reference_image_url,
-          referenceStrength: reference_strength,
-          denoiseStrength: effectiveDenoiseStrength,
-        });
+        return NextResponse.json({ error: 'Missing RUNPOD_IMAGE_COMFYUI_ENDPOINT_ID or RUNPOD_COMFYUI_ENDPOINT_ID' }, { status: 500 });
       }
 
       const runpodResponse = await fetch(
@@ -481,22 +454,10 @@ export async function POST(req: NextRequest) {
       if (!runpodResponse.ok) {
         const error = await runpodResponse.text();
         console.error('RunPod ComfyUI submit error:', error);
-        if (process.env.RUNPOD_IMAGE_ENDPOINT_ID && isComfyCheckpointValidationError(error)) {
-          console.warn('RunPod ComfyUI image workflow has no usable checkpoint; falling back to RUNPOD_IMAGE_ENDPOINT_ID.');
-          return submitRunPodImage({
-            prompt,
-            negative,
-            numInferenceSteps: num_inference_steps,
-            guidanceScale: guidance_scale,
-            width,
-            height,
-            seed,
-            referenceImageUrl: reference_image_url,
-            referenceStrength: reference_strength,
-            denoiseStrength: effectiveDenoiseStrength,
-          });
-        }
-        return NextResponse.json({ error: 'RunPod ComfyUI submission failed', detail: error }, { status: 500 });
+        const message = isComfyCheckpointValidationError(error)
+          ? 'RunPod ComfyUI checkpoint validation failed. Check that COMFYUI_CHECKPOINT is installed on RUNPOD_COMFYUI_ENDPOINT_ID.'
+          : 'RunPod ComfyUI submission failed';
+        return NextResponse.json({ error: message, detail: error }, { status: 500 });
       }
 
       const { id: jobId } = await runpodResponse.json();
