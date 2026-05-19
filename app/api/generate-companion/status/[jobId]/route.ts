@@ -37,6 +37,10 @@ function getRunPodComfyImageEndpointId() {
   return process.env.RUNPOD_IMAGE_COMFYUI_ENDPOINT_ID || process.env.RUNPOD_COMFYUI_ENDPOINT_ID;
 }
 
+function getImageGenerationProvider() {
+  return (process.env.IMAGE_GENERATION_PROVIDER || '').trim().toLowerCase().replace(/_/g, '-');
+}
+
 function resolveRunPodStatusTarget(jobId: string) {
   if (jobId.startsWith('runpod-image:')) {
     return {
@@ -54,14 +58,16 @@ function resolveRunPodStatusTarget(jobId: string) {
     };
   }
 
-  const endpointId = process.env.IMAGE_GENERATION_PROVIDER === 'runpod-comfyui'
+  const provider = getImageGenerationProvider();
+  const isRunPodComfy = provider === 'runpod-comfyui' || provider === 'runpod-comfy' || provider === 'comfy-runpod';
+  const endpointId = isRunPodComfy
     ? getRunPodComfyImageEndpointId()
     : getRunPodImageEndpointId();
 
   return {
     endpointId,
     runpodJobId: jobId,
-    missingMessage: process.env.IMAGE_GENERATION_PROVIDER === 'runpod-comfyui'
+    missingMessage: isRunPodComfy
       ? 'Missing RUNPOD_COMFYUI_ENDPOINT_ID'
       : 'Missing RUNPOD_IMAGE_ENDPOINT_ID',
   };

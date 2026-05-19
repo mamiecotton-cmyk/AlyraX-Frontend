@@ -179,6 +179,10 @@ function getRunPodComfyEndpointId() {
   return process.env.RUNPOD_IMAGE_COMFYUI_ENDPOINT_ID || process.env.RUNPOD_COMFYUI_ENDPOINT_ID;
 }
 
+function getImageGenerationProvider() {
+  return (process.env.IMAGE_GENERATION_PROVIDER || '').trim().toLowerCase().replace(/_/g, '-');
+}
+
 function isComfyCheckpointValidationError(error: string) {
   const normalized = error.toLowerCase();
   return normalized.includes('checkpoint') || normalized.includes('ckpt_name') || normalized.includes('value_not_in_list');
@@ -382,9 +386,10 @@ export async function POST(req: NextRequest) {
       structuredPrompt: structured_prompt,
     });
 
-    console.log('Generating image with', { style, composition, width, height, gender, seed, reference_mode, reference_strength, denoise_strength: effectiveDenoiseStrength, hasReference: Boolean(reference_image_url), structuredPrompt: hasStructuredPrompt(structured_prompt), promptPreview: prompt.slice(0, 500), negativePreview: negative.slice(0, 300) });
+    const provider = getImageGenerationProvider();
+    console.log('Generating image with', { provider, style, composition, width, height, gender, seed, reference_mode, reference_strength, denoise_strength: effectiveDenoiseStrength, hasReference: Boolean(reference_image_url), structuredPrompt: hasStructuredPrompt(structured_prompt), promptPreview: prompt.slice(0, 500), negativePreview: negative.slice(0, 300) });
 
-    if (process.env.IMAGE_GENERATION_PROVIDER === 'comfyui') {
+    if (provider === 'comfyui') {
       const comfyUrl = process.env.COMFYUI_BASE_URL;
       if (!comfyUrl) {
         return NextResponse.json({ error: 'Missing COMFYUI_BASE_URL' }, { status: 500 });
@@ -421,11 +426,27 @@ export async function POST(req: NextRequest) {
       }, { status: 202 });
     }
 
-    if (process.env.IMAGE_GENERATION_PROVIDER === 'runpod-comfyui') {
+    if (provider === 'runpod-comfyui' || provider === 'runpod-comfy' || provider === 'comfy-runpod') {
       const comfyEndpointId = getRunPodComfyEndpointId();
       if (!comfyEndpointId) {
         return NextResponse.json({ error: 'Missing RUNPOD_IMAGE_COMFYUI_ENDPOINT_ID or RUNPOD_COMFYUI_ENDPOINT_ID' }, { status: 500 });
       }
+
+      const workflow = buildComfySdxlWorkflow({
+        prompt,
+        negative,
+        width,
+        height,
+        seed,
+        steps: num_inference_steps,
+        cfg: guidance_scale,
+      });
+
+      console.log('Submitting RunPod ComfyUI image workflow', {
+        endpointId: comfyEndpointId,
+        checkpoint: getComfyCheckpoint(),
+        workflowNodes: Object.keys(workflow).length,
+      });
 
       const runpodResponse = await fetch(
         `https://api.runpod.ai/v2/${comfyEndpointId}/run`,
@@ -437,15 +458,7 @@ export async function POST(req: NextRequest) {
           },
           body: JSON.stringify({
             input: {
-              workflow: buildComfySdxlWorkflow({
-                prompt,
-                negative,
-                width,
-                height,
-                seed,
-                steps: num_inference_steps,
-                cfg: guidance_scale,
-              }),
+              workflow,
             },
           }),
         }
@@ -461,6 +474,7 @@ export async function POST(req: NextRequest) {
       }
 
       const { id: jobId } = await runpodResponse.json();
+      console.log('RunPod ComfyUI image job submitted:', { endpointId: comfyEndpointId, jobId });
       return NextResponse.json({
         jobId: `runpod-comfy:${jobId}`,
         seed,
