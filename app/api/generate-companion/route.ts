@@ -172,7 +172,7 @@ function getErrorMessage(error: unknown) {
 }
 
 function getComfyCheckpoint() {
-  return process.env.COMFYUI_CHECKPOINT || 'model_974693_2831949.safetensors';
+  return process.env.COMFYUI_CHECKPOINT || 'realismIllustriousBy_v55FP16.safetensors';
 }
 
 function getRunPodComfyEndpointId() {
