@@ -134,7 +134,7 @@ function buildWan21Workflow(
     '3': {
       inputs: {
         seed: Math.floor(Math.random() * 2 ** 32),
-        steps: 20,
+        steps: 8,
         cfg: 6,
         sampler_name: 'uni_pc',
         scheduler: 'simple',
