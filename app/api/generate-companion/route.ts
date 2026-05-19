@@ -213,6 +213,15 @@ async function submitRunPodImage({
   }
 
   console.log('Using RUNPOD_IMAGE_ENDPOINT_ID:', imageEndpointId);
+  const workflow = buildComfySdxlWorkflow({
+    prompt,
+    negative,
+    width,
+    height,
+    seed,
+    steps: numInferenceSteps,
+    cfg: guidanceScale,
+  });
 
   const runpodResponse = await fetch(
     `https://api.runpod.ai/v2/${imageEndpointId}/run`,
@@ -224,6 +233,7 @@ async function submitRunPodImage({
       },
       body: JSON.stringify({
         input: {
+          workflow,
           prompt,
           negative_prompt: negative,
           num_inference_steps: numInferenceSteps,
