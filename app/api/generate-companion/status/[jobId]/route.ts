@@ -30,7 +30,41 @@ function getErrorMessage(error: unknown) {
 }
 
 function getRunPodImageEndpointId() {
-  return process.env.RUNPOD_COMFYUI_ENDPOINT_ID || process.env.RUNPOD_IMAGE_ENDPOINT_ID;
+  return process.env.RUNPOD_IMAGE_ENDPOINT_ID;
+}
+
+function getRunPodComfyImageEndpointId() {
+  return process.env.RUNPOD_IMAGE_COMFYUI_ENDPOINT_ID || process.env.RUNPOD_COMFYUI_ENDPOINT_ID;
+}
+
+function resolveRunPodStatusTarget(jobId: string) {
+  if (jobId.startsWith('runpod-image:')) {
+    return {
+      endpointId: process.env.RUNPOD_IMAGE_ENDPOINT_ID,
+      runpodJobId: jobId.slice('runpod-image:'.length),
+      missingMessage: 'Missing RUNPOD_IMAGE_ENDPOINT_ID',
+    };
+  }
+
+  if (jobId.startsWith('runpod-comfy:')) {
+    return {
+      endpointId: getRunPodComfyImageEndpointId(),
+      runpodJobId: jobId.slice('runpod-comfy:'.length),
+      missingMessage: 'Missing RUNPOD_IMAGE_COMFYUI_ENDPOINT_ID or RUNPOD_COMFYUI_ENDPOINT_ID',
+    };
+  }
+
+  const endpointId = process.env.IMAGE_GENERATION_PROVIDER === 'runpod-comfyui'
+    ? getRunPodComfyImageEndpointId()
+    : getRunPodImageEndpointId();
+
+  return {
+    endpointId,
+    runpodJobId: jobId,
+    missingMessage: process.env.IMAGE_GENERATION_PROVIDER === 'runpod-comfyui'
+      ? 'Missing RUNPOD_COMFYUI_ENDPOINT_ID'
+      : 'Missing RUNPOD_IMAGE_ENDPOINT_ID',
+  };
 }
 
 function getImagePayload(output: unknown) {
@@ -180,14 +214,14 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ jobI
       return uploadImageBuffer(imageBuffer, jobId, historyData);
     }
 
-    const imageEndpointId = getRunPodImageEndpointId();
+    const { endpointId: imageEndpointId, runpodJobId, missingMessage } = resolveRunPodStatusTarget(jobId);
 
     if (!imageEndpointId) {
-      return NextResponse.json({ error: 'Missing RUNPOD_COMFYUI_ENDPOINT_ID or RUNPOD_IMAGE_ENDPOINT_ID' }, { status: 500 });
+      return NextResponse.json({ error: missingMessage }, { status: 500 });
     }
 
     const statusResponse = await fetch(
-      `https://api.runpod.ai/v2/${imageEndpointId}/status/${jobId}`,
+      `https://api.runpod.ai/v2/${imageEndpointId}/status/${runpodJobId}`,
       {
         headers: {
           'Authorization': `Bearer ${process.env.RUNPOD_API_KEY}`,

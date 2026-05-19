@@ -176,7 +176,84 @@ function getComfyCheckpoint() {
 }
 
 function getRunPodComfyEndpointId() {
-  return process.env.RUNPOD_COMFYUI_ENDPOINT_ID || process.env.RUNPOD_IMAGE_ENDPOINT_ID;
+  return process.env.RUNPOD_IMAGE_COMFYUI_ENDPOINT_ID || process.env.RUNPOD_COMFYUI_ENDPOINT_ID;
+}
+
+function isComfyCheckpointValidationError(error: string) {
+  const normalized = error.toLowerCase();
+  return normalized.includes('checkpoint') || normalized.includes('ckpt_name') || normalized.includes('value_not_in_list');
+}
+
+async function submitRunPodImage({
+  prompt,
+  negative,
+  numInferenceSteps,
+  guidanceScale,
+  width,
+  height,
+  seed,
+  referenceImageUrl,
+  referenceStrength,
+  denoiseStrength,
+}: {
+  prompt: string;
+  negative: string;
+  numInferenceSteps: number;
+  guidanceScale: number;
+  width: number;
+  height: number;
+  seed: number;
+  referenceImageUrl?: string;
+  referenceStrength: number;
+  denoiseStrength?: number;
+}) {
+  const imageEndpointId = process.env.RUNPOD_IMAGE_ENDPOINT_ID;
+  if (!imageEndpointId) {
+    return NextResponse.json({ error: 'Missing RUNPOD_IMAGE_ENDPOINT_ID' }, { status: 500 });
+  }
+
+  console.log('Using RUNPOD_IMAGE_ENDPOINT_ID:', imageEndpointId);
+
+  const runpodResponse = await fetch(
+    `https://api.runpod.ai/v2/${imageEndpointId}/run`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.RUNPOD_API_KEY}`,
+      },
+      body: JSON.stringify({
+        input: {
+          prompt,
+          negative_prompt: negative,
+          num_inference_steps: numInferenceSteps,
+          guidance_scale: guidanceScale,
+          width,
+          height,
+          seed,
+          reference_image_url: referenceImageUrl,
+          reference_strength: referenceStrength,
+          denoise_strength: denoiseStrength,
+        }
+      }),
+    }
+  );
+
+  if (!runpodResponse.ok) {
+    const error = await runpodResponse.text();
+    console.error('RunPod submit error:', error);
+    return NextResponse.json({ error: 'Submission failed', detail: error }, { status: 500 });
+  }
+
+  const { id: jobId } = await runpodResponse.json();
+  console.log('Job submitted:', jobId);
+
+  return NextResponse.json({
+    jobId: `runpod-image:${jobId}`,
+    seed,
+    prompt_preview: prompt.slice(0, 500),
+    message: 'Job submitted; poll /api/generate-companion/status/[jobId] for updates',
+  }, { status: 202 });
 }
 
 function buildComfySdxlWorkflow({
@@ -335,13 +412,40 @@ export async function POST(req: NextRequest) {
     }
 
     if (process.env.IMAGE_GENERATION_PROVIDER === 'runpod-comfyui') {
-      const endpointId = getRunPodComfyEndpointId();
-      if (!endpointId) {
-        return NextResponse.json({ error: 'Missing RUNPOD_COMFYUI_ENDPOINT_ID' }, { status: 500 });
+      if (process.env.RUNPOD_IMAGE_ENDPOINT_ID && !process.env.RUNPOD_IMAGE_COMFYUI_ENDPOINT_ID) {
+        console.warn('IMAGE_GENERATION_PROVIDER=runpod-comfyui but no RUNPOD_IMAGE_COMFYUI_ENDPOINT_ID is set; using RUNPOD_IMAGE_ENDPOINT_ID for image generation.');
+        return submitRunPodImage({
+          prompt,
+          negative,
+          numInferenceSteps: num_inference_steps,
+          guidanceScale: guidance_scale,
+          width,
+          height,
+          seed,
+          referenceImageUrl: reference_image_url,
+          referenceStrength: reference_strength,
+          denoiseStrength: effectiveDenoiseStrength,
+        });
+      }
+
+      const comfyEndpointId = getRunPodComfyEndpointId();
+      if (!comfyEndpointId) {
+        return submitRunPodImage({
+          prompt,
+          negative,
+          numInferenceSteps: num_inference_steps,
+          guidanceScale: guidance_scale,
+          width,
+          height,
+          seed,
+          referenceImageUrl: reference_image_url,
+          referenceStrength: reference_strength,
+          denoiseStrength: effectiveDenoiseStrength,
+        });
       }
 
       const runpodResponse = await fetch(
-        `https://api.runpod.ai/v2/${endpointId}/run`,
+        `https://api.runpod.ai/v2/${comfyEndpointId}/run`,
         {
           method: 'POST',
           headers: {
@@ -367,63 +471,45 @@ export async function POST(req: NextRequest) {
       if (!runpodResponse.ok) {
         const error = await runpodResponse.text();
         console.error('RunPod ComfyUI submit error:', error);
+        if (process.env.RUNPOD_IMAGE_ENDPOINT_ID && isComfyCheckpointValidationError(error)) {
+          console.warn('RunPod ComfyUI image workflow has no usable checkpoint; falling back to RUNPOD_IMAGE_ENDPOINT_ID.');
+          return submitRunPodImage({
+            prompt,
+            negative,
+            numInferenceSteps: num_inference_steps,
+            guidanceScale: guidance_scale,
+            width,
+            height,
+            seed,
+            referenceImageUrl: reference_image_url,
+            referenceStrength: reference_strength,
+            denoiseStrength: effectiveDenoiseStrength,
+          });
+        }
         return NextResponse.json({ error: 'RunPod ComfyUI submission failed', detail: error }, { status: 500 });
       }
 
       const { id: jobId } = await runpodResponse.json();
       return NextResponse.json({
-        jobId,
+        jobId: `runpod-comfy:${jobId}`,
         seed,
         prompt_preview: prompt.slice(0, 500),
         message: 'RunPod ComfyUI job submitted; poll /api/generate-companion/status/[jobId] for updates',
       }, { status: 202 });
     }
 
-    // Submit job async
-    const imageEndpointId = process.env.RUNPOD_IMAGE_ENDPOINT_ID;
-    console.log('Using RUNPOD_IMAGE_ENDPOINT_ID:', imageEndpointId);
-
-    const runpodResponse = await fetch(
-      `https://api.runpod.ai/v2/${imageEndpointId}/run`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${process.env.RUNPOD_API_KEY}`,
-        },
-        body: JSON.stringify({
-          input: {
-            prompt,
-            negative_prompt: negative,
-            num_inference_steps,
-            guidance_scale,
-            width,
-            height,
-            seed,
-            reference_image_url,
-            reference_strength,
-            denoise_strength: effectiveDenoiseStrength,
-          }
-        }),
-      }
-    );
-
-    if (!runpodResponse.ok) {
-      const error = await runpodResponse.text();
-      console.error('RunPod submit error:', error);
-      return NextResponse.json({ error: 'Submission failed' }, { status: 500 });
-    }
-
-    const { id: jobId } = await runpodResponse.json();
-    console.log('Job submitted:', jobId);
-
-    // Return 202 Accepted with job id — client can poll the status endpoint
-    return NextResponse.json({
-      jobId,
+    return submitRunPodImage({
+      prompt,
+      negative,
+      numInferenceSteps: num_inference_steps,
+      guidanceScale: guidance_scale,
+      width,
+      height,
       seed,
-      prompt_preview: prompt.slice(0, 500),
-      message: 'Job submitted; poll /api/generate-companion/status/[jobId] for updates',
-    }, { status: 202 });
+      referenceImageUrl: reference_image_url,
+      referenceStrength: reference_strength,
+      denoiseStrength: effectiveDenoiseStrength,
+    });
 
   } catch (error) {
     console.error('Generation error:', error);
