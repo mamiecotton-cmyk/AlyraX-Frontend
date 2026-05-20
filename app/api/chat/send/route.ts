@@ -6,8 +6,10 @@ import { getArchetypeImagePrompt } from '@/lib/archetype-image-prompts';
 export const maxDuration = 60;
 
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
-const CHAT_MODEL = 'sao10k/l3.3-euryale-70b';
-const CHAT_FALLBACK_MODELS = ['deepseek/deepseek-v4-flash', 'openrouter/auto'];
+const CHAT_MODEL = 'deepseek/deepseek-v4-flash';
+const CHAT_FALLBACK_MODELS = ['sao10k/l3.3-euryale-70b', 'openrouter/auto'];
+const CHAT_MAX_TOKENS = 140;
+const CHAT_TIMEOUT_MS = 12_000;
 
 type ChatMessage = {
   role: 'system' | 'user' | 'assistant';
@@ -61,10 +63,11 @@ async function fetchOpenRouterChat(messages: ChatMessage[]) {
         },
         body: JSON.stringify({
           model,
-          max_tokens: 200,
+          max_tokens: CHAT_MAX_TOKENS,
           temperature: 0.88,
           messages,
         }),
+        signal: AbortSignal.timeout(CHAT_TIMEOUT_MS),
       });
 
       const data = await response.json() as Record<string, unknown>;
@@ -137,13 +140,9 @@ function buildSelfiePrompt(message: string, archetype: Archetype): string {
 function buildSystemPrompt(
   archetype: Archetype,
   relationship: { nickname?: string; companion_nickname?: string } | null,
-  recentMessages: { role: string; content: string }[],
 ): string {
   const userName = relationship?.companion_nickname || '';
   const companionName = relationship?.nickname || archetype.name;
-  const recentContext = recentMessages.length
-    ? `\nRECENT CONTEXT:\n${recentMessages.map((m) => `${m.role}: ${m.content}`).join('\n')}`
-    : '';
 
   return `You are ${companionName}, a real person having a private text conversation. Never break character. Never mention AI.
 
@@ -173,7 +172,7 @@ MEDIA AWARENESS:
 RULES:
 - Keep responses concise — this is texting not an essay
 - Stay in character always
-- Be warm, present, and genuinely interested in them${recentContext}`;
+- Be warm, present, and genuinely interested in them`;
 }
 
 export async function POST(req: NextRequest) {
@@ -249,12 +248,12 @@ export async function POST(req: NextRequest) {
     const wantsVideo = isVideoRequest(message);
 
     // Get companion text response from LLM
-    const recentHistory = (history ?? []).slice(-12).map((m: { role: string; content: string }) => ({
+    const recentHistory = (history ?? []).slice(-8).map((m: { role: string; content: string }) => ({
       role: m.role === 'companion' ? 'assistant' : 'user',
       content: m.content ?? '',
-    }));
+    })) as ChatMessage[];
 
-    const systemPrompt = buildSystemPrompt(archetype, relationship, recentHistory);
+    const systemPrompt = buildSystemPrompt(archetype, relationship);
 
     if (!OPENROUTER_API_KEY) {
       return NextResponse.json(
