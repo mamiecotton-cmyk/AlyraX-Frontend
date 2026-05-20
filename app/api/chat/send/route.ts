@@ -6,15 +6,10 @@ import { getArchetypeImagePrompt } from '@/lib/archetype-image-prompts';
 export const maxDuration = 60;
 
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
-const CHAT_MODEL = 'deepseek/deepseek-v4-flash';
-const CHAT_FALLBACK_MODELS = [
-  'mistralai/mistral-small-3.2-24b-instruct',
-  'sao10k/l3.3-euryale-70b',
-  'openrouter/auto',
-];
+const CHAT_MODEL = process.env.OPENROUTER_CHAT_MODEL || 'sao10k/l3.3-euryale-70b';
 const CHAT_MAX_TOKENS = 140;
-const FAST_CHAT_TIMEOUT_MS = 14_000;
-const FALLBACK_CHAT_TIMEOUT_MS = 28_000;
+const CHAT_TIMEOUT_MS = 24_000;
+const CHAT_RETRY_COUNT = 2;
 
 type ChatMessage = {
   role: 'system' | 'user' | 'assistant';
@@ -25,22 +20,6 @@ type ChatAttempt = {
   model: string;
   error: string;
 };
-
-function getChatModels() {
-  const configured = process.env.OPENROUTER_CHAT_MODELS
-    ?.split(',')
-    .map((model) => model.trim())
-    .filter(Boolean);
-  const models = configured?.length
-    ? configured
-    : [process.env.OPENROUTER_CHAT_MODEL || CHAT_MODEL, ...CHAT_FALLBACK_MODELS];
-
-  return Array.from(new Set(models));
-}
-
-function getModelTimeout(model: string) {
-  return model === CHAT_MODEL ? FAST_CHAT_TIMEOUT_MS : FALLBACK_CHAT_TIMEOUT_MS;
-}
 
 function getOpenRouterError(data: Record<string, unknown>) {
   const error = data.error;
@@ -60,7 +39,7 @@ function getOpenRouterError(data: Record<string, unknown>) {
 async function fetchOpenRouterChat(messages: ChatMessage[]) {
   const attempts: ChatAttempt[] = [];
 
-  for (const model of getChatModels()) {
+  for (let attempt = 1; attempt <= CHAT_RETRY_COUNT; attempt += 1) {
     try {
       const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST',
@@ -71,12 +50,12 @@ async function fetchOpenRouterChat(messages: ChatMessage[]) {
           'X-Title': 'AlyraX',
         },
         body: JSON.stringify({
-          model,
+          model: CHAT_MODEL,
           max_tokens: CHAT_MAX_TOKENS,
           temperature: 0.88,
           messages,
         }),
-        signal: AbortSignal.timeout(getModelTimeout(model)),
+        signal: AbortSignal.timeout(CHAT_TIMEOUT_MS),
       });
 
       const data = await response.json() as Record<string, unknown>;
@@ -88,16 +67,16 @@ async function fetchOpenRouterChat(messages: ChatMessage[]) {
         : '';
 
       if (response.ok && !errorMessage && content) {
-        return { content, model, attempts };
+        return { content, model: CHAT_MODEL, attempts };
       }
 
       attempts.push({
-        model,
+        model: CHAT_MODEL,
         error: errorMessage || `HTTP ${response.status}: empty response`,
       });
     } catch (error) {
       attempts.push({
-        model,
+        model: CHAT_MODEL,
         error: error instanceof Error ? error.message : String(error),
       });
     }
@@ -122,10 +101,10 @@ function summarizeChatFailure(attempts: ChatAttempt[]) {
   }
 
   if (errors.includes('timeout') || errors.includes('aborted')) {
-    return 'Chat providers timed out. Please try again.';
+    return 'The chat model timed out. Please try again.';
   }
 
-  return 'Chat provider is temporarily unavailable. Please try again.';
+  return 'The chat model is temporarily unavailable. Please try again.';
 }
 
 // Detect if user is requesting a selfie/photo
