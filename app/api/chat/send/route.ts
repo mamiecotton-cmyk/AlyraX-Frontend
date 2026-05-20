@@ -7,9 +7,14 @@ export const maxDuration = 60;
 
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 const CHAT_MODEL = 'deepseek/deepseek-v4-flash';
-const CHAT_FALLBACK_MODELS = ['sao10k/l3.3-euryale-70b', 'openrouter/auto'];
+const CHAT_FALLBACK_MODELS = [
+  'mistralai/mistral-small-3.2-24b-instruct',
+  'sao10k/l3.3-euryale-70b',
+  'openrouter/auto',
+];
 const CHAT_MAX_TOKENS = 140;
-const CHAT_TIMEOUT_MS = 12_000;
+const FAST_CHAT_TIMEOUT_MS = 14_000;
+const FALLBACK_CHAT_TIMEOUT_MS = 28_000;
 
 type ChatMessage = {
   role: 'system' | 'user' | 'assistant';
@@ -31,6 +36,10 @@ function getChatModels() {
     : [process.env.OPENROUTER_CHAT_MODEL || CHAT_MODEL, ...CHAT_FALLBACK_MODELS];
 
   return Array.from(new Set(models));
+}
+
+function getModelTimeout(model: string) {
+  return model === CHAT_MODEL ? FAST_CHAT_TIMEOUT_MS : FALLBACK_CHAT_TIMEOUT_MS;
 }
 
 function getOpenRouterError(data: Record<string, unknown>) {
@@ -67,7 +76,7 @@ async function fetchOpenRouterChat(messages: ChatMessage[]) {
           temperature: 0.88,
           messages,
         }),
-        signal: AbortSignal.timeout(CHAT_TIMEOUT_MS),
+        signal: AbortSignal.timeout(getModelTimeout(model)),
       });
 
       const data = await response.json() as Record<string, unknown>;
@@ -95,6 +104,28 @@ async function fetchOpenRouterChat(messages: ChatMessage[]) {
   }
 
   return { content: '', model: '', attempts };
+}
+
+function summarizeChatFailure(attempts: ChatAttempt[]) {
+  const errors = attempts.map((attempt) => attempt.error.toLowerCase()).join(' ');
+
+  if (errors.includes('insufficient') || errors.includes('credits') || errors.includes('402')) {
+    return 'Chat credits are unavailable. Please check OpenRouter credits.';
+  }
+
+  if (errors.includes('rate') || errors.includes('429')) {
+    return 'Chat is being rate limited. Please try again in a moment.';
+  }
+
+  if (errors.includes('moderation') || errors.includes('flagged') || errors.includes('403')) {
+    return 'That message was blocked by provider moderation. Try rephrasing it.';
+  }
+
+  if (errors.includes('timeout') || errors.includes('aborted')) {
+    return 'Chat providers timed out. Please try again.';
+  }
+
+  return 'Chat provider is temporarily unavailable. Please try again.';
 }
 
 // Detect if user is requesting a selfie/photo
@@ -271,7 +302,7 @@ export async function POST(req: NextRequest) {
     if (!companionText) {
       console.error('OpenRouter chat failed after fallbacks:', JSON.stringify(attempts));
       return NextResponse.json(
-        { error: 'Chat provider is temporarily unavailable. Please try again.', userMessage: userMsg },
+        { error: summarizeChatFailure(attempts), userMessage: userMsg },
         { status: 502 }
       );
     }
