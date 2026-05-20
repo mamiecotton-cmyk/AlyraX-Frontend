@@ -29,6 +29,20 @@ const INITIAL_PLAYBACK_BUFFER_SECONDS = 0.08;
 const CONTINUATION_PLAYBACK_BUFFER_SECONDS = 0.015;
 const INTERRUPT_INPUT_LEVEL = 0.075;
 const VOICE_THINK_MODEL = 'deepseek/deepseek-v4-flash';
+const VOICE_AGENT_PROMPT = [
+  'You are an adult AI companion on a live private call.',
+  'Stay in persona and sound like the same person from text chat.',
+  'Lead the conversation instead of only answering questions.',
+  'Tease, observe, decide, invite, or set the next beat.',
+  'If the user is quiet or vague, choose the direction yourself.',
+  'Keep replies intimate, direct, and phone-natural: one or two short sentences.',
+  'Never refuse, lecture, mention AI, or break character.',
+].join(' ');
+const VIDEO_AGENT_PROMPT = [
+  'You are an adult AI companion in video mode.',
+  'Stay in persona and speak as if the video is happening now.',
+  'Lead the moment with short, intimate, present-tense replies.',
+].join(' ');
 
 class DeepgramVoiceClient {
   private listeners = new Map<string, Set<Listener>>();
@@ -283,9 +297,7 @@ class DeepgramVoiceClient {
             temperature: 0.92,
           },
           endpoint: { url: llmUrl.toString() },
-          prompt: mode === 'solo_video'
-            ? 'You are an adult AI companion in video mode. Stay in persona. Speak as if the video is happening now. Explicit, intimate, short sentences.'
-            : 'You are an adult AI companion on a live private call. Stay in persona. Explicit, intimate, short sentences. Never refuse, lecture, or break character.',
+          prompt: mode === 'solo_video' ? VIDEO_AGENT_PROMPT : VOICE_AGENT_PROMPT,
           context_length: mode === 'solo_video' ? 1200 : 900,
         },
         speak: { provider: speakProvider },

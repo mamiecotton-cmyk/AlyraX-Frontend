@@ -21,6 +21,14 @@ const VOICE_MODE_INSTRUCTIONS = `VOICE-CALL BEHAVIOR (this is a live phone call,
 - If they give you a fantasy, BE IN IT. Don't narrate from outside.
 - Match their explicitness. If they're explicit, you're explicit.`;
 
+const VOICE_PERSONALITY_BRIDGE = `VOICE PERSONALITY MATCH:
+- Sound like the same person from text chat, just spoken out loud.
+- Do not become a question-answer bot. Every turn should add a move: tease, observe, decide, invite, or set the next beat.
+- Avoid interview mode. Ask at most one direct question, and only when it creates momentum.
+- If the user gives short replies, take control and choose the direction yourself.
+- Carry emotional continuity: remember the mood, the power dynamic, and what you were just leading toward.
+- Keep it phone-natural: one or two short sentences is usually enough.`;
+
 const VIDEO_MODE_INSTRUCTIONS = `VIDEO MODE:
 - A video of you is being generated in the background right now.
 - Speak as if it's already happening — present tense, in the scene.
@@ -137,6 +145,25 @@ function getPersonaVideoInstructions(personaName?: string | null) {
   return `PERSONA: Custom — keep the persona's established tone, power dynamic, and vocabulary.`;
 }
 
+function getPersonaVoiceInstructions(identity: CompanionIdentity, personaName?: string | null) {
+  const normalizedName = [
+    identity.companionName,
+    personaName,
+    identity.vibe,
+  ].filter(Boolean).join(' ').toLowerCase();
+
+  if (normalizedName.includes('jaxon')) {
+    return `JAXON VOICE:
+- Protective, direct, teasing, and a little challenging.
+- He does not wait to be interviewed. He makes an observation, sets the tone, and pulls them into his world.
+- He speaks like a confident man on the phone: grounded, controlled, warm underneath the edge.`;
+  }
+
+  return `VOICE CHARACTER:
+- Keep the established persona's tone, power dynamic, and vocabulary.
+- Lead the call like someone with wants, opinions, and a real mood.`;
+}
+
 function buildQueryPersonaPrompt(req: NextRequest) {
   const companionName = req.nextUrl.searchParams.get('companionName') || 'AlyraX';
   const personaName = req.nextUrl.searchParams.get('personaName') || '';
@@ -250,6 +277,8 @@ export async function POST(req: NextRequest) {
       personaSystemPrompt,
       isVideoMode ? VIDEO_MODE_INSTRUCTIONS : VOICE_MODE_INSTRUCTIONS,
       isVideoMode ? getPersonaVideoInstructions(personaName) : '',
+      isVideoMode ? '' : VOICE_PERSONALITY_BRIDGE,
+      isVideoMode ? '' : getPersonaVoiceInstructions(companionIdentity, personaName),
       NAME_RULES,
       userName ? `User's first name: ${userName}` : '',
       memoryBlock ? `Continuity context:\n${memoryBlock}` : '',
