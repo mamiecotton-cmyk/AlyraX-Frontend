@@ -83,6 +83,7 @@ async function uploadImageToR2(imageBuffer: Buffer, jobId: string): Promise<stri
     region: 'auto',
     endpoint,
     credentials: { accessKeyId, secretAccessKey },
+    forcePathStyle: true,
   });
 
   await s3.send(new PutObjectCommand({

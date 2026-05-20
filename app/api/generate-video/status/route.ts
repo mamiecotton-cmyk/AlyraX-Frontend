@@ -53,6 +53,7 @@ async function uploadVideoToR2(
       accessKeyId,
       secretAccessKey,
     },
+    forcePathStyle: true,
   });
 
   await s3.send(new PutObjectCommand({
