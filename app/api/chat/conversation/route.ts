@@ -46,7 +46,7 @@ export async function GET(req: NextRequest) {
 
     // Fetch last 50 messages
     const { data: messages, error: messagesError } = await supabase
-      .from('messages')
+      .from('chat_messages')
       .select('*')
       .eq('conversation_id', finalConversation.id)
       .order('created_at', { ascending: true })

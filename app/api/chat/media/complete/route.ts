@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
     if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
 
     const { error } = await supabase
-      .from('messages')
+      .from('chat_messages')
       .update({
         media_url: media_url ?? null,
         media_status: status ?? 'ready',

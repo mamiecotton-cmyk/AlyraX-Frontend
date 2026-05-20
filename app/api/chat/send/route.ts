@@ -116,7 +116,7 @@ export async function POST(req: NextRequest) {
 
     // Save user message
     const { data: userMsg, error: userMsgError } = await supabase
-      .from('messages')
+      .from('chat_messages')
       .insert({
         conversation_id,
         role: 'user',
@@ -164,7 +164,7 @@ export async function POST(req: NextRequest) {
 
     // Save companion text message
     const { data: companionMsg, error: companionMsgError } = await supabase
-      .from('messages')
+      .from('chat_messages')
       .insert({
         conversation_id,
         role: 'companion',
@@ -180,7 +180,7 @@ export async function POST(req: NextRequest) {
     if (wantsSelfie) {
       const selfiePrompt = buildSelfiePrompt(message, archetype);
       const { data: mediaMsgData } = await supabase
-        .from('messages')
+        .from('chat_messages')
         .insert({
           conversation_id,
           role: 'companion',
@@ -196,7 +196,7 @@ export async function POST(req: NextRequest) {
 
     if (wantsVideo) {
       const { data: mediaMsgData } = await supabase
-        .from('messages')
+        .from('chat_messages')
         .insert({
           conversation_id,
           role: 'companion',
