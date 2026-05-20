@@ -237,8 +237,13 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ jobI
       );
     }
 
+    // Strip runpod-comfy: prefix if present
+    const rawJobId = jobId.startsWith('runpod-comfy:')
+      ? jobId.slice('runpod-comfy:'.length)
+      : jobId;
+
     const statusResponse = await fetch(
-      `https://api.runpod.ai/v2/${imageEndpointId}/status/${jobId}`,
+      `https://api.runpod.ai/v2/${imageEndpointId}/status/${rawJobId}`,
       {
         headers: { 'Authorization': `Bearer ${process.env.RUNPOD_API_KEY}` },
       }
