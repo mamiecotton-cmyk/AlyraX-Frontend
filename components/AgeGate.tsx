@@ -1,19 +1,16 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 
 export default function AgeGate() {
   const router = useRouter();
-  const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
     const isVerified = localStorage.getItem('alyra_age_verified');
     if (isVerified) {
       router.push('/login');
-    } else {
-      setIsVisible(true);
     }
   }, [router]);
 
@@ -26,31 +23,35 @@ export default function AgeGate() {
 
   return (
     <AnimatePresence>
-      {isVisible && (
-        <motion.div
+      <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black text-white p-6"
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black text-white px-5 py-6"
         >
-          <div className="max-w-md text-center space-y-6">
-            <h1 className="text-3xl font-serif">Alyra X</h1>
+          <div
+            className="w-full max-w-md text-center"
+            style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}
+          >
+            <h1 className="text-3xl font-serif leading-none">Alyra X</h1>
 
             {/* Mandatory 2026 AI Disclosure */}
-            <div className="bg-gray-900 p-4 rounded-lg border border-gray-800 text-sm">
-              <p className="text-gray-400 mb-2">LEGAL DISCLOSURE (SB 243):</p>
-              <p>
+            <div className="bg-gray-900 px-4 py-3 rounded-lg border border-gray-800 text-sm leading-relaxed">
+              <p className="text-gray-400 mb-1 text-xs tracking-[0.08em]">LEGAL DISCLOSURE (SB 243):</p>
+              <p className="max-w-[32ch] mx-auto sm:max-w-none">
                 You are about to interact with an{' '}
                 <span className="text-yellow-500 font-bold">AI Companion</span>, not a human.
                 This service is for entertainment and simulation purposes only.
               </p>
             </div>
 
-            <p className="text-lg">You must be at least 18 years of age to enter this site.</p>
+            <p className="text-base sm:text-lg leading-snug" style={{ maxWidth: '34ch', margin: '0 auto' }}>
+              You must be at least 18 years of age to enter this site.
+            </p>
 
             <button
               onClick={handleVerify}
-              className="w-full py-4 bg-white text-black font-bold rounded-full hover:bg-gray-200 transition"
+              className="w-full py-3.5 bg-white text-black font-bold rounded-full hover:bg-gray-200 transition"
             >
               I AM 18+ (ENTER)
             </button>
@@ -67,8 +68,7 @@ export default function AgeGate() {
               </a>
             </div>
           </div>
-        </motion.div>
-      )}
+      </motion.div>
     </AnimatePresence>
   );
 }

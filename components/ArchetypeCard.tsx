@@ -176,18 +176,18 @@ export default function ArchetypeCard({
         </div>
 
         {/* Card bottom info + chat button */}
-        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '20px 14px 14px', zIndex: 2 }}>
+        <div data-card-info style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '20px 14px 14px', zIndex: 2 }}>
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', background: '#e63946', color: '#ffffff', fontSize: '10px', fontWeight: 500, padding: '3px 9px', borderRadius: '20px', marginBottom: '6px' }}>
             <span style={{ fontSize: '7px' }}>●</span> Online
           </div>
-          <div style={{ fontFamily: 'var(--font-display)', fontSize: '22px', fontWeight: 500, color: '#ffffff', lineHeight: 1.1, marginBottom: '2px' }}>
+          <div data-card-name style={{ fontFamily: 'var(--font-display)', fontSize: '22px', fontWeight: 500, color: '#ffffff', lineHeight: 1.1, marginBottom: '2px' }}>
             {archetype.name}
           </div>
-          <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.7)', marginBottom: '2px' }}>{archetype.city}</div>
-          <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginBottom: '10px' }}>{archetype.age} years old</div>
+          <div data-card-meta style={{ fontSize: '11px', color: 'rgba(255,255,255,0.7)', marginBottom: '2px' }}>{archetype.city}</div>
+          <div data-card-meta style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginBottom: '10px' }}>{archetype.age} years old</div>
 
           {/* Chat button — slides up on hover */}
-          <div style={{
+          <div data-chat-cta style={{
             transform: hovered ? 'translateY(0)' : 'translateY(12px)',
             opacity: hovered ? 1 : 0,
             transition: 'all 0.22s cubic-bezier(0.16, 1, 0.3, 1)',
@@ -218,6 +218,36 @@ export default function ArchetypeCard({
       </div>
 
       <style>{`
+        @media (hover: none), (pointer: coarse) {
+          .card-hover [data-chat-cta] {
+            opacity: 1 !important;
+            transform: translateY(0) !important;
+          }
+        }
+
+        @media (max-width: 560px) {
+          .card-hover {
+            border-radius: 8px !important;
+          }
+
+          .card-hover [data-chat-cta] {
+            opacity: 1 !important;
+            transform: translateY(0) !important;
+          }
+
+          .card-hover [data-card-info] {
+            padding: 34px 10px 10px !important;
+          }
+
+          .card-hover [data-card-name] {
+            font-size: 18px !important;
+          }
+
+          .card-hover [data-card-meta] {
+            font-size: 10px !important;
+          }
+        }
+
         @keyframes loopFade {
           0%   { opacity: 0; background: transparent; }
           70%  { opacity: 0; background: transparent; }

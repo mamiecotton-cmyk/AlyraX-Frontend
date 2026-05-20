@@ -83,6 +83,13 @@ export default function DossierPage({ params }: Props) {
   return (
     <div className="dossier-shell">
       <style>{`
+        html,
+        body {
+          background: #050505;
+          height: auto !important;
+          min-height: 100%;
+        }
+
         .dossier-shell {
           min-height: 100dvh;
           width: 100%;
@@ -416,8 +423,24 @@ export default function DossierPage({ params }: Props) {
         @media (max-width: 920px) {
           .dossier-shell {
             align-items: flex-start;
-            padding: 84px 18px 28px;
-            overflow-y: auto;
+            display: block;
+            padding: 76px 16px 24px;
+            overflow: visible;
+          }
+
+          .dossier-backdrop {
+            position: fixed;
+            inset: -20px;
+            filter: blur(20px);
+            transform: scale(1.06);
+            opacity: 0.28;
+          }
+
+          .dossier-vignette {
+            position: fixed;
+            background:
+              linear-gradient(180deg, rgba(0,0,0,0.46), rgba(0,0,0,0.74) 42%, #050505 100%),
+              rgba(0,0,0,0.36);
           }
 
           .dossier-card {
@@ -425,50 +448,176 @@ export default function DossierPage({ params }: Props) {
             height: auto;
             min-height: 0;
             grid-template-columns: 1fr;
+            margin: 0 auto;
+            border-radius: 18px;
+            overflow: visible;
+            border-color: rgba(255,255,255,0.1);
+            background: rgba(8,8,8,0.96);
           }
 
           .dossier-media {
-            aspect-ratio: 4 / 3;
+            aspect-ratio: 4 / 5;
+            overflow: hidden;
+            border-radius: 18px 18px 0 0;
+          }
+
+          .dossier-media::after {
+            background:
+              linear-gradient(180deg, transparent 50%, rgba(0,0,0,0.68) 100%);
           }
 
           .dossier-panel {
-            padding: 28px 24px 24px;
+            padding: 24px 22px 22px;
+          }
+
+          .dossier-panel-actions {
+            top: -52px;
+            right: 14px;
+          }
+
+          .dossier-name-row {
+            align-items: flex-start;
+            padding-right: 0;
+            margin-top: 0;
+          }
+
+          .dossier-name {
+            font-size: clamp(36px, 12vw, 48px);
+            line-height: 0.96;
+          }
+
+          .dossier-audio {
+            flex: 0 0 auto;
+            width: 38px;
+            height: 38px;
+          }
+
+          .dossier-copy {
+            max-width: none;
+            -webkit-line-clamp: unset;
+          }
+
+          .dossier-action-grid {
+            margin-top: 6px;
           }
         }
 
         @media (max-width: 560px) {
+          .dossier-shell {
+            min-height: 100dvh;
+            padding: 68px 0 0;
+            background: #050505;
+          }
+
           .dossier-topline {
-            top: 18px;
-            left: 18px;
-            right: 18px;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 58px;
+            padding: 10px 14px;
+            background: rgba(5,5,5,0.84);
+            backdrop-filter: blur(14px);
+            border-bottom: 1px solid rgba(255,255,255,0.08);
           }
 
           .dossier-brand {
             font-size: 18px;
           }
 
+          .dossier-brand span {
+            font-size: 8px;
+            letter-spacing: 0.2em;
+          }
+
+          .dossier-text-button {
+            padding: 8px 12px;
+            font-size: 11px;
+          }
+
           .dossier-card {
-            border-radius: 14px;
+            width: 100%;
+            border-radius: 0;
+            border: 0;
+            box-shadow: none;
+            background: #080808;
+          }
+
+          .dossier-media {
+            aspect-ratio: auto;
+            height: min(68dvh, 560px);
+            min-height: 420px;
+            border-radius: 0;
+          }
+
+          .dossier-media img {
+            object-position: center top;
+          }
+
+          .dossier-dots {
+            bottom: 14px;
           }
 
           .dossier-panel {
-            padding: 24px 18px 18px;
-          }
-
-          .dossier-name-row {
-            padding-right: 76px;
+            margin-top: -34px;
+            padding: 24px 18px 22px;
+            border-radius: 22px 22px 0 0;
+            background: #080808;
           }
 
           .dossier-name {
-            font-size: 34px;
+            font-size: clamp(34px, 11vw, 42px);
+          }
+
+          .dossier-meta {
+            gap: 8px;
+            margin-top: 12px;
+            font-size: 13px;
+          }
+
+          .dossier-meta span,
+          .dossier-social span {
+            padding: 5px 8px;
+            border-radius: 999px;
+            background: rgba(255,255,255,0.06);
           }
 
           .dossier-copy {
             font-size: 15px;
+            line-height: 1.5;
+            margin-top: 12px;
+          }
+
+          .dossier-social {
+            gap: 8px;
+            padding: 14px 0;
+            font-size: 12px;
+          }
+
+          .dossier-helper {
+            display: none;
           }
 
           .dossier-action-grid {
-            grid-template-columns: 1fr;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 9px;
+          }
+
+          .dossier-action {
+            min-height: 68px;
+            border-radius: 10px;
+            gap: 5px;
+            font-size: 13px;
+          }
+
+          .dossier-action-icon {
+            width: 24px;
+            height: 24px;
+          }
+
+          .dossier-action-icon svg {
+            width: 21px;
+            height: 21px;
           }
         }
       `}</style>
