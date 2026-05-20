@@ -7,6 +7,92 @@ export const maxDuration = 60;
 
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 const CHAT_MODEL = 'sao10k/l3.3-euryale-70b';
+const CHAT_FALLBACK_MODELS = ['deepseek/deepseek-v4-flash', 'openrouter/auto'];
+
+type ChatMessage = {
+  role: 'system' | 'user' | 'assistant';
+  content: string;
+};
+
+type ChatAttempt = {
+  model: string;
+  error: string;
+};
+
+function getChatModels() {
+  const configured = process.env.OPENROUTER_CHAT_MODELS
+    ?.split(',')
+    .map((model) => model.trim())
+    .filter(Boolean);
+  const models = configured?.length
+    ? configured
+    : [process.env.OPENROUTER_CHAT_MODEL || CHAT_MODEL, ...CHAT_FALLBACK_MODELS];
+
+  return Array.from(new Set(models));
+}
+
+function getOpenRouterError(data: Record<string, unknown>) {
+  const error = data.error;
+  if (error && typeof error === 'object' && 'message' in error) {
+    const message = (error as { message?: unknown }).message;
+    return typeof message === 'string' ? message : JSON.stringify(error);
+  }
+
+  const choice = Array.isArray(data.choices) ? data.choices[0] : undefined;
+  if (choice && typeof choice === 'object' && (choice as { finish_reason?: unknown }).finish_reason === 'error') {
+    return 'Provider returned an error while generating the response';
+  }
+
+  return '';
+}
+
+async function fetchOpenRouterChat(messages: ChatMessage[]) {
+  const attempts: ChatAttempt[] = [];
+
+  for (const model of getChatModels()) {
+    try {
+      const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+          'HTTP-Referer': 'https://alyra-x-frontend.vercel.app',
+          'X-Title': 'AlyraX',
+        },
+        body: JSON.stringify({
+          model,
+          max_tokens: 200,
+          temperature: 0.88,
+          messages,
+        }),
+      });
+
+      const data = await response.json() as Record<string, unknown>;
+      const errorMessage = getOpenRouterError(data);
+      const choices = Array.isArray(data.choices) ? data.choices : [];
+      const firstChoice = choices[0] as { message?: { content?: unknown } } | undefined;
+      const content = typeof firstChoice?.message?.content === 'string'
+        ? firstChoice.message.content.trim()
+        : '';
+
+      if (response.ok && !errorMessage && content) {
+        return { content, model, attempts };
+      }
+
+      attempts.push({
+        model,
+        error: errorMessage || `HTTP ${response.status}: empty response`,
+      });
+    } catch (error) {
+      attempts.push({
+        model,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  return { content: '', model: '', attempts };
+}
 
 // Detect if user is requesting a selfie/photo
 function isSelfieRequest(message: string): boolean {
@@ -177,42 +263,22 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const llmResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-        'HTTP-Referer': 'https://alyra-x-frontend.vercel.app',
-        'X-Title': 'AlyraX',
-      },
-      body: JSON.stringify({
-        model: CHAT_MODEL,
-        max_tokens: 200,
-        temperature: 0.88,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          ...recentHistory,
-          { role: 'user', content: message },
-        ],
-      }),
-    });
+    const { content: companionText, model: responseModel, attempts } = await fetchOpenRouterChat([
+      { role: 'system', content: systemPrompt },
+      ...recentHistory,
+      { role: 'user', content: message },
+    ]);
 
-    const llmData = await llmResponse.json();
-    if (!llmResponse.ok) {
-      console.error('OpenRouter chat error:', JSON.stringify(llmData));
+    if (!companionText) {
+      console.error('OpenRouter chat failed after fallbacks:', JSON.stringify(attempts));
       return NextResponse.json(
-        { error: llmData.error?.message || 'Chat model failed', userMessage: userMsg },
+        { error: 'Chat provider is temporarily unavailable. Please try again.', userMessage: userMsg },
         { status: 502 }
       );
     }
 
-    const companionText = llmData.choices?.[0]?.message?.content?.trim() ?? '';
-    if (!companionText) {
-      console.error('OpenRouter chat empty response:', JSON.stringify(llmData));
-      return NextResponse.json(
-        { error: 'Chat model returned an empty response', userMessage: userMsg },
-        { status: 502 }
-      );
+    if (attempts.length) {
+      console.warn('OpenRouter chat recovered with fallback:', JSON.stringify({ responseModel, attempts }));
     }
 
     // Save companion text message
