@@ -6,6 +6,7 @@ import { getArchetypeImagePrompt } from '@/lib/archetype-image-prompts';
 export const maxDuration = 60;
 
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
+// Text chat uses the roleplay model so archetype personalities stay consistent.
 const CHAT_MODEL = process.env.OPENROUTER_CHAT_MODEL || 'sao10k/l3.3-euryale-70b';
 const CHAT_MAX_TOKENS = 140;
 const CHAT_TIMEOUT_MS = 24_000;

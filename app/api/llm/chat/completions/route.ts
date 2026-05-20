@@ -47,6 +47,7 @@ const NAME_RULES = `NAME USAGE:
 
 // ---------- MODEL CONFIG ----------
 
+// Live voice uses the faster model so turn-taking stays responsive.
 const VOICE_MODEL = process.env.OPENROUTER_VOICE_MODEL || 'deepseek/deepseek-v4-flash';
 const VIDEO_MODEL = process.env.OPENROUTER_MODEL || 'sao10k/l3-euryale-70b';
 

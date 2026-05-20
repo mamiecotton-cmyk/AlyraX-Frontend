@@ -28,6 +28,7 @@ const OUTPUT_SAMPLE_RATE = 24000;
 const INITIAL_PLAYBACK_BUFFER_SECONDS = 0.08;
 const CONTINUATION_PLAYBACK_BUFFER_SECONDS = 0.015;
 const INTERRUPT_INPUT_LEVEL = 0.075;
+const VOICE_THINK_MODEL = 'deepseek/deepseek-v4-flash';
 
 class DeepgramVoiceClient {
   private listeners = new Map<string, Set<Listener>>();
@@ -278,7 +279,7 @@ class DeepgramVoiceClient {
         think: {
           provider: {
             type: 'open_ai',
-            model: 'deepseek/deepseek-v4-flash',
+            model: VOICE_THINK_MODEL,
             temperature: 0.92,
           },
           endpoint: { url: llmUrl.toString() },
