@@ -29,13 +29,9 @@ function buildSelfiePrompt(message: string, archetype: Archetype): string {
 
   const lower = message.toLowerCase();
 
-  let style = 'portrait';
   let scene = profile?.environment ?? archetype.city;
   let wardrobe = profile?.wardrobe ?? archetype.style.toLowerCase();
 
-  if (lower.includes('wearing') || lower.includes('outfit') || lower.includes('dressed')) {
-    style = 'fullbody';
-  }
   if (lower.includes('outside') || lower.includes('outdoor') || lower.includes('street')) {
     scene = 'outdoor street, natural light';
   }
@@ -59,6 +55,9 @@ function buildSystemPrompt(
 ): string {
   const userName = relationship?.companion_nickname || '';
   const companionName = relationship?.nickname || archetype.name;
+  const recentContext = recentMessages.length
+    ? `\nRECENT CONTEXT:\n${recentMessages.map((m) => `${m.role}: ${m.content}`).join('\n')}`
+    : '';
 
   return `You are ${companionName}, a real person having a private text conversation. Never break character. Never mention AI.
 
@@ -88,7 +87,7 @@ MEDIA AWARENESS:
 RULES:
 - Keep responses concise — this is texting not an essay
 - Stay in character always
-- Be warm, present, and genuinely interested in them`;
+- Be warm, present, and genuinely interested in them${recentContext}`;
 }
 
 export async function POST(req: NextRequest) {
@@ -105,6 +104,23 @@ export async function POST(req: NextRequest) {
 
     const archetype = archetypes.find(a => a.id === archetype_id);
     if (!archetype) return NextResponse.json({ error: 'Archetype not found' }, { status: 404 });
+
+    const { data: conversation, error: conversationError } = await supabase
+      .from('conversations')
+      .select('id, user_id, message_count')
+      .eq('id', conversation_id)
+      .eq('user_id', user.id)
+      .eq('archetype_id', archetype_id)
+      .maybeSingle();
+
+    if (conversationError) {
+      console.error('Chat send conversation fetch error:', JSON.stringify(conversationError));
+      return NextResponse.json({ error: conversationError.message }, { status: 500 });
+    }
+
+    if (!conversation) {
+      return NextResponse.json({ error: 'Conversation not found' }, { status: 404 });
+    }
 
     // Fetch relationship for nickname context
     const { data: relationship } = await supabase
@@ -127,6 +143,21 @@ export async function POST(req: NextRequest) {
 
     if (userMsgError) throw userMsgError;
 
+    const userMessageAt = new Date().toISOString();
+    const { error: userConversationUpdateError } = await supabase
+      .from('conversations')
+      .update({
+        last_message_at: userMessageAt,
+        message_count: (conversation.message_count ?? 0) + 1,
+        updated_at: userMessageAt,
+      })
+      .eq('id', conversation_id)
+      .eq('user_id', user.id);
+
+    if (userConversationUpdateError) {
+      console.error('Chat user conversation update error:', JSON.stringify(userConversationUpdateError));
+    }
+
     // Detect media requests
     const wantsSelfie = isSelfieRequest(message);
     const wantsVideo = isVideoRequest(message);
@@ -138,6 +169,13 @@ export async function POST(req: NextRequest) {
     }));
 
     const systemPrompt = buildSystemPrompt(archetype, relationship, recentHistory);
+
+    if (!OPENROUTER_API_KEY) {
+      return NextResponse.json(
+        { error: 'Missing OPENROUTER_API_KEY', userMessage: userMsg },
+        { status: 500 }
+      );
+    }
 
     const llmResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
@@ -160,7 +198,22 @@ export async function POST(req: NextRequest) {
     });
 
     const llmData = await llmResponse.json();
+    if (!llmResponse.ok) {
+      console.error('OpenRouter chat error:', JSON.stringify(llmData));
+      return NextResponse.json(
+        { error: llmData.error?.message || 'Chat model failed', userMessage: userMsg },
+        { status: 502 }
+      );
+    }
+
     const companionText = llmData.choices?.[0]?.message?.content?.trim() ?? '';
+    if (!companionText) {
+      console.error('OpenRouter chat empty response:', JSON.stringify(llmData));
+      return NextResponse.json(
+        { error: 'Chat model returned an empty response', userMessage: userMsg },
+        { status: 502 }
+      );
+    }
 
     // Save companion text message
     const { data: companionMsg, error: companionMsgError } = await supabase
@@ -218,6 +271,22 @@ export async function POST(req: NextRequest) {
         archetype_id,
         last_talked_at: new Date().toISOString(),
       }, { onConflict: 'user_id,archetype_id' });
+
+    const insertedMessageCount = [userMsg, companionMsg, mediaMsg].filter(Boolean).length;
+    const completedAt = new Date().toISOString();
+    const { error: conversationUpdateError } = await supabase
+      .from('conversations')
+      .update({
+        last_message_at: completedAt,
+        message_count: (conversation.message_count ?? 0) + insertedMessageCount,
+        updated_at: completedAt,
+      })
+      .eq('id', conversation_id)
+      .eq('user_id', user.id);
+
+    if (conversationUpdateError) {
+      console.error('Chat conversation update error:', JSON.stringify(conversationUpdateError));
+    }
 
     return NextResponse.json({
       userMessage: userMsg,

@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
       const genData = await genRes.json();
 
       if (!genRes.ok) {
-        await supabase.from('messages').update({ media_status: 'failed' }).eq('id', message_id);
+        await supabase.from('chat_messages').update({ media_status: 'failed' }).eq('id', message_id);
         return NextResponse.json({ error: genData.error || 'Generation failed' }, { status: 500 });
       }
 
@@ -70,7 +70,7 @@ export async function POST(req: NextRequest) {
 
       const frameUrl = imageData?.image_url;
       if (!frameUrl) {
-        await supabase.from('messages').update({ media_status: 'failed' }).eq('id', message_id);
+        await supabase.from('chat_messages').update({ media_status: 'failed' }).eq('id', message_id);
         return NextResponse.json({ error: 'No source image for video' }, { status: 400 });
       }
 
@@ -89,7 +89,7 @@ export async function POST(req: NextRequest) {
       const videoData = await videoRes.json();
 
       if (!videoRes.ok || !videoData.prediction_id) {
-        await supabase.from('messages').update({ media_status: 'failed' }).eq('id', message_id);
+        await supabase.from('chat_messages').update({ media_status: 'failed' }).eq('id', message_id);
         return NextResponse.json({ error: videoData.error || 'Video generation failed' }, { status: 500 });
       }
 

@@ -188,6 +188,7 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
   const [relationship, setRelationship] = useState<Relationship | null>(null);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [userName, setUserName] = useState('');
   const [calling, setCalling] = useState(false);
@@ -257,8 +258,9 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
 
   // Cleanup polling on unmount
   useEffect(() => {
+    const timers = pollingRef.current;
     return () => {
-      pollingRef.current.forEach(timer => clearTimeout(timer));
+      timers.forEach(timer => clearTimeout(timer));
     };
   }, []);
 
@@ -380,6 +382,7 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
     if (!input.trim() || !conversationId || sending) return;
     const text = input.trim();
     setInput('');
+    setSendError(null);
     setSending(true);
 
     // Optimistic user message
@@ -416,6 +419,17 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
 
       const data = await res.json();
 
+      if (!res.ok) {
+        setMessages(prev => {
+          const without = prev.filter(m => m.id !== tempId);
+          return data.userMessage ? [...without, data.userMessage] : prev;
+        });
+        setSendError(data.error || 'Message failed to send');
+        setSending(false);
+        inputRef.current?.focus();
+        return;
+      }
+
       // Replace optimistic message + add companion response
       setMessages(prev => {
         const without = prev.filter(m => m.id !== tempId);
@@ -431,7 +445,7 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
         await startMediaGeneration(data.mediaMessage);
       }
     } catch {
-      setMessages(prev => prev.filter(m => m.id !== tempId));
+      setSendError('Message failed to send');
     }
 
     setSending(false);
@@ -482,7 +496,6 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
   if (!archetype) return null;
 
   const companionDisplayName = relationship?.nickname || archetype.name;
-  const userDisplayName = relationship?.companion_nickname || userName || 'you';
   const mediaUrl = archetypeVideo || archetypeImage;
   const isWebp = mediaUrl?.includes('.webp');
 
@@ -748,6 +761,12 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
 
           {/* Input */}
           <div style={{ padding: '16px 24px', borderTop: '1px solid #1a1a1a', background: '#0a0a0a', flexShrink: 0 }}>
+            {sendError && (
+              <div style={{ marginBottom: '10px', color: '#ff8a8a', fontSize: '12px', fontFamily: 'var(--font-body)' }}>
+                {sendError}
+              </div>
+            )}
+
             {/* Quick suggestions */}
             <div style={{ display: 'flex', gap: '6px', marginBottom: '10px', flexWrap: 'wrap' }}>
               {['Send me a selfie 📸', 'Make a video for me 🎬', 'How are you?', 'What are you up to?'].map(s => (
