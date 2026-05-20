@@ -150,25 +150,42 @@ export default function DashboardPage() {
               </div>
             )}
             {companion && (
-              <button
-                onClick={() => setShowCallPanel((p) => !p)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  padding: '8px 18px',
-                  background: showCallPanel ? '#0a0a0a' : 'transparent',
-                  border: '1px solid #0a0a0a',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                  fontSize: '13px',
-                  fontWeight: 500,
-                  color: showCallPanel ? '#ffffff' : '#0a0a0a',
-                  transition: 'all 0.15s',
-                }}
-              >
-                ◉ {calling ? 'On Call' : 'Call ' + companion.name}
-              </button>
+              <>
+                <button
+                  onClick={() => router.push(`/chat/${companion.id}`)}
+                  style={{
+                    padding: '8px 18px',
+                    background: 'transparent',
+                    border: '1px solid #0a0a0a',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontSize: '13px',
+                    fontWeight: 500,
+                    color: '#0a0a0a',
+                  }}
+                >
+                  💬 Chat
+                </button>
+                <button
+                  onClick={() => setShowCallPanel((p) => !p)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '8px 18px',
+                    background: showCallPanel ? '#0a0a0a' : 'transparent',
+                    border: '1px solid #0a0a0a',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontSize: '13px',
+                    fontWeight: 500,
+                    color: showCallPanel ? '#ffffff' : '#0a0a0a',
+                    transition: 'all 0.15s',
+                  }}
+                >
+                  ◉ {calling ? 'On Call' : 'Call ' + companion.name}
+                </button>
+              </>
             )}
             <button
               onClick={() => router.push('/onboarding')}

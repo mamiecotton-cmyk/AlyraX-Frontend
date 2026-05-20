@@ -25,6 +25,7 @@ export default function Sidebar() {
       section: 'Archive',
       items: [
         { label: 'Dashboard',  href: '/dashboard' },
+        { label: 'Chat', href: '/chat' },
         { label: 'Archetypes', href: '/archive' },
         { label: 'The Men',    href: '/archive?gender=M' },
         { label: 'The Women',  href: '/archive?gender=F' },

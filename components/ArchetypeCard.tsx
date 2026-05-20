@@ -23,6 +23,7 @@ export default function ArchetypeCard({
   const videoRef = useRef<HTMLVideoElement>(null);
   const [videoReady, setVideoReady] = useState(false);
   const [videoError, setVideoError] = useState(false);
+  const [hovered, setHovered] = useState(false);
 
   useEffect(() => {
     if (!videoUrl || !videoRef.current) return;
@@ -62,6 +63,8 @@ export default function ArchetypeCard({
         position: 'relative',
         border: featured ? '2px solid #e63946' : '1px solid #2a2a2a',
       }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       onClick={() => router.push(`/dossier/${archetype.id}`)}
     >
       <div
@@ -156,7 +159,7 @@ export default function ArchetypeCard({
           style={{
             position: 'absolute',
             inset: 0,
-            background: 'linear-gradient(180deg, transparent 40%, rgba(0,0,0,0.95) 100%)',
+            background: 'linear-gradient(180deg, transparent 35%, rgba(0,0,0,0.98) 100%)',
             pointerEvents: 'none',
             zIndex: 1,
           }}
@@ -172,24 +175,54 @@ export default function ArchetypeCard({
           {archetype.dossierId}
         </div>
 
+        {/* Card bottom info + chat button */}
         <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '20px 14px 14px', zIndex: 2 }}>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', background: '#e63946', color: '#ffffff', fontSize: '10px', fontWeight: 500, padding: '3px 9px', borderRadius: '20px', marginBottom: '8px' }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', background: '#e63946', color: '#ffffff', fontSize: '10px', fontWeight: 500, padding: '3px 9px', borderRadius: '20px', marginBottom: '6px' }}>
             <span style={{ fontSize: '7px' }}>●</span> Online
           </div>
-          <div style={{ fontFamily: 'var(--font-display)', fontSize: '22px', fontWeight: 500, color: '#ffffff', lineHeight: 1.1, marginBottom: '4px' }}>
+          <div style={{ fontFamily: 'var(--font-display)', fontSize: '22px', fontWeight: 500, color: '#ffffff', lineHeight: 1.1, marginBottom: '2px' }}>
             {archetype.name}
           </div>
-          <div style={{ fontSize: '12px', color: '#ffffff', opacity: 0.85, marginBottom: '2px' }}>{archetype.city}</div>
-          <div style={{ fontSize: '12px', color: '#ffffff', opacity: 0.7 }}>{archetype.age} years old</div>
+          <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.7)', marginBottom: '2px' }}>{archetype.city}</div>
+          <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginBottom: '10px' }}>{archetype.age} years old</div>
+
+          {/* Chat button — slides up on hover */}
+          <div style={{
+            transform: hovered ? 'translateY(0)' : 'translateY(12px)',
+            opacity: hovered ? 1 : 0,
+            transition: 'all 0.22s cubic-bezier(0.16, 1, 0.3, 1)',
+          }}>
+            <button
+              onClick={e => {
+                e.stopPropagation();
+                router.push(`/chat/${archetype.id}`);
+              }}
+              style={{
+                width: '100%',
+                padding: '9px',
+                background: '#e63946',
+                border: 'none',
+                borderRadius: '8px',
+                color: '#ffffff',
+                fontSize: '12px',
+                fontWeight: 600,
+                fontFamily: 'var(--font-body)',
+                cursor: 'pointer',
+                letterSpacing: '0.04em',
+              }}
+            >
+              💬 Start Chat
+            </button>
+          </div>
         </div>
       </div>
 
       <style>{`
         @keyframes loopFade {
           0%   { opacity: 0; background: transparent; }
-          80%  { opacity: 0; background: transparent; }
-          90%  { opacity: 1; background: rgba(0,0,0,0.6); }
-          95%  { opacity: 1; background: rgba(0,0,0,0.6); }
+          70%  { opacity: 0; background: transparent; }
+          82%  { opacity: 1; background: rgba(0,0,0,0.95); }
+          95%  { opacity: 1; background: rgba(0,0,0,0.95); }
           100% { opacity: 0; background: transparent; }
         }
       `}</style>

@@ -74,7 +74,7 @@ export default function DossierPage({ params }: Props) {
   );
 
   const actions = [
-    { label: 'New Chat', accent: '#a782ff', route: '/onboarding', icon: 'chat' },
+    { label: 'Chat', accent: '#a782ff', route: `/chat/${id}`, icon: 'chat' },
     { label: 'Group Chat', accent: '#20c7ff', route: '/dashboard', icon: 'group' },
     { label: 'Generate', accent: '#ffd43b', route: `/admin/profile/${id}`, icon: 'spark' },
     { label: 'Call', accent: '#16d8a3', route: '/onboarding', icon: 'call' },
