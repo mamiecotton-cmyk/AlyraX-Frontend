@@ -30,80 +30,19 @@ function getErrorMessage(error: unknown) {
 }
 
 function getRunPodImageEndpointId() {
-  return process.env.RUNPOD_IMAGE_ENDPOINT_ID;
+  return process.env.RUNPOD_COMFYUI_ENDPOINT_ID || process.env.RUNPOD_IMAGE_ENDPOINT_ID;
 }
 
-function getRunPodComfyImageEndpointId() {
-  return process.env.RUNPOD_COMFYUI_ENDPOINT_ID;
-}
+function getImagePayload(output: Record<string, unknown> | undefined) {
+  const legacyImage = typeof output?.image === 'string' ? output.image : '';
+  if (legacyImage) return { base64: legacyImage };
 
-function getImageGenerationProvider() {
-  return (process.env.IMAGE_GENERATION_PROVIDER || '').trim().toLowerCase().replace(/_/g, '-');
-}
-
-function resolveRunPodStatusTarget(jobId: string) {
-  if (jobId.startsWith('runpod-image:')) {
-    return {
-      endpointId: process.env.RUNPOD_IMAGE_ENDPOINT_ID,
-      runpodJobId: jobId.slice('runpod-image:'.length),
-      missingMessage: 'Missing RUNPOD_IMAGE_ENDPOINT_ID',
-    };
-  }
-
-  if (jobId.startsWith('runpod-comfy:')) {
-    return {
-      endpointId: getRunPodComfyImageEndpointId(),
-      runpodJobId: jobId.slice('runpod-comfy:'.length),
-      missingMessage: 'Missing RUNPOD_COMFYUI_ENDPOINT_ID',
-    };
-  }
-
-  const provider = getImageGenerationProvider();
-  const isRunPodComfy = provider === 'runpod-comfyui' || provider === 'runpod-comfy' || provider === 'comfy-runpod';
-  const endpointId = isRunPodComfy
-    ? getRunPodComfyImageEndpointId()
-    : getRunPodImageEndpointId();
-
-  return {
-    endpointId,
-    runpodJobId: jobId,
-    missingMessage: isRunPodComfy
-      ? 'Missing RUNPOD_COMFYUI_ENDPOINT_ID'
-      : 'Missing RUNPOD_IMAGE_ENDPOINT_ID',
-  };
-}
-
-function getImagePayload(output: unknown) {
-  if (typeof output === 'string' && output.length > 0) {
-    return output.startsWith('http') ? { url: output } : { base64: output };
-  }
-
-  if (Array.isArray(output)) {
-    return getImagePayload(output[0]);
-  }
-
-  const outputObj = typeof output === 'object' && output !== null ? output as Record<string, unknown> : undefined;
-
-  const legacyImage = typeof outputObj?.image === 'string' ? outputObj.image : '';
-  if (legacyImage) return legacyImage.startsWith('http') ? { url: legacyImage } : { base64: legacyImage };
-
-  const directData =
-    (typeof outputObj?.data === 'string' ? outputObj.data : '') ||
-    (typeof outputObj?.base64 === 'string' ? outputObj.base64 : '') ||
-    (typeof outputObj?.url === 'string' ? outputObj.url : '') ||
-    (typeof outputObj?.s3_url === 'string' ? outputObj.s3_url : '');
-  if (directData) {
-    return directData.startsWith('http') || outputObj?.type === 's3_url'
-      ? { url: directData }
-      : { base64: directData };
-  }
-
-  const message = typeof outputObj?.message === 'string' ? outputObj.message : '';
+  const message = typeof output?.message === 'string' ? output.message : '';
   if (message) {
     return message.startsWith('http') ? { url: message } : { base64: message };
   }
 
-  const images = Array.isArray(outputObj?.images) ? outputObj.images : [];
+  const images = Array.isArray(output?.images) ? output.images : [];
   const firstImage = images[0] as string | RunPodImageOutput | undefined;
 
   if (typeof firstImage === 'string') {
@@ -128,21 +67,98 @@ function base64ToBuffer(value: string) {
   return Buffer.from(base64, 'base64');
 }
 
-async function uploadImageBuffer(imageBuffer: Buffer, jobId: string, raw: unknown, seed?: number, width?: number, height?: number) {
-  const { createClient } = await import('@/lib/supabase-server');
-  const supabase = await createClient();
+async function uploadImageToR2(imageBuffer: Buffer, jobId: string): Promise<string> {
+  const accountId = process.env.CLOUDFLARE_R2_ACCOUNT_ID!;
+  const accessKeyId = process.env.CLOUDFLARE_R2_ACCESS_KEY_ID!;
+  const secretAccessKey = process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY!;
+  const bucketName = process.env.CLOUDFLARE_R2_BUCKET_NAME!;
+  const publicUrl = process.env.CLOUDFLARE_R2_PUBLIC_URL!;
 
-  const fileName = `generated/${Date.now()}-${jobId.replace(/[^a-zA-Z0-9_-]/g, '-')}.png`;
+  const fileName = `images/${Date.now()}-${jobId.replace(/[^a-zA-Z0-9_-]/g, '-')}.png`;
+  const endpoint = `https://${accountId}.r2.cloudflarestorage.com`;
 
-  const uploadRes = await supabase.storage
-    .from('companions')
-    .upload(fileName, imageBuffer, {
-      contentType: 'image/png',
-      upsert: true,
+  const { S3Client, PutObjectCommand } = await import('@aws-sdk/client-s3');
+
+  const s3 = new S3Client({
+    region: 'auto',
+    endpoint,
+    credentials: { accessKeyId, secretAccessKey },
+  });
+
+  await s3.send(new PutObjectCommand({
+    Bucket: bucketName,
+    Key: fileName,
+    Body: imageBuffer,
+    ContentType: 'image/png',
+  }));
+
+  return `${publicUrl}/${fileName}`;
+}
+
+async function uploadImageBuffer(
+  imageBuffer: Buffer,
+  jobId: string,
+  raw: unknown,
+  seed?: number,
+  width?: number,
+  height?: number,
+) {
+  // Try R2 first (fast Cloudflare CDN)
+  try {
+    const imageUrl = await uploadImageToR2(imageBuffer, jobId);
+    return NextResponse.json({
+      image_url: imageUrl,
+      success: true,
+      seed,
+      width,
+      height,
+      raw,
     });
+  } catch (r2Error) {
+    console.error('R2 upload failed, falling back to Supabase:', r2Error);
+  }
 
-  if (uploadRes.error) {
-    console.error('Supabase upload error:', uploadRes.error);
+  // Fallback to Supabase
+  try {
+    const { createClient } = await import('@/lib/supabase-server');
+    const supabase = await createClient();
+
+    const fileName = `generated/${Date.now()}-${jobId.replace(/[^a-zA-Z0-9_-]/g, '-')}.png`;
+
+    const uploadRes = await supabase.storage
+      .from('companions')
+      .upload(fileName, imageBuffer, {
+        contentType: 'image/png',
+        upsert: true,
+      });
+
+    if (uploadRes.error) {
+      console.error('Supabase upload error:', uploadRes.error);
+      return NextResponse.json({
+        image_url: `data:image/png;base64,${imageBuffer.toString('base64')}`,
+        success: true,
+        seed,
+        width,
+        height,
+        raw,
+      });
+    }
+
+    const { data: urlData } = supabase.storage
+      .from('companions')
+      .getPublicUrl(fileName);
+
+    return NextResponse.json({
+      image_url: urlData.publicUrl,
+      success: true,
+      seed,
+      width,
+      height,
+      raw,
+    });
+  } catch (supabaseError) {
+    console.error('Supabase fallback failed:', supabaseError);
+    // Last resort — return as data URL
     return NextResponse.json({
       image_url: `data:image/png;base64,${imageBuffer.toString('base64')}`,
       success: true,
@@ -152,24 +168,12 @@ async function uploadImageBuffer(imageBuffer: Buffer, jobId: string, raw: unknow
       raw,
     });
   }
-
-  const { data: urlData } = supabase.storage
-    .from('companions')
-    .getPublicUrl(fileName);
-
-  return NextResponse.json({
-    image_url: urlData.publicUrl,
-    success: true,
-    seed,
-    width,
-    height,
-    raw,
-  });
 }
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ jobId: string }> }) {
   try {
     const { jobId } = await params;
+
     if (jobId.startsWith('comfy:')) {
       const comfyUrl = process.env.COMFYUI_BASE_URL;
       if (!comfyUrl) {
@@ -194,7 +198,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ jobI
       }
 
       if (promptHistory.status?.status_str === 'error') {
-        return NextResponse.json({ error: 'ComfyUI generation failed', detail: promptHistory.status?.messages?.[0], raw: historyData }, { status: 500 });
+        return NextResponse.json(
+          { error: 'ComfyUI generation failed', detail: promptHistory.status?.messages?.[0], raw: historyData },
+          { status: 500 }
+        );
       }
 
       const outputs = Object.values((promptHistory.outputs ?? {}) as Record<string, ComfyOutput>);
@@ -220,18 +227,19 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ jobI
       return uploadImageBuffer(imageBuffer, jobId, historyData);
     }
 
-    const { endpointId: imageEndpointId, runpodJobId, missingMessage } = resolveRunPodStatusTarget(jobId);
+    const imageEndpointId = getRunPodImageEndpointId();
 
     if (!imageEndpointId) {
-      return NextResponse.json({ error: missingMessage }, { status: 500 });
+      return NextResponse.json(
+        { error: 'Missing RUNPOD_COMFYUI_ENDPOINT_ID or RUNPOD_IMAGE_ENDPOINT_ID' },
+        { status: 500 }
+      );
     }
 
     const statusResponse = await fetch(
-      `https://api.runpod.ai/v2/${imageEndpointId}/status/${runpodJobId}`,
+      `https://api.runpod.ai/v2/${imageEndpointId}/status/${jobId}`,
       {
-        headers: {
-          'Authorization': `Bearer ${process.env.RUNPOD_API_KEY}`,
-        },
+        headers: { 'Authorization': `Bearer ${process.env.RUNPOD_API_KEY}` },
       }
     );
 
@@ -251,10 +259,12 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ jobI
     }
 
     if (statusData.status === 'FAILED') {
-      return NextResponse.json({ error: statusData.status_message || 'RunPod image generation failed', raw: statusData }, { status: 500 });
+      return NextResponse.json(
+        { error: statusData.status_message || 'RunPod image generation failed', raw: statusData },
+        { status: 500 }
+      );
     }
 
-    // If completed, try to save the image to Supabase (same behavior as previous flow)
     if (statusData.status === 'COMPLETED') {
       const { base64, url } = getImagePayload(statusData.output);
       const outputSeed = statusData.output?.seed;
@@ -273,9 +283,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ jobI
           if (!imageResponse.ok) {
             const err = await imageResponse.text();
             console.error('RunPod output image fetch error:', err);
-            return NextResponse.json({ error: 'Failed to fetch generated image', detail: err, raw: statusData }, { status: 502 });
+            return NextResponse.json(
+              { error: 'Failed to fetch generated image', detail: err, raw: statusData },
+              { status: 502 }
+            );
           }
-
           imageBuffer = Buffer.from(await imageResponse.arrayBuffer());
         } else {
           imageBuffer = base64ToBuffer(base64 ?? '');
@@ -288,10 +300,12 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ jobI
       }
     }
 
-    // Otherwise just proxy the status object
     return NextResponse.json(statusData);
   } catch (error) {
     console.error('Status proxy error:', error);
-    return NextResponse.json({ error: 'Status check failed', detail: getErrorMessage(error) }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Status check failed', detail: getErrorMessage(error) },
+      { status: 500 }
+    );
   }
 }

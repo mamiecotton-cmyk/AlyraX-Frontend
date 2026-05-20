@@ -43,6 +43,7 @@ export default function DashboardPage() {
   const [showCallPanel, setShowCallPanel] = useState(false);
   const [mode, setMode]             = useState<'solo' | 'solo_video'>('solo');
   const [archetypeImages, setArchetypeImages] = useState<Record<string, string>>({});
+  const [archetypeVideos, setArchetypeVideos] = useState<Record<string, string>>({});
 
   const displayArchetypes = useMemo(() => {
     if (filter === 'all') return archetypes;
@@ -78,6 +79,13 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => {
+    fetch("/api/archetypes/featured-videos")
+      .then((r) => r.json())
+      .then(({ videos }) => setArchetypeVideos(videos || {}))
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
     if (!vapi) return;
     vapi.on('call-start', () => { setStatus('connected'); setCalling(true); });
     vapi.on('call-end',   () => { setStatus('idle');      setCalling(false); });
@@ -100,11 +108,10 @@ export default function DashboardPage() {
   const featuredId = companion ? null : 'jaxon';
 
   return (
-    <div className="app-shell" style={{ display: 'flex', width: '100%', height: '100dvh', overflow: 'hidden' }}>
+    <div style={{ display: 'flex', width: '100%', height: '100dvh', overflow: 'hidden' }}>
       <Sidebar />
 
       <main
-        className="app-main"
         style={{
           flex: 1,
           display: 'flex',
@@ -116,7 +123,6 @@ export default function DashboardPage() {
       >
         {/* Top bar */}
         <header
-          className="app-topbar dashboard-topbar"
           style={{
             display: 'flex',
             alignItems: 'center',
@@ -127,7 +133,7 @@ export default function DashboardPage() {
             flexShrink: 0,
           }}
         >
-          <div className="dashboard-title-row" style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
             <div style={{ fontFamily: 'var(--font-display)', fontSize: '20px', fontWeight: 400, color: '#0a0a0a', letterSpacing: '0.02em' }}>
               The Archive
             </div>
@@ -137,7 +143,7 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <div className="dashboard-actions-row" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             {userName && (
               <div style={{ fontSize: '14px', color: '#0a0a0a', fontWeight: 500 }}>
                 {userName}
@@ -185,7 +191,7 @@ export default function DashboardPage() {
         {/* Call panel */}
         {showCallPanel && companion && (
           <div
-            className="fade-in no-companion-banner"
+            className="fade-in"
             style={{
               display: 'flex',
               alignItems: 'stretch',
@@ -206,7 +212,7 @@ export default function DashboardPage() {
                 <img src={companion.image_url} alt={companion.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               )}
             </div>
-            <div className="call-panel-body" style={{ flex: 1, padding: '16px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ flex: 1, padding: '16px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div>
                 <div style={{ fontFamily: 'var(--font-display)', fontSize: '20px', color: '#0a0a0a', marginBottom: '2px' }}>
                   {companion.name}
@@ -215,7 +221,7 @@ export default function DashboardPage() {
                   {companion.personas?.tagline || 'Your AI Companion'}
                 </div>
               </div>
-              <div className="call-panel-actions" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <div style={{ display: 'flex', gap: '4px' }}>
                   {(['solo', 'solo_video'] as const).map((m) => (
                     <button
@@ -284,14 +290,14 @@ export default function DashboardPage() {
         )}
 
         {/* Main content */}
-        <div className="app-content" style={{ flex: 1, overflowY: 'auto', padding: '24px 28px' }}>
+        <div style={{ flex: 1, overflowY: 'auto', padding: '24px 28px' }}>
 
           {/* Filter + header row */}
-          <div className="app-controls-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
             <div style={{ fontFamily: 'var(--font-display)', fontSize: '28px', fontWeight: 400, color: '#0a0a0a' }}>
               The Archetypes
             </div>
-            <div className="app-segment-row" style={{ display: 'flex', gap: '6px' }}>
+            <div style={{ display: 'flex', gap: '6px' }}>
               {(['all', 'M', 'F'] as Filter[]).map((f) => (
                 <button
                   key={f}
@@ -319,7 +325,6 @@ export default function DashboardPage() {
 
           {/* Card grid — Secrets.ai style */}
           <div
-            className="archetype-grid"
             style={{
               display: 'grid',
               gridTemplateColumns: 'repeat(auto-fill, minmax(185px, 1fr))',
@@ -333,6 +338,7 @@ export default function DashboardPage() {
                 featured={archetype.id === featuredId}
                 delay={i * 0.03}
                 imageUrl={archetypeImages[archetype.id] || null}
+                videoUrl={archetypeVideos[archetype.id] || null}
               />
             ))}
           </div>
