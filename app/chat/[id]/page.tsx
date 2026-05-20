@@ -512,13 +512,13 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
   });
 
   return (
-    <div style={{ display: 'flex', width: '100%', height: '100dvh', overflow: 'hidden', background: '#080808' }}>
+    <div className="chat-shell" style={{ display: 'flex', width: '100%', height: '100dvh', overflow: 'hidden', background: '#080808' }}>
       <Sidebar />
 
-      <div style={{ flex: 1, display: 'flex', height: '100dvh', overflow: 'hidden', minWidth: 0 }}>
+      <div className="chat-layout" style={{ flex: 1, display: 'flex', height: '100dvh', overflow: 'hidden', minWidth: 0 }}>
 
         {/* ── Companion Presence Panel ──────────────────────────────────────── */}
-        <div style={{
+        <div className="chat-presence-panel" style={{
           width: '300px',
           minWidth: '300px',
           height: '100dvh',
@@ -624,10 +624,10 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
         </div>
 
         {/* ── Chat Area ────────────────────────────────────────────────────── */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100dvh', minWidth: 0 }}>
+        <div className="chat-area" style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100dvh', minWidth: 0 }}>
 
           {/* Header */}
-          <div style={{ padding: '16px 24px', borderBottom: '1px solid #1a1a1a', background: '#0a0a0a', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+          <div className="chat-header" style={{ padding: '16px 24px', borderBottom: '1px solid #1a1a1a', background: '#0a0a0a', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <div style={{ width: '36px', height: '36px', borderRadius: '50%', overflow: 'hidden', background: archetype.imageGradient, flexShrink: 0 }}>
                 {archetypeImage && <img src={archetypeImage} alt={companionDisplayName} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center top' }} />}
@@ -651,7 +651,7 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
           </div>
 
           {/* Messages */}
-          <div style={{ flex: 1, overflowY: 'auto', padding: '24px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          <div className="chat-messages" style={{ flex: 1, overflowY: 'auto', padding: '24px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
             {loading && (
               <div style={{ textAlign: 'center', padding: '40px', color: 'rgba(255,255,255,0.3)', fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.2em' }}>
                 LOADING...
@@ -702,7 +702,7 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
                         </div>
                       )}
 
-                      <div style={{ maxWidth: isMedia ? 'auto' : '65%' }}>
+                      <div className="chat-message-content" style={{ maxWidth: isMedia ? 'auto' : '65%' }}>
                         {isMedia ? (
                           <MediaMessage
                             message={msg}
@@ -760,7 +760,7 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
           </div>
 
           {/* Input */}
-          <div style={{ padding: '16px 24px', borderTop: '1px solid #1a1a1a', background: '#0a0a0a', flexShrink: 0 }}>
+          <div className="chat-input-panel" style={{ padding: '16px 24px', borderTop: '1px solid #1a1a1a', background: '#0a0a0a', flexShrink: 0 }}>
             {sendError && (
               <div style={{ marginBottom: '10px', color: '#ff8a8a', fontSize: '12px', fontFamily: 'var(--font-body)' }}>
                 {sendError}
@@ -768,7 +768,7 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
             )}
 
             {/* Quick suggestions */}
-            <div style={{ display: 'flex', gap: '6px', marginBottom: '10px', flexWrap: 'wrap' }}>
+            <div className="chat-suggestions" style={{ display: 'flex', gap: '6px', marginBottom: '10px', flexWrap: 'wrap' }}>
               {['Send me a selfie 📸', 'Make a video for me 🎬', 'How are you?', 'What are you up to?'].map(s => (
                 <button
                   key={s}
@@ -925,6 +925,104 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
       )}
 
       <style>{`
+        @media (max-width: 760px) {
+          html,
+          body {
+            background: #080808;
+            height: auto !important;
+            overflow: hidden !important;
+          }
+
+          .chat-shell {
+            display: block !important;
+            width: 100vw !important;
+            height: 100svh !important;
+            min-height: 0 !important;
+            overflow: hidden !important;
+            background: #080808 !important;
+          }
+
+          .chat-shell .app-sidebar {
+            display: none !important;
+          }
+
+          .chat-layout {
+            width: 100vw !important;
+            height: 100svh !important;
+            min-width: 0 !important;
+            display: block !important;
+            overflow: hidden !important;
+          }
+
+          .chat-presence-panel {
+            display: none !important;
+          }
+
+          .chat-area {
+            width: 100vw !important;
+            height: 100svh !important;
+            min-width: 0 !important;
+            display: flex !important;
+            overflow: hidden !important;
+            background: #080808 !important;
+          }
+
+          .chat-header {
+            padding: calc(env(safe-area-inset-top) + 10px) 14px 12px !important;
+            min-height: 68px !important;
+          }
+
+          .chat-header button {
+            min-width: 38px !important;
+            min-height: 38px !important;
+          }
+
+          .chat-messages {
+            padding: 14px 14px 12px !important;
+            min-height: 0 !important;
+            -webkit-overflow-scrolling: touch;
+          }
+
+          .chat-message-content {
+            max-width: min(78vw, 320px) !important;
+          }
+
+          .chat-input-panel {
+            padding: 10px 12px calc(env(safe-area-inset-bottom) + 12px) !important;
+            background: rgba(10,10,10,0.98) !important;
+          }
+
+          .chat-suggestions {
+            flex-wrap: nowrap !important;
+            overflow-x: auto !important;
+            padding-bottom: 2px !important;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+          }
+
+          .chat-suggestions::-webkit-scrollbar {
+            display: none;
+          }
+
+          .chat-suggestions button {
+            flex: 0 0 auto !important;
+            white-space: nowrap !important;
+            min-height: 34px !important;
+          }
+        }
+
+        @media (max-width: 380px) {
+          .chat-message-content {
+            max-width: 82vw !important;
+          }
+
+          .chat-suggestions button {
+            font-size: 10px !important;
+            padding-left: 10px !important;
+            padding-right: 10px !important;
+          }
+        }
+
         @keyframes pulse {
           0%, 100% { opacity: 1; }
           50% { opacity: 0.4; }
