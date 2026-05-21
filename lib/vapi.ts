@@ -63,6 +63,8 @@ class DeepgramVoiceClient {
   private currentVoiceId: string | null = null;
   private currentCartesiaModel: string = 'sonic-3';
   private currentSpeed: CartesiaSpeed = 'normal';
+  private ttsProxyToken: string | null = null;
+  private cartesiaProxyEnabled = false;
 
   on(event: string, listener: Listener) {
     if (!this.listeners.has(event)) this.listeners.set(event, new Set());
@@ -91,6 +93,10 @@ class DeepgramVoiceClient {
     if (!tokenResponse.ok || !tokenData.access_token) {
       throw new Error(tokenData.error || 'Unable to create Deepgram token');
     }
+    this.ttsProxyToken = typeof tokenData.tts_proxy_token === 'string'
+      ? tokenData.tts_proxy_token
+      : null;
+    this.cartesiaProxyEnabled = tokenData.cartesia_proxy_enabled === true;
 
     this.outputContext = new AudioContext({ sampleRate: OUTPUT_SAMPLE_RATE });
     this.inputContext = new AudioContext({ sampleRate: INPUT_SAMPLE_RATE });
@@ -260,7 +266,8 @@ class DeepgramVoiceClient {
     if (values.userName) llmUrl.searchParams.set('userName', values.userName);
     if (values.lastMemory) llmUrl.searchParams.set('lastMemory', values.lastMemory.slice(0, 500));
 
-    const speakProvider: Record<string, unknown> = cartesiaVoiceId
+    const useCartesia = Boolean(cartesiaVoiceId && this.cartesiaProxyEnabled && this.ttsProxyToken);
+    const speakProvider: Record<string, unknown> = useCartesia
       ? {
           type: 'cartesia',
           model_id: cartesiaModelId,
@@ -272,6 +279,14 @@ class DeepgramVoiceClient {
           type: 'deepgram',
           model: 'aura-2-thalia-en',
         };
+    const speak: Record<string, unknown> = { provider: speakProvider };
+
+    if (useCartesia && this.ttsProxyToken) {
+      speak.endpoint = {
+        url: new URL('/api/cartesia/tts/bytes', origin).toString(),
+        headers: { authorization: `Bearer ${this.ttsProxyToken}` },
+      };
+    }
 
     this.socket?.send(JSON.stringify({
       type: 'Settings',
@@ -300,7 +315,7 @@ class DeepgramVoiceClient {
           prompt: mode === 'solo_video' ? VIDEO_AGENT_PROMPT : VOICE_AGENT_PROMPT,
           context_length: mode === 'solo_video' ? 1200 : 900,
         },
-        speak: { provider: speakProvider },
+        speak,
       },
     }));
   }
