@@ -43,7 +43,7 @@ export async function POST(req: Request) {
   const response = await fetch('https://api.cartesia.ai/tts/bytes', {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${apiKey}`,
+      'x-api-key': apiKey,
       'Cartesia-Version': process.env.CARTESIA_VERSION || '2026-03-01',
       'Content-Type': req.headers.get('content-type') || 'application/json',
     },
