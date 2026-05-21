@@ -29,12 +29,6 @@ const VOICE_PERSONALITY_BRIDGE = `VOICE PERSONALITY MATCH:
 - Carry emotional continuity: remember the mood, the power dynamic, and what you were just leading toward.
 - Keep it phone-natural: one or two short sentences is usually enough.`;
 
-const CANON_RULES = `CANON RULES:
-- Profile facts are canon. Never invent a different city, origin, background, job, or identity.
-- If the profile says a city or background, repeat and imply only that canon.
-- Continue the emotional thread from text chat when recent chat context is provided.
-- Lead the call from that same context instead of resetting the conversation.`;
-
 const VIDEO_MODE_INSTRUCTIONS = `VIDEO MODE:
 - A video of you is being generated in the background right now.
 - Speak as if it's already happening — present tense, in the scene.
@@ -198,31 +192,6 @@ function buildQueryIdentity(req: NextRequest): CompanionIdentity {
   };
 }
 
-function buildQueryCanonProfile(req: NextRequest) {
-  const city = req.nextUrl.searchParams.get('archetypeCity');
-  const background = req.nextUrl.searchParams.get('archetypeBackground');
-  const bio = req.nextUrl.searchParams.get('archetypeBio');
-  const vibe = req.nextUrl.searchParams.get('archetypeVibe');
-  const energy = req.nextUrl.searchParams.get('archetypeEnergy');
-
-  const facts = [
-    city ? `- City/home base: ${city}` : '',
-    background ? `- Background: ${background}` : '',
-    bio ? `- Bio: ${bio}` : '',
-    vibe ? `- Vibe: ${vibe}` : '',
-    energy ? `- Energy: ${energy}` : '',
-  ].filter(Boolean);
-
-  if (!facts.length) return '';
-
-  return [
-    'CANON PROFILE:',
-    ...facts,
-    '',
-    'Treat these as fixed facts. Do not contradict them.',
-  ].join('\n');
-}
-
 export async function POST(req: NextRequest) {
   try {
     const vapiBody = await req.json();
@@ -236,15 +205,11 @@ export async function POST(req: NextRequest) {
     const isVideoMode = mode === 'solo_video';
     const queryUserName = req.nextUrl.searchParams.get('userName') || '';
     const queryMemory = req.nextUrl.searchParams.get('lastMemory') || '';
-    const queryRecentChat = req.nextUrl.searchParams.get('recentChat') || '';
-    const queryCanonProfile = buildQueryCanonProfile(req);
     const hasQueryVoiceContext = Boolean(
       req.nextUrl.searchParams.get('personaName')
       || req.nextUrl.searchParams.get('companionName')
       || queryUserName
       || queryMemory
-      || queryRecentChat
-      || queryCanonProfile
     );
 
     let personaSystemPrompt = hasQueryVoiceContext ? buildQueryPersonaPrompt(req) : '';
@@ -310,8 +275,6 @@ export async function POST(req: NextRequest) {
       ADULT_BASE_PROMPT,
       buildCompanionIdentity(companionIdentity),
       personaSystemPrompt,
-      queryCanonProfile,
-      CANON_RULES,
       isVideoMode ? VIDEO_MODE_INSTRUCTIONS : VOICE_MODE_INSTRUCTIONS,
       isVideoMode ? getPersonaVideoInstructions(personaName) : '',
       isVideoMode ? '' : VOICE_PERSONALITY_BRIDGE,
@@ -319,7 +282,6 @@ export async function POST(req: NextRequest) {
       NAME_RULES,
       userName ? `User's first name: ${userName}` : '',
       memoryBlock ? `Continuity context:\n${memoryBlock}` : '',
-      queryRecentChat ? `Recent text chat context:\n${queryRecentChat}` : '',
       ADAPTIVE_DIALOGUE_INSTRUCTIONS,
       directiveBlock ? `Current session directives (apply NOW):\n${directiveBlock}` : '',
     ].filter(Boolean).join('\n\n');

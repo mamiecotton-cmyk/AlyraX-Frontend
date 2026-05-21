@@ -66,10 +66,6 @@ function timeSince(iso: string) {
   return `${months} months`;
 }
 
-function clipVoiceContext(value: string, max = 140) {
-  return value.length > max ? `${value.slice(0, max - 1)}...` : value;
-}
-
 // ── Media Message Component ─────────────────────────────────────────────────
 function MediaMessage({
   message,
@@ -533,11 +529,6 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
     ? chatCompanion.personas[0]?.voice_id
     : chatCompanion?.personas?.voice_id;
   const companionVoiceId = linkedCompanionVoiceId || personaVoice?.voice_id;
-  const recentChatContext = messages
-    .filter((message) => message.content?.trim())
-    .slice(-6)
-    .map((message) => `${message.role === 'companion' ? companionDisplayName : 'User'}: ${clipVoiceContext(message.content || '')}`)
-    .join('\n');
   const mediaUrl = archetypeVideo || archetypeImage;
   const isWebp = mediaUrl?.includes('.webp');
 
@@ -643,12 +634,6 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
                 personaName={archetype.archetype}
                 personaTagline={archetype.tagline}
                 userName={userName}
-                archetypeCity={archetype.city}
-                archetypeBackground={archetype.background}
-                archetypeBio={archetype.bio}
-                archetypeVibe={archetype.vibe}
-                archetypeEnergy={archetype.energy}
-                recentChatContext={recentChatContext}
               />
 
               <button

@@ -14,12 +14,6 @@ type StartOptions = {
     promptUsed?: string;
     userName?: string;
     lastMemory?: string;
-    archetypeCity?: string;
-    archetypeBackground?: string;
-    archetypeBio?: string;
-    archetypeVibe?: string;
-    archetypeEnergy?: string;
-    recentChatContext?: string;
   };
 };
 type DeepgramMessage = {
@@ -271,12 +265,6 @@ class DeepgramVoiceClient {
     if (values.promptUsed) llmUrl.searchParams.set('promptUsed', values.promptUsed.slice(0, 1000));
     if (values.userName) llmUrl.searchParams.set('userName', values.userName);
     if (values.lastMemory) llmUrl.searchParams.set('lastMemory', values.lastMemory.slice(0, 500));
-    if (values.archetypeCity) llmUrl.searchParams.set('archetypeCity', values.archetypeCity.slice(0, 80));
-    if (values.archetypeBackground) llmUrl.searchParams.set('archetypeBackground', values.archetypeBackground.slice(0, 240));
-    if (values.archetypeBio) llmUrl.searchParams.set('archetypeBio', values.archetypeBio.slice(0, 500));
-    if (values.archetypeVibe) llmUrl.searchParams.set('archetypeVibe', values.archetypeVibe.slice(0, 120));
-    if (values.archetypeEnergy) llmUrl.searchParams.set('archetypeEnergy', values.archetypeEnergy.slice(0, 120));
-    if (values.recentChatContext) llmUrl.searchParams.set('recentChat', values.recentChatContext.slice(0, 900));
 
     const useCartesia = Boolean(cartesiaVoiceId && this.cartesiaProxyEnabled && this.ttsProxyToken);
     const speakProvider: Record<string, unknown> = useCartesia
