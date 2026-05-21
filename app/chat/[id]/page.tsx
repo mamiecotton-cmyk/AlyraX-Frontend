@@ -30,6 +30,11 @@ type Relationship = {
   last_talked_at: string | null;
 };
 
+type ChatCompanion = {
+  id: string;
+  personas: { voice_id: string | null } | { voice_id: string | null }[] | null;
+};
+
 type ViewerState = {
   url: string;
   type: 'image' | 'video';
@@ -199,6 +204,7 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
   const [viewer, setViewer] = useState<ViewerState>(null);
   const [archetypeImage, setArchetypeImage] = useState<string | null>(null);
   const [archetypeVideo, setArchetypeVideo] = useState<string | null>(null);
+  const [chatCompanion, setChatCompanion] = useState<ChatCompanion | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const pollingRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
@@ -222,6 +228,15 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
       setConversationId(data.conversation?.id ?? null);
       setMessages(data.messages ?? []);
       setRelationship(data.relationship ?? null);
+
+      const { data: companionData } = await supabase
+        .from('companions')
+        .select('id, personas(voice_id)')
+        .eq('user_id', user.id)
+        .eq('archetype_id', id)
+        .maybeSingle();
+
+      setChatCompanion((companionData as ChatCompanion | null) ?? null);
       setLoading(false);
     }
 
@@ -496,6 +511,9 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
   if (!archetype) return null;
 
   const companionDisplayName = relationship?.nickname || archetype.name;
+  const companionVoiceId = Array.isArray(chatCompanion?.personas)
+    ? chatCompanion.personas[0]?.voice_id
+    : chatCompanion?.personas?.voice_id;
   const mediaUrl = archetypeVideo || archetypeImage;
   const isWebp = mediaUrl?.includes('.webp');
 
@@ -595,7 +613,8 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
               {/* Voice call */}
               <CallButton
                 scenario="Mode: solo"
-                companionId={undefined}
+                companionId={chatCompanion?.id}
+                voiceId={companionVoiceId}
                 companionName={companionDisplayName}
                 personaName={archetype.archetype}
                 personaTagline={archetype.tagline}

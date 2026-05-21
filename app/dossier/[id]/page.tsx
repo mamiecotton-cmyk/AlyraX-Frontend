@@ -22,6 +22,8 @@ export default function DossierPage({ params }: Props) {
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [archetypeImage, setArchetypeImage] = useState<string | null>(null);
   const [galleryImages, setGalleryImages] = useState<GalleryImage[]>([]);
+  const [addingToCollection, setAddingToCollection] = useState(false);
+  const [addedToCollection, setAddedToCollection] = useState(false);
 
   useEffect(() => {
     fetch('/api/archetypes/images')
@@ -73,11 +75,35 @@ export default function DossierPage({ params }: Props) {
     ((archetype.vector[0] + archetype.vector[1] + archetype.vector[2]) / 3) * 100,
   );
 
+  async function handleAddToCollection() {
+    setAddingToCollection(true);
+    try {
+      const res = await fetch('/api/companion/create-from-archetype', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ archetypeId: id }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to add companion');
+      setAddedToCollection(true);
+      setTimeout(() => router.push(`/chat/${id}`), 800);
+    } catch (err) {
+      console.error('Failed to add companion:', err);
+    } finally {
+      setAddingToCollection(false);
+    }
+  }
+
   const actions = [
-    { label: 'Chat', accent: '#a782ff', route: `/chat/${id}`, icon: 'chat' },
-    { label: 'Group Chat', accent: '#20c7ff', route: '/dashboard', icon: 'group' },
-    { label: 'Generate', accent: '#ffd43b', route: `/admin/profile/${id}`, icon: 'spark' },
-    { label: 'Call', accent: '#16d8a3', route: '/onboarding', icon: 'call' },
+    { label: 'Chat', accent: '#a782ff', onClick: () => router.push(`/chat/${id}`), icon: 'chat' },
+    { label: 'Group Chat', accent: '#20c7ff', onClick: () => router.push('/dashboard'), icon: 'group' },
+    {
+      label: addedToCollection ? 'Added ✓' : addingToCollection ? 'Adding...' : 'Add to Collection',
+      accent: addedToCollection ? '#27ae60' : '#ffd43b',
+      onClick: handleAddToCollection,
+      icon: 'spark',
+    },
+    { label: 'Call', accent: '#16d8a3', onClick: () => router.push('/onboarding'), icon: 'call' },
   ];
 
   return (
@@ -715,7 +741,7 @@ export default function DossierPage({ params }: Props) {
               <button
                 key={action.label}
                 className="dossier-action"
-                onClick={() => router.push(action.route)}
+                onClick={action.onClick}
                 style={{ '--action-accent': action.accent } as CSSProperties}
               >
                 <span className="dossier-action-icon" aria-hidden="true">

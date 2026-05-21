@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { archetypes } from '@/lib/archetypes';
 import { quizAnswersToVector, matchArchetypes } from '@/lib/matchmaking';
 import type { PersonalityVector } from '@/lib/matchmaking';
 import Sidebar from '@/components/Sidebar';
@@ -22,7 +21,7 @@ const QUESTIONS: Question[] = [
     options: [
       { label: 'Stillness',        value: 0, sub: 'The quiet ones hit different.' },
       { label: 'Measured energy',  value: 1, sub: 'Present without overwhelming.' },
-      { label: 'Magnetic pull',    value: 2, sub: 'Can\'t look away.' },
+      { label: 'Magnetic pull',    value: 2, sub: "Can't look away." },
       { label: 'Electric charge',  value: 3, sub: 'Every room feels them enter.' },
       { label: 'Pure fire',        value: 4, sub: 'Intensity as a love language.' },
     ],
@@ -83,8 +82,9 @@ export default function PulseQuizPage() {
   const [gender, setGender]   = useState<'M' | 'F' | null>(null);
   const [current, setCurrent] = useState(0);
   const [answers, setAnswers] = useState<number[]>([]);
-  const [matchId, setMatchId] = useState<string | null>(null);
-  const [matchScore, setMatchScore] = useState(0);
+  const [matches, setMatches] = useState<ReturnType<typeof matchArchetypes>>([]);
+  const [adding, setAdding]   = useState<string | null>(null);
+  const [added, setAdded]     = useState<Set<string>>(new Set());
 
   function handleGender(g: 'M' | 'F') {
     setGender(g);
@@ -96,11 +96,9 @@ export default function PulseQuizPage() {
     setAnswers(next);
 
     if (next.length === QUESTIONS.length) {
-      // Compute match
       const vec = quizAnswersToVector(next as [number, number, number, number, number]);
       const results = matchArchetypes(vec as PersonalityVector, gender ?? undefined);
-      setMatchId(results[0].archetype.id);
-      setMatchScore(Math.round(results[0].score * 100));
+      setMatches(results.slice(0, 5));
       setStep('result');
     } else {
       setCurrent(current + 1);
@@ -113,7 +111,23 @@ export default function PulseQuizPage() {
     setCurrent(current - 1);
   }
 
-  const matchedArchetype = matchId ? archetypes.find((a) => a.id === matchId) : null;
+  async function handleAddToCollection(archetypeId: string) {
+    setAdding(archetypeId);
+    try {
+      const res = await fetch('/api/companion/create-from-archetype', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ archetypeId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setAdded(prev => new Set([...prev, archetypeId]));
+    } catch (err) {
+      console.error('Failed to add companion:', err);
+    }
+    setAdding(null);
+  }
+
   const progress = step === 'quiz' ? ((current) / QUESTIONS.length) * 100 : 0;
 
   return (
@@ -173,39 +187,13 @@ export default function PulseQuizPage() {
           {/* Gender select */}
           {step === 'gender' && (
             <div className="fade-in" style={{ maxWidth: '480px', width: '100%', textAlign: 'center' }}>
-              <div
-                style={{
-                  fontFamily: 'var(--font-mono)',
-                  fontSize: '9px',
-                  letterSpacing: '0.28em',
-                  textTransform: 'uppercase',
-                  color: 'var(--gold)',
-                  marginBottom: '16px',
-                }}
-              >
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '0.28em', textTransform: 'uppercase', color: 'var(--gold)', marginBottom: '16px' }}>
                 ◈ Pulse Quiz · Step 0
               </div>
-              <div
-                style={{
-                  fontFamily: 'var(--font-display)',
-                  fontSize: '32px',
-                  fontWeight: 400,
-                  color: 'var(--ivory)',
-                  lineHeight: 1.2,
-                  marginBottom: '10px',
-                  letterSpacing: '0.02em',
-                }}
-              >
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: '32px', fontWeight: 400, color: 'var(--ivory)', lineHeight: 1.2, marginBottom: '10px' }}>
                 Who are you looking for?
               </div>
-              <div
-                style={{
-                  fontSize: '13px',
-                  color: 'var(--ivory-muted)',
-                  marginBottom: '40px',
-                  lineHeight: 1.6,
-                }}
-              >
+              <div style={{ fontSize: '13px', color: 'var(--ivory-muted)', marginBottom: '40px', lineHeight: 1.6 }}>
                 This tells us which half of the archive to search.
               </div>
 
@@ -215,15 +203,9 @@ export default function PulseQuizPage() {
                     key={g}
                     onClick={() => handleGender(g)}
                     style={{
-                      flex: 1,
-                      maxWidth: '200px',
-                      padding: '28px 20px',
-                      background: 'var(--charcoal)',
-                      border: '1px solid var(--border-mid)',
-                      borderRadius: '3px',
-                      cursor: 'pointer',
-                      textAlign: 'center',
-                      transition: 'all 0.2s',
+                      flex: 1, maxWidth: '200px', padding: '28px 20px',
+                      background: 'var(--charcoal)', border: '1px solid var(--border-mid)',
+                      borderRadius: '3px', cursor: 'pointer', textAlign: 'center', transition: 'all 0.2s',
                     }}
                     onMouseEnter={(e) => {
                       (e.currentTarget as HTMLButtonElement).style.border = '1px solid var(--gold)';
@@ -250,30 +232,11 @@ export default function PulseQuizPage() {
           {/* Quiz questions */}
           {step === 'quiz' && (
             <div className="fade-in" style={{ maxWidth: '560px', width: '100%' }}>
-              <div
-                style={{
-                  fontFamily: 'var(--font-mono)',
-                  fontSize: '9px',
-                  letterSpacing: '0.28em',
-                  textTransform: 'uppercase',
-                  color: 'var(--gold)',
-                  marginBottom: '12px',
-                }}
-              >
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '0.28em', textTransform: 'uppercase', color: 'var(--gold)', marginBottom: '12px' }}>
                 ◈ Question {current + 1} — {QUESTIONS[current].dimension}
               </div>
 
-              <div
-                style={{
-                  fontFamily: 'var(--font-display)',
-                  fontSize: '30px',
-                  fontWeight: 400,
-                  color: 'var(--ivory)',
-                  lineHeight: 1.25,
-                  marginBottom: '32px',
-                  letterSpacing: '0.02em',
-                }}
-              >
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: '30px', fontWeight: 400, color: 'var(--ivory)', lineHeight: 1.25, marginBottom: '32px' }}>
                 {QUESTIONS[current].text}
               </div>
 
@@ -283,17 +246,10 @@ export default function PulseQuizPage() {
                     key={opt.value}
                     onClick={() => handleAnswer(opt.value)}
                     style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      padding: '14px 18px',
-                      background: 'var(--charcoal)',
-                      border: '1px solid var(--border-mid)',
-                      borderRadius: '3px',
-                      cursor: 'pointer',
-                      textAlign: 'left',
-                      transition: 'all 0.15s',
-                      width: '100%',
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      padding: '14px 18px', background: 'var(--charcoal)',
+                      border: '1px solid var(--border-mid)', borderRadius: '3px',
+                      cursor: 'pointer', textAlign: 'left', transition: 'all 0.15s', width: '100%',
                     }}
                     onMouseEnter={(e) => {
                       const el = e.currentTarget as HTMLButtonElement;
@@ -322,17 +278,7 @@ export default function PulseQuizPage() {
               {current > 0 && (
                 <button
                   onClick={handleBack}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    cursor: 'pointer',
-                    fontFamily: 'var(--font-mono)',
-                    fontSize: '9px',
-                    letterSpacing: '0.16em',
-                    textTransform: 'uppercase',
-                    color: 'var(--ivory-ghost)',
-                    padding: 0,
-                  }}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--ivory-ghost)', padding: 0 }}
                 >
                   ◁ Back
                 </button>
@@ -340,170 +286,124 @@ export default function PulseQuizPage() {
             </div>
           )}
 
-          {/* Result */}
-          {step === 'result' && matchedArchetype && (
-            <div className="fade-in" style={{ maxWidth: '600px', width: '100%' }}>
-              <div
-                style={{
-                  fontFamily: 'var(--font-mono)',
-                  fontSize: '9px',
-                  letterSpacing: '0.28em',
-                  textTransform: 'uppercase',
-                  color: 'var(--gold)',
-                  marginBottom: '16px',
-                  textAlign: 'center',
-                }}
-              >
-                ◈ Identity Synchronized · {matchScore}% Match
+          {/* Results — top 5 matches */}
+          {step === 'result' && (
+            <div className="fade-in" style={{ maxWidth: '680px', width: '100%' }}>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '0.28em', textTransform: 'uppercase', color: 'var(--gold)', marginBottom: '8px', textAlign: 'center' }}>
+                ◈ Your Matches
               </div>
-
-              <div
-                style={{
-                  fontFamily: 'var(--font-display)',
-                  fontSize: '13px',
-                  color: 'var(--ivory-muted)',
-                  textAlign: 'center',
-                  marginBottom: '28px',
-                  fontStyle: 'italic',
-                }}
-              >
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: '28px', color: 'var(--ivory)', textAlign: 'center', marginBottom: '6px' }}>
                 The archive found your frequency.
               </div>
-
-              {/* Match card */}
-              <div
-                style={{
-                  background: 'var(--charcoal)',
-                  border: '1px solid var(--gold)',
-                  borderRadius: '3px',
-                  overflow: 'hidden',
-                  marginBottom: '20px',
-                }}
-              >
-                {/* Portrait placeholder */}
-                <div
-                  style={{
-                    height: '220px',
-                    background: matchedArchetype.imageGradient,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    position: 'relative',
-                  }}
-                >
-                  <div style={{ textAlign: 'center', opacity: 0.3 }}>
-                    <div style={{ fontSize: '48px', color: matchedArchetype.accentColor }}>◈</div>
-                  </div>
-                  {/* Dossier ID */}
-                  <div
-                    style={{
-                      position: 'absolute',
-                      top: '12px',
-                      left: '12px',
-                      fontFamily: 'var(--font-mono)',
-                      fontSize: '9px',
-                      letterSpacing: '0.18em',
-                      color: 'var(--gold)',
-                      background: 'rgba(0,0,0,0.7)',
-                      padding: '3px 8px',
-                      borderRadius: '2px',
-                    }}
-                  >
-                    {matchedArchetype.dossierId}
-                  </div>
-                  {/* Match badge */}
-                  <div
-                    style={{
-                      position: 'absolute',
-                      bottom: '12px',
-                      right: '12px',
-                      fontFamily: 'var(--font-mono)',
-                      fontSize: '8px',
-                      letterSpacing: '0.16em',
-                      color: 'var(--onyx)',
-                      background: 'var(--gold)',
-                      padding: '3px 10px',
-                      borderRadius: '2px',
-                    }}
-                  >
-                    {matchScore}% Match
-                  </div>
-                </div>
-
-                {/* Info */}
-                <div style={{ padding: '20px 22px 22px' }}>
-                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: '8.5px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--ivory-muted)', marginBottom: '6px' }}>
-                    {matchedArchetype.archetype}
-                  </div>
-                  <div style={{ fontFamily: 'var(--font-display)', fontSize: '28px', fontWeight: 500, color: 'var(--ivory)', marginBottom: '4px' }}>
-                    {matchedArchetype.name}
-                  </div>
-                  <div style={{ fontFamily: 'var(--font-display)', fontSize: '14px', fontStyle: 'italic', color: 'var(--gold)', marginBottom: '14px' }}>
-                    &ldquo;{matchedArchetype.tagline}&rdquo;
-                  </div>
-                  <div style={{ fontSize: '13px', color: 'var(--ivory-muted)', lineHeight: 1.65, marginBottom: '18px' }}>
-                    {matchedArchetype.bio}
-                  </div>
-
-                  {/* Vital stats */}
-                  <div style={{ display: 'flex', gap: '24px', borderTop: '1px solid var(--border-dark)', paddingTop: '14px' }}>
-                    {[
-                      { label: 'Vibe', val: matchedArchetype.vibe },
-                      { label: 'Energy', val: matchedArchetype.energy },
-                      { label: 'Style', val: matchedArchetype.style },
-                    ].map((s) => (
-                      <div key={s.label}>
-                        <div style={{ fontFamily: 'var(--font-mono)', fontSize: '7.5px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--ivory-ghost)', marginBottom: '3px' }}>
-                          {s.label}
-                        </div>
-                        <div style={{ fontSize: '11.5px', color: 'var(--ivory-dim)' }}>{s.val}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+              <div style={{ fontSize: '13px', color: 'var(--ivory-muted)', textAlign: 'center', marginBottom: '32px' }}>
+                Add any to your collection or browse all 20 archetypes.
               </div>
 
-              {/* CTA buttons */}
+              {/* Match cards */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '24px' }}>
+                {matches.map((result, i) => {
+                  const a = result.archetype;
+                  const score = Math.round(result.score * 100);
+                  const isAdded = added.has(a.id);
+                  const isAdding = adding === a.id;
+
+                  return (
+                    <div
+                      key={a.id}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: '16px',
+                        padding: '16px 20px',
+                        background: i === 0 ? 'var(--gold-glow)' : 'var(--charcoal)',
+                        border: `1px solid ${i === 0 ? 'var(--gold-dim)' : 'var(--border-mid)'}`,
+                        borderRadius: '3px',
+                      }}
+                    >
+                      {/* Rank */}
+                      <div style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: i === 0 ? 'var(--gold)' : 'var(--ivory-ghost)', width: '20px', flexShrink: 0 }}>
+                        #{i + 1}
+                      </div>
+
+                      {/* Avatar placeholder */}
+                      <div style={{ width: '48px', height: '64px', borderRadius: '3px', background: a.imageGradient, flexShrink: 0 }} />
+
+                      {/* Info */}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px' }}>
+                          <span style={{ fontFamily: 'var(--font-display)', fontSize: '20px', color: 'var(--ivory)' }}>{a.name}</span>
+                          <span style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', color: 'var(--gold)', background: 'rgba(230,57,70,0.1)', border: '1px solid var(--gold-dim)', padding: '1px 6px', borderRadius: '2px' }}>{score}%</span>
+                        </div>
+                        <div style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--ivory-muted)', marginBottom: '2px' }}>{a.archetype}</div>
+                        <div style={{ fontSize: '11px', color: 'var(--ivory-ghost)', fontStyle: 'italic' }}>{a.tagline}</div>
+                      </div>
+
+                      {/* Actions */}
+                      <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
+                        <button
+                          onClick={() => router.push(`/dossier/${a.id}`)}
+                          style={{ padding: '7px 12px', background: 'transparent', border: '1px solid var(--border-mid)', borderRadius: '3px', cursor: 'pointer', fontFamily: 'var(--font-mono)', fontSize: '8px', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--ivory-muted)' }}
+                        >
+                          View
+                        </button>
+                        <button
+                          onClick={() => !isAdded && handleAddToCollection(a.id)}
+                          disabled={isAdding || isAdded}
+                          style={{
+                            padding: '7px 14px',
+                            background: isAdded ? 'rgba(39,174,96,0.15)' : 'var(--gold)',
+                            border: isAdded ? '1px solid rgba(39,174,96,0.4)' : 'none',
+                            borderRadius: '3px',
+                            cursor: isAdded ? 'default' : 'pointer',
+                            fontFamily: 'var(--font-mono)',
+                            fontSize: '8px',
+                            letterSpacing: '0.12em',
+                            textTransform: 'uppercase',
+                            color: isAdded ? '#27ae60' : 'var(--onyx)',
+                            opacity: isAdding ? 0.6 : 1,
+                            transition: 'all 0.2s',
+                          }}
+                        >
+                          {isAdding ? '...' : isAdded ? '✓ Added' : '+ Add'}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Bottom actions */}
               <div style={{ display: 'flex', gap: '10px' }}>
                 <button
-                  onClick={() => router.push(`/dossier/${matchedArchetype.id}`)}
-                  className="btn-gold"
-                  style={{ flex: 1, justifyContent: 'center', padding: '12px' }}
-                >
-                  ◈ Open Full Dossier
-                </button>
-                <button
-                  onClick={() => router.push('/onboarding')}
+                  onClick={() => router.push('/archive')}
                   className="btn-ghost"
                   style={{ flex: 1, justifyContent: 'center', padding: '12px' }}
                 >
-                  ◆ Create Companion
+                  ◈ Browse All 20
                 </button>
+                <button
+                  onClick={() => router.push('/onboarding')}
+                  className="btn-gold"
+                  style={{ flex: 1, justifyContent: 'center', padding: '12px' }}
+                >
+                  ◆ Create Custom
+                </button>
+                {added.size > 0 && (
+                  <button
+                    onClick={() => router.push('/dashboard')}
+                    style={{ flex: 1, justifyContent: 'center', padding: '12px', background: '#27ae60', border: 'none', borderRadius: '3px', cursor: 'pointer', fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '0.14em', textTransform: 'uppercase', color: '#fff' }}
+                  >
+                    Go to Collection →
+                  </button>
+                )}
               </div>
 
               <button
-                onClick={() => { setStep('gender'); setAnswers([]); setCurrent(0); setGender(null); }}
-                style={{
-                  display: 'block',
-                  width: '100%',
-                  marginTop: '12px',
-                  background: 'none',
-                  border: 'none',
-                  cursor: 'pointer',
-                  fontFamily: 'var(--font-mono)',
-                  fontSize: '9px',
-                  letterSpacing: '0.16em',
-                  textTransform: 'uppercase',
-                  color: 'var(--ivory-ghost)',
-                  padding: '8px',
-                  textAlign: 'center',
-                }}
+                onClick={() => { setStep('gender'); setAnswers([]); setCurrent(0); setGender(null); setMatches([]); setAdded(new Set()); }}
+                style={{ display: 'block', width: '100%', marginTop: '12px', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--ivory-ghost)', padding: '8px', textAlign: 'center' }}
               >
                 ◁ Retake Quiz
               </button>
             </div>
           )}
-
         </div>
       </main>
     </div>
