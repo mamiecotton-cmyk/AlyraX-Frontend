@@ -13,6 +13,12 @@ export default function CallButton({
   promptUsed,
   userName,
   lastMemory,
+  archetypeCity,
+  archetypeBackground,
+  archetypeBio,
+  archetypeVibe,
+  archetypeEnergy,
+  recentChatContext,
 }: {
   scenario: string;
   companionId?: string;
@@ -23,6 +29,12 @@ export default function CallButton({
   promptUsed?: string | null;
   userName?: string | null;
   lastMemory?: CompanionMemory | null;
+  archetypeCity?: string | null;
+  archetypeBackground?: string | null;
+  archetypeBio?: string | null;
+  archetypeVibe?: string | null;
+  archetypeEnergy?: string | null;
+  recentChatContext?: string | null;
 }) {
   const [calling, setCalling] = useState(false);
   const [connected, setConnected] = useState(false);
@@ -83,6 +95,12 @@ export default function CallButton({
         promptUsed: promptUsed || undefined,
         userName: userName || undefined,
         lastMemory: lastMemory?.summary || lastMemory?.lastUserMessage || undefined,
+        archetypeCity: archetypeCity || undefined,
+        archetypeBackground: archetypeBackground || undefined,
+        archetypeBio: archetypeBio || undefined,
+        archetypeVibe: archetypeVibe || undefined,
+        archetypeEnergy: archetypeEnergy || undefined,
+        recentChatContext: recentChatContext || undefined,
       };
 
       await vapi.start(undefined, isVideoMode ? {
