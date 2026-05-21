@@ -35,6 +35,10 @@ type ChatCompanion = {
   personas: { voice_id: string | null } | { voice_id: string | null }[] | null;
 };
 
+type PersonaVoice = {
+  voice_id: string | null;
+};
+
 type ViewerState = {
   url: string;
   type: 'image' | 'video';
@@ -205,6 +209,7 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
   const [archetypeImage, setArchetypeImage] = useState<string | null>(null);
   const [archetypeVideo, setArchetypeVideo] = useState<string | null>(null);
   const [chatCompanion, setChatCompanion] = useState<ChatCompanion | null>(null);
+  const [personaVoice, setPersonaVoice] = useState<PersonaVoice | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const pollingRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
@@ -212,6 +217,7 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
   // ── Load ──────────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!archetype) { router.push('/dashboard'); return; }
+    const selectedArchetype = archetype;
 
     async function load() {
       const { data: { user } } = await supabase.auth.getUser();
@@ -237,6 +243,14 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
         .maybeSingle();
 
       setChatCompanion((companionData as ChatCompanion | null) ?? null);
+
+      const { data: personaData } = await supabase
+        .from('personas')
+        .select('voice_id')
+        .ilike('name', selectedArchetype.name)
+        .maybeSingle();
+
+      setPersonaVoice((personaData as PersonaVoice | null) ?? null);
       setLoading(false);
     }
 
@@ -511,9 +525,10 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
   if (!archetype) return null;
 
   const companionDisplayName = relationship?.nickname || archetype.name;
-  const companionVoiceId = Array.isArray(chatCompanion?.personas)
+  const linkedCompanionVoiceId = Array.isArray(chatCompanion?.personas)
     ? chatCompanion.personas[0]?.voice_id
     : chatCompanion?.personas?.voice_id;
+  const companionVoiceId = linkedCompanionVoiceId || personaVoice?.voice_id;
   const mediaUrl = archetypeVideo || archetypeImage;
   const isWebp = mediaUrl?.includes('.webp');
 
