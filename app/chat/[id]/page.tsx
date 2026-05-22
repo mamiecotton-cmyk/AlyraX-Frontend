@@ -4,6 +4,7 @@ import { use, useEffect, useRef, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { archetypes, type Archetype } from '@/lib/archetypes';
 import { createClient } from '@/lib/supabase';
+import { formatFactsSummary, normalizeFacts } from '@/lib/companion-facts';
 import Sidebar from '@/components/Sidebar';
 import { vapi } from '@/lib/vapi';
 import dynamic from 'next/dynamic';
@@ -210,6 +211,7 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
   const [archetypeVideo, setArchetypeVideo] = useState<string | null>(null);
   const [chatCompanion, setChatCompanion] = useState<ChatCompanion | null>(null);
   const [personaVoice, setPersonaVoice] = useState<PersonaVoice | null>(null);
+  const [factsMemory, setFactsMemory] = useState<{ summary: string } | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const pollingRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
@@ -251,6 +253,16 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
         .maybeSingle();
 
       setPersonaVoice((personaData as PersonaVoice | null) ?? null);
+
+      const { data: factsRow } = await supabase
+        .from('companion_facts')
+        .select('facts')
+        .eq('user_id', user.id)
+        .eq('archetype_id', id)
+        .maybeSingle();
+
+      const facts = normalizeFacts(factsRow?.facts);
+      setFactsMemory(facts.length ? { summary: formatFactsSummary(facts) } : null);
       setLoading(false);
     }
 
@@ -634,6 +646,7 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
                 personaName={archetype.archetype}
                 personaTagline={archetype.tagline}
                 userName={userName}
+                lastMemory={factsMemory}
               />
 
               <button

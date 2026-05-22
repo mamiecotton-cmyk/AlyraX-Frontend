@@ -1,7 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { after, NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase-server';
 import { archetypes, type Archetype } from '@/lib/archetypes';
 import { getArchetypeImagePrompt } from '@/lib/archetype-image-prompts';
+import { formatFactsBlock, loadCompanionFacts, mergeCompanionFacts, normalizeFacts } from '@/lib/companion-facts';
 
 export const maxDuration = 60;
 
@@ -11,6 +12,7 @@ const CHAT_MODEL = process.env.OPENROUTER_CHAT_MODEL || 'sao10k/l3.3-euryale-70b
 const CHAT_MAX_TOKENS = 140;
 const CHAT_TIMEOUT_MS = 24_000;
 const CHAT_RETRY_COUNT = 2;
+const FACT_MODEL = process.env.OPENROUTER_FACT_MODEL || 'deepseek/deepseek-v4-flash';
 
 type ChatMessage = {
   role: 'system' | 'user' | 'assistant';
@@ -151,6 +153,7 @@ function buildSelfiePrompt(message: string, archetype: Archetype): string {
 function buildSystemPrompt(
   archetype: Archetype,
   relationship: { nickname?: string; companion_nickname?: string } | null,
+  factsBlock = '',
 ): string {
   const userName = relationship?.companion_nickname || '';
   const companionName = relationship?.nickname || archetype.name;
@@ -184,6 +187,8 @@ CONVERSATION LEADERSHIP:
 - Avoid interview mode. Do not stack questions or wait for them to carry the chat.
 ${isJaxon ? '- As Jaxon, be protective, direct, and a little challenging. Make them feel like you have plans, standards, and control of the room.' : ''}
 
+${factsBlock}
+
 MEDIA AWARENESS:
 - If the user asks for a selfie, photo, or pic — respond naturally like you're about to take one. Say something like "give me a sec" or "caught me off guard lol" then end your message. The photo will appear automatically.
 - If the user asks for a video — respond like you're about to record one. Keep it brief and in character.
@@ -193,6 +198,78 @@ RULES:
 - Keep responses concise — this is texting not an essay
 - Stay in character always
 - Be warm, present, and genuinely interested in them`;
+}
+
+function parseFactResponse(content: string) {
+  try {
+    const parsed = JSON.parse(content) as unknown;
+    return normalizeFacts(parsed);
+  } catch {
+    const match = content.match(/\[[\s\S]*\]/);
+    if (!match) return [];
+    try {
+      return normalizeFacts(JSON.parse(match[0]));
+    } catch {
+      return [];
+    }
+  }
+}
+
+async function extractFactsFromExchange(
+  archetype: Archetype,
+  userMessage: string,
+  companionMessage: string,
+) {
+  if (!OPENROUTER_API_KEY) return [];
+
+  const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+      'HTTP-Referer': 'https://alyra-x-frontend.vercel.app',
+      'X-Title': 'AlyraX',
+    },
+    body: JSON.stringify({
+      model: FACT_MODEL,
+      max_tokens: 220,
+      temperature: 0.1,
+      messages: [
+        {
+          role: 'system',
+          content: `Extract durable user facts for ${archetype.name}. Return ONLY a JSON array of short strings. Include preferences, boundaries, names, relationship details, and important personal facts. Do not include facts about ${archetype.name}.`,
+        },
+        {
+          role: 'user',
+          content: `User said: ${userMessage}\n${archetype.name} replied: ${companionMessage}`,
+        },
+      ],
+    }),
+    signal: AbortSignal.timeout(10_000),
+  });
+
+  if (!response.ok) return [];
+
+  const data = await response.json() as { choices?: Array<{ message?: { content?: unknown } }> };
+  const content = data.choices?.[0]?.message?.content;
+  return typeof content === 'string' ? parseFactResponse(content) : [];
+}
+
+async function updateFactsAfterChat(
+  userId: string,
+  archetype: Archetype,
+  userMessage: string,
+  companionMessage: string,
+) {
+  try {
+    const facts = await extractFactsFromExchange(archetype, userMessage, companionMessage);
+    if (!facts.length) return;
+
+    const supabase = await createClient();
+    await mergeCompanionFacts(supabase, userId, archetype.id, facts);
+  } catch (error) {
+    console.error('Companion facts extraction error:', error instanceof Error ? error.message : String(error));
+  }
 }
 
 export async function POST(req: NextRequest) {
@@ -273,7 +350,8 @@ export async function POST(req: NextRequest) {
       content: m.content ?? '',
     })) as ChatMessage[];
 
-    const systemPrompt = buildSystemPrompt(archetype, relationship);
+    const facts = await loadCompanionFacts(supabase, user.id, archetype_id);
+    const systemPrompt = buildSystemPrompt(archetype, relationship, formatFactsBlock(facts));
 
     if (!OPENROUTER_API_KEY) {
       return NextResponse.json(
@@ -312,6 +390,8 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (companionMsgError) throw companionMsgError;
+
+    after(() => updateFactsAfterChat(user.id, archetype, message, companionText));
 
     // If selfie requested — create a generating placeholder message
     let mediaMsg = null;

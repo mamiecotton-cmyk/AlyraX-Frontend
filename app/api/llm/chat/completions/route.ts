@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { createClient } from '@/lib/supabase-server';
 import { formatSessionDirectives, updateSessionDirectives, type SessionDirectives } from '@/lib/session-directives';
 import { formatCompanionMemory, getCompanionMemory, getUserDisplayName } from '@/lib/companion-memory';
+import { formatFactsBlock, loadCompanionFacts } from '@/lib/companion-facts';
 
 export const maxDuration = 60;
 
@@ -217,6 +218,7 @@ export async function POST(req: NextRequest) {
     let personaName: string | null = null;
     let userName = queryUserName;
     let memoryBlock = queryMemory ? formatCompanionMemory({ summary: queryMemory }, queryUserName) : '';
+    let factsBlock = '';
 
     const directives = incomingMessages
       .filter((m: { role?: string; content?: string }) => m.role === 'user' && typeof m.content === 'string')
@@ -239,7 +241,7 @@ export async function POST(req: NextRequest) {
 
           let companionQuery = supabase
             .from('companions')
-            .select('id, name, prompt_used, personas(name, system_prompt)')
+            .select('id, name, archetype_id, prompt_used, personas(name, system_prompt)')
             .eq('user_id', user.id);
           if (activeCompanionId) {
             companionQuery = companionQuery.eq('id', activeCompanionId);
@@ -261,6 +263,11 @@ export async function POST(req: NextRequest) {
             getCompanionMemory(user.user_metadata, companion?.id),
             userName
           );
+
+          if (typeof companion?.archetype_id === 'string') {
+            const facts = await loadCompanionFacts(supabase, user.id, companion.archetype_id);
+            factsBlock = formatFactsBlock(facts);
+          }
         }
       } catch {
         // Fall back to defaults
@@ -282,6 +289,7 @@ export async function POST(req: NextRequest) {
       NAME_RULES,
       userName ? `User's first name: ${userName}` : '',
       memoryBlock ? `Continuity context:\n${memoryBlock}` : '',
+      factsBlock,
       ADAPTIVE_DIALOGUE_INSTRUCTIONS,
       directiveBlock ? `Current session directives (apply NOW):\n${directiveBlock}` : '',
     ].filter(Boolean).join('\n\n');

@@ -1,7 +1,16 @@
 'use client';
 import { vapi } from '@/lib/vapi';
 import { type CompanionMemory } from '@/lib/companion-memory';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+
+type VoiceTranscript = {
+  role: 'user' | 'assistant';
+  content: string;
+};
+
+function isVoiceTranscriptRole(role?: string): role is VoiceTranscript['role'] {
+  return role === 'user' || role === 'assistant';
+}
 
 export default function CallButton({
   scenario,
@@ -26,19 +35,59 @@ export default function CallButton({
 }) {
   const [calling, setCalling] = useState(false);
   const [connected, setConnected] = useState(false);
+  const messagesRef = useRef<VoiceTranscript[]>([]);
   const isVideoMode = scenario.toLowerCase().includes('video');
 
   useEffect(() => {
     if (!vapi) return;
-    const onStart = () => { setCalling(false); setConnected(true); };
-    const onEnd = () => { setCalling(false); setConnected(false); };
+    const saveMemory = async () => {
+      const messages = messagesRef.current;
+      messagesRef.current = [];
+      if (!companionId || messages.length < 2) return;
+
+      try {
+        await fetch('/api/companion/memory', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            companionId,
+            messages,
+            mode: isVideoMode ? 'solo_video' : 'solo',
+          }),
+          keepalive: true,
+        });
+      } catch (error) {
+        console.error('Voice memory save failed:', error);
+      }
+    };
+
+    const onStart = () => {
+      messagesRef.current = [];
+      setCalling(false);
+      setConnected(true);
+    };
+    const onEnd = () => {
+      setCalling(false);
+      setConnected(false);
+      void saveMemory();
+    };
+    const onMessage = (message: { type?: string; role?: string; transcript?: string }) => {
+      if (message.type !== 'transcript' || !message.transcript) return;
+      if (!isVoiceTranscriptRole(message.role)) return;
+      messagesRef.current = [
+        ...messagesRef.current,
+        { role: message.role, content: message.transcript },
+      ].slice(-24);
+    };
     vapi.on('call-start', onStart);
     vapi.on('call-end', onEnd);
+    vapi.on('message', onMessage);
     return () => {
       vapi?.off('call-start', onStart);
       vapi?.off('call-end', onEnd);
+      vapi?.off('message', onMessage);
     };
-  }, []);
+  }, [companionId, isVideoMode]);
 
   const buildVoiceGreeting = () => {
     const persona = `${personaName || ''} ${personaTagline || ''}`.toLowerCase();
