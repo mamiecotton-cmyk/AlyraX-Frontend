@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase-server';
 import { formatSessionDirectives, updateSessionDirectives, type SessionDirectives } from '@/lib/session-directives';
 import { formatCompanionMemory, getCompanionMemory, getUserDisplayName } from '@/lib/companion-memory';
 import { formatFactsBlock, loadCompanionFacts } from '@/lib/companion-facts';
+import { archetypes } from '@/lib/archetypes';
 
 export const maxDuration = 60;
 
@@ -206,9 +207,11 @@ export async function POST(req: NextRequest) {
     const isVideoMode = mode === 'solo_video';
     const queryUserName = req.nextUrl.searchParams.get('userName') || '';
     const queryMemory = req.nextUrl.searchParams.get('lastMemory') || '';
+    const queryArchetypeId = req.nextUrl.searchParams.get('archetypeId');
     const hasQueryVoiceContext = Boolean(
       req.nextUrl.searchParams.get('personaName')
       || req.nextUrl.searchParams.get('companionName')
+      || queryArchetypeId
       || queryUserName
       || queryMemory
     );
@@ -230,6 +233,27 @@ export async function POST(req: NextRequest) {
 
     if (hasQueryVoiceContext) {
       personaName = req.nextUrl.searchParams.get('personaName');
+      if (queryArchetypeId) {
+        try {
+          const supabase = await createClient();
+          const archetypeName = archetypes.find((a) => a.id === queryArchetypeId)?.name
+            || req.nextUrl.searchParams.get('companionName')
+            || '';
+          if (archetypeName) {
+            const { data: persona } = await supabase
+              .from('personas')
+              .select('name, system_prompt, voice_id')
+              .ilike('name', archetypeName)
+              .maybeSingle();
+            if (persona?.system_prompt) {
+              personaSystemPrompt = persona.system_prompt;
+              personaName = persona.name;
+            }
+          }
+        } catch {
+          // Fall back to query-provided persona context
+        }
+      }
     } else {
       try {
         const supabase = await createClient();

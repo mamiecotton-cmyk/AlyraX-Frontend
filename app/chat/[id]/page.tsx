@@ -2,6 +2,7 @@
 
 import { use, useEffect, useRef, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { archetypes, type Archetype } from '@/lib/archetypes';
 import { createClient } from '@/lib/supabase';
 import { formatFactsSummary, normalizeFacts } from '@/lib/companion-facts';
@@ -190,6 +191,7 @@ function MediaMessage({
 export default function ChatPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
+  const searchParams = useSearchParams();
   const supabase = createClient();
 
   const archetype = archetypes.find(a => a.id === id);
@@ -645,8 +647,11 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
                 companionName={companionDisplayName}
                 personaName={archetype.archetype}
                 personaTagline={archetype.tagline}
+                archetypeId={id}
                 userName={userName}
                 lastMemory={factsMemory}
+                voiceLoading={loading}
+                autoStart={searchParams.get('call') === '1'}
               />
 
               <button

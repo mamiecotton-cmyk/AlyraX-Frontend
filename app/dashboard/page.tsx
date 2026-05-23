@@ -17,6 +17,7 @@ type Companion = {
   id: string;
   name: string;
   image_url: string;
+  archetype_id?: string | null;
   prompt_used?: string | null;
   persona_id: string;
   personas: {
@@ -266,6 +267,7 @@ export default function DashboardPage() {
                   companionName={companion.name}
                   personaName={companion.personas?.name}
                   personaTagline={companion.personas?.tagline}
+                  archetypeId={companion.archetype_id}
                   promptUsed={companion.prompt_used}
                   userName={userName}
                   lastMemory={lastMemory}

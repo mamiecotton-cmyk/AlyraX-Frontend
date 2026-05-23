@@ -1,7 +1,7 @@
 'use client';
 import { vapi } from '@/lib/vapi';
 import { type CompanionMemory } from '@/lib/companion-memory';
-import { useState, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 type VoiceTranscript = {
   role: 'user' | 'assistant';
@@ -19,9 +19,12 @@ export default function CallButton({
   companionName,
   personaName,
   personaTagline,
+  archetypeId,
   promptUsed,
   userName,
   lastMemory,
+  voiceLoading = false,
+  autoStart = false,
 }: {
   scenario: string;
   companionId?: string;
@@ -29,14 +32,20 @@ export default function CallButton({
   companionName?: string | null;
   personaName?: string | null;
   personaTagline?: string | null;
+  archetypeId?: string | null;
   promptUsed?: string | null;
   userName?: string | null;
   lastMemory?: CompanionMemory | null;
+  voiceLoading?: boolean;
+  autoStart?: boolean;
 }) {
   const [calling, setCalling] = useState(false);
   const [connected, setConnected] = useState(false);
   const messagesRef = useRef<VoiceTranscript[]>([]);
+  const autoStartedRef = useRef(false);
   const isVideoMode = scenario.toLowerCase().includes('video');
+  const fallbackVoiceId = process.env.NEXT_PUBLIC_CARTESIA_VOICE_ID || '';
+  const hasVoice = Boolean(voiceId || fallbackVoiceId);
 
   useEffect(() => {
     if (!vapi) return;
@@ -89,7 +98,7 @@ export default function CallButton({
     };
   }, [companionId, isVideoMode]);
 
-  const buildVoiceGreeting = () => {
+  const buildVoiceGreeting = useCallback(() => {
     const persona = `${personaName || ''} ${personaTagline || ''}`.toLowerCase();
     const address = userName || 'baby';
     const memory = lastMemory?.lastUserMessage
@@ -113,9 +122,10 @@ export default function CallButton({
     }
 
     return `Hi ${address}, it's ${companionName || 'me'}.${memory} I'm here now. Tell me what you want.`;
-  };
+  }, [companionName, lastMemory?.lastUserMessage, personaName, personaTagline, userName]);
 
-  const startSecretCall = async () => {
+  const startSecretCall = useCallback(async () => {
+    if (!hasVoice) return;
     setCalling(true);
     if (!vapi) {
       console.error('Call failed: Deepgram voice client not initialized');
@@ -125,10 +135,11 @@ export default function CallButton({
     try {
       const sharedValues = {
         activeCompanionId: companionId,
-        cartesiaVoiceId: voiceId || undefined,
+        cartesiaVoiceId: voiceId || fallbackVoiceId || undefined,
         companionName: companionName || undefined,
         personaName: personaName || undefined,
         personaTagline: personaTagline || undefined,
+        archetypeId: archetypeId || undefined,
         promptUsed: promptUsed || undefined,
         userName: userName || undefined,
         lastMemory: lastMemory?.summary || lastMemory?.lastUserMessage || undefined,
@@ -153,7 +164,13 @@ export default function CallButton({
       console.error("The Mouth failed to open:", err);
       setCalling(false);
     }
-  };
+  }, [archetypeId, buildVoiceGreeting, companionId, companionName, fallbackVoiceId, hasVoice, isVideoMode, lastMemory, personaName, personaTagline, promptUsed, userName, voiceId]);
+
+  useEffect(() => {
+    if (!autoStart || autoStartedRef.current || calling || connected || !hasVoice) return;
+    autoStartedRef.current = true;
+    void startSecretCall();
+  }, [autoStart, calling, connected, hasVoice, startSecretCall]);
 
   const endCall = () => {
     vapi?.stop();
@@ -173,10 +190,14 @@ export default function CallButton({
   return (
     <button
       onClick={startSecretCall}
-      disabled={calling}
+      disabled={calling || !hasVoice}
       className="bg-red-600 text-white px-8 py-4 rounded-full font-bold hover:bg-red-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
     >
-      {calling ? "Connecting to AlyraX..." : isVideoMode ? "Start Video Call" : "Start Secret Call"}
+      {calling
+        ? "Connecting to AlyraX..."
+        : !hasVoice
+          ? voiceLoading ? "Loading voice..." : "Voice not assigned"
+          : isVideoMode ? "Start Video Call" : "Start Secret Call"}
     </button>
   );
 }

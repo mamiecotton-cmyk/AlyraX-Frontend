@@ -14,6 +14,7 @@ type StartOptions = {
     promptUsed?: string;
     userName?: string;
     lastMemory?: string;
+    archetypeId?: string;
   };
 };
 type DeepgramMessage = {
@@ -265,6 +266,7 @@ class DeepgramVoiceClient {
     if (values.promptUsed) llmUrl.searchParams.set('promptUsed', values.promptUsed.slice(0, 1000));
     if (values.userName) llmUrl.searchParams.set('userName', values.userName);
     if (values.lastMemory) llmUrl.searchParams.set('lastMemory', values.lastMemory.slice(0, 500));
+    if (values.archetypeId) llmUrl.searchParams.set('archetypeId', values.archetypeId);
 
     const useCartesia = Boolean(cartesiaVoiceId && this.cartesiaProxyEnabled && this.ttsProxyToken);
     const speakProvider: Record<string, unknown> = useCartesia
