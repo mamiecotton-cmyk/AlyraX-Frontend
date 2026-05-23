@@ -167,10 +167,14 @@ export default function ArchetypeCard({
         />
 
         {featured && (
-          <div style={{ position: 'absolute', top: '12px', right: '12px', background: '#e63946', color: '#ffffff', fontSize: '10px', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', padding: '4px 10px', borderRadius: '20px', zIndex: 2 }}>
+          <div style={{ position: 'absolute', top: '44px', right: '12px', background: '#e63946', color: '#ffffff', fontSize: '10px', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', padding: '4px 10px', borderRadius: '20px', zIndex: 2 }}>
             ● Your Match
           </div>
         )}
+
+        <div aria-label="Online" style={{ position: 'absolute', top: '12px', right: '12px', width: '28px', height: '28px', borderRadius: '999px', background: 'rgba(0,0,0,0.58)', border: '1px solid rgba(255,255,255,0.24)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3 }}>
+          <span style={{ width: '10px', height: '10px', borderRadius: '999px', background: '#22c55e', boxShadow: '0 0 0 3px rgba(34,197,94,0.22)' }} />
+        </div>
 
         <div style={{ position: 'absolute', top: '12px', left: '12px', background: 'rgba(0,0,0,0.6)', border: '1px solid rgba(255,255,255,0.2)', color: '#ffffff', fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.14em', padding: '3px 8px', borderRadius: '3px', zIndex: 2 }}>
           {archetype.dossierId}
@@ -178,9 +182,6 @@ export default function ArchetypeCard({
 
         {/* Card bottom info + chat button */}
         <div data-card-info style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '20px 14px 14px', zIndex: 2, display: 'flex', flexDirection: 'column', alignItems: 'stretch', minHeight: '152px' }}>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', background: '#e63946', color: '#ffffff', fontSize: '10px', fontWeight: 500, padding: '3px 9px', borderRadius: '20px', marginBottom: '6px' }}>
-            <span style={{ fontSize: '7px' }}>●</span> Online
-          </div>
           <div data-card-name style={{ fontFamily: 'var(--font-display)', fontSize: '22px', fontWeight: 500, color: '#ffffff', lineHeight: 1.1, marginBottom: '2px', minHeight: '24px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {archetype.name}
           </div>

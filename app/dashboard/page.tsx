@@ -106,7 +106,7 @@ export default function DashboardPage() {
     );
   }
 
-  const featuredId = companion ? null : 'jaxon';
+  const featuredId = 'jaxon';
 
   return (
     <div style={{ display: 'flex', width: '100%', height: '100dvh', overflow: 'hidden' }}>
