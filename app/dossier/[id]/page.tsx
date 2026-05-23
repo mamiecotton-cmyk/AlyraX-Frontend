@@ -211,14 +211,29 @@ export default function DossierPage({ params }: Props) {
         .dossier-media {
           position: relative;
           min-width: 0;
+          overflow: hidden;
           background: ${archetype.imageGradient};
         }
 
+        .dossier-media::before {
+          content: "";
+          position: absolute;
+          inset: -24px;
+          background: var(--dossier-media-bg, ${archetype.imageGradient});
+          background-size: cover;
+          background-position: center;
+          filter: blur(18px);
+          transform: scale(1.04);
+          opacity: 0.54;
+        }
+
         .dossier-media img {
+          position: relative;
+          z-index: 1;
           width: 100%;
           height: 100%;
-          object-fit: cover;
-          object-position: center top;
+          object-fit: contain;
+          object-position: center center;
           display: block;
         }
 
@@ -236,6 +251,7 @@ export default function DossierPage({ params }: Props) {
           content: "";
           position: absolute;
           inset: 0;
+          z-index: 2;
           background:
             linear-gradient(90deg, transparent 56%, rgba(0,0,0,0.38)),
             linear-gradient(180deg, transparent 58%, rgba(0,0,0,0.54));
@@ -247,7 +263,7 @@ export default function DossierPage({ params }: Props) {
           left: 0;
           right: 0;
           bottom: 16px;
-          z-index: 2;
+          z-index: 3;
           display: flex;
           justify-content: center;
           gap: 7px;
@@ -577,7 +593,7 @@ export default function DossierPage({ params }: Props) {
           }
 
           .dossier-media img {
-            object-position: center top;
+            object-position: center center;
           }
 
           .dossier-dots {
@@ -669,7 +685,12 @@ export default function DossierPage({ params }: Props) {
       </div>
 
       <section className="dossier-card" aria-label={`${archetype.name} profile`}>
-        <div className="dossier-media">
+        <div
+          className="dossier-media"
+          style={{
+            '--dossier-media-bg': portraitUrl ? `url(${portraitUrl})` : archetype.imageGradient,
+          } as CSSProperties}
+        >
           {portraitUrl ? (
             <img src={portraitUrl} alt={archetype.name} />
           ) : (
