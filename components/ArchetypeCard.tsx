@@ -62,6 +62,7 @@ export default function ArchetypeCard({
         cursor: 'pointer',
         position: 'relative',
         border: featured ? '2px solid #e63946' : '1px solid #2a2a2a',
+        minWidth: 0,
       }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
@@ -176,18 +177,19 @@ export default function ArchetypeCard({
         </div>
 
         {/* Card bottom info + chat button */}
-        <div data-card-info style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '20px 14px 14px', zIndex: 2 }}>
+        <div data-card-info style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '20px 14px 14px', zIndex: 2, display: 'flex', flexDirection: 'column', alignItems: 'stretch', minHeight: '152px' }}>
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', background: '#e63946', color: '#ffffff', fontSize: '10px', fontWeight: 500, padding: '3px 9px', borderRadius: '20px', marginBottom: '6px' }}>
             <span style={{ fontSize: '7px' }}>●</span> Online
           </div>
-          <div data-card-name style={{ fontFamily: 'var(--font-display)', fontSize: '22px', fontWeight: 500, color: '#ffffff', lineHeight: 1.1, marginBottom: '2px' }}>
+          <div data-card-name style={{ fontFamily: 'var(--font-display)', fontSize: '22px', fontWeight: 500, color: '#ffffff', lineHeight: 1.1, marginBottom: '2px', minHeight: '24px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {archetype.name}
           </div>
-          <div data-card-meta style={{ fontSize: '11px', color: 'rgba(255,255,255,0.7)', marginBottom: '2px' }}>{archetype.city}</div>
+          <div data-card-meta style={{ fontSize: '11px', color: 'rgba(255,255,255,0.7)', marginBottom: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{archetype.city}</div>
           <div data-card-meta style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginBottom: '10px' }}>{archetype.age} years old</div>
 
           {/* Chat button — slides up on hover */}
           <div data-chat-cta style={{
+            marginTop: 'auto',
             transform: hovered ? 'translateY(0)' : 'translateY(12px)',
             opacity: hovered ? 1 : 0,
             transition: 'all 0.22s cubic-bezier(0.16, 1, 0.3, 1)',

@@ -7,14 +7,15 @@ export async function GET() {
 
     const { data, error } = await supabase
       .from('archetype_videos')
-      .select('archetype_id, video_url, is_featured')
-      .eq('is_featured', true);
+      .select('archetype_id, video_url, is_featured, sort_order')
+      .order('is_featured', { ascending: false })
+      .order('sort_order', { ascending: true });
 
     if (error) throw error;
 
     const map: Record<string, string> = {};
     for (const row of data ?? []) {
-      if (row.archetype_id && row.video_url) {
+      if (row.archetype_id && row.video_url && !map[row.archetype_id]) {
         map[row.archetype_id] = row.video_url;
       }
     }
