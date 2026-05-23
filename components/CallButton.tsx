@@ -18,6 +18,18 @@ function pickGreeting(options: string[], salt: string) {
   return options[(minuteBucket + nameWeight) % options.length];
 }
 
+function getCallErrorMessage(error: unknown) {
+  if (error instanceof Error) return error.message;
+  if (error && typeof error === 'object') {
+    const message = 'message' in error ? error.message : null;
+    const description = 'description' in error ? error.description : null;
+    const reason = 'reason' in error ? error.reason : null;
+    const value = message || description || reason;
+    if (typeof value === 'string' && value.trim()) return value;
+  }
+  return 'Call failed. Try again.';
+}
+
 export default function CallButton({
   scenario,
   companionId,
@@ -46,6 +58,7 @@ export default function CallButton({
 }) {
   const [calling, setCalling] = useState(false);
   const [connected, setConnected] = useState(false);
+  const [callError, setCallError] = useState<string | null>(null);
   const messagesRef = useRef<VoiceTranscript[]>([]);
   const autoStartedRef = useRef(false);
   const isVideoMode = scenario.toLowerCase().includes('video');
@@ -76,6 +89,7 @@ export default function CallButton({
 
     const onStart = () => {
       messagesRef.current = [];
+      setCallError(null);
       setCalling(false);
       setConnected(true);
     };
@@ -83,6 +97,12 @@ export default function CallButton({
       setCalling(false);
       setConnected(false);
       void saveMemory();
+    };
+    const onError = (error: unknown) => {
+      console.error('Voice call error:', error);
+      setCalling(false);
+      setConnected(false);
+      setCallError(getCallErrorMessage(error));
     };
     const onMessage = (message: { type?: string; role?: string; transcript?: string }) => {
       if (message.type !== 'transcript' || !message.transcript) return;
@@ -94,10 +114,12 @@ export default function CallButton({
     };
     vapi.on('call-start', onStart);
     vapi.on('call-end', onEnd);
+    vapi.on('error', onError);
     vapi.on('message', onMessage);
     return () => {
       vapi?.off('call-start', onStart);
       vapi?.off('call-end', onEnd);
+      vapi?.off('error', onError);
       vapi?.off('message', onMessage);
     };
   }, [companionId, isVideoMode]);
@@ -154,6 +176,7 @@ export default function CallButton({
   }, [companionName, lastMemory?.lastUserMessage, personaName, personaTagline, userName]);
 
   const startSecretCall = useCallback(async () => {
+    setCallError(null);
     setCalling(true);
     if (!vapi) {
       console.error('Call failed: Deepgram voice client not initialized');
@@ -223,12 +246,19 @@ export default function CallButton({
   }
 
   return (
-    <button
-      onClick={startSecretCall}
-      disabled={calling}
-      className="bg-red-600 text-white px-8 py-4 rounded-full font-bold hover:bg-red-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
-    >
-      {calling ? "Connecting to AlyraX..." : isVideoMode ? "Start Video Call" : "Start Secret Call"}
-    </button>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+      <button
+        onClick={startSecretCall}
+        disabled={calling}
+        className="bg-red-600 text-white px-8 py-4 rounded-full font-bold hover:bg-red-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        {calling ? "Connecting to AlyraX..." : callError ? "Try Voice Call Again" : isVideoMode ? "Start Video Call" : "Start Secret Call"}
+      </button>
+      {callError && (
+        <div style={{ maxWidth: '240px', color: '#ef4444', fontSize: '11px', lineHeight: 1.35, textAlign: 'center' }}>
+          {callError}
+        </div>
+      )}
+    </div>
   );
 }

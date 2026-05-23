@@ -142,7 +142,7 @@ class DeepgramVoiceClient {
     this.emit('call-end');
   }
 
-  say(message: string, ..._options: unknown[]) {
+  say(message: string) {
     if (!message.trim() || this.socket?.readyState !== WebSocket.OPEN) return;
     this.socket.send(JSON.stringify({
       type: 'InjectAgentMessage',
@@ -270,22 +270,27 @@ class DeepgramVoiceClient {
     if (values.archetypeId) llmUrl.searchParams.set('archetypeId', values.archetypeId);
 
     const useCartesia = Boolean(cartesiaVoiceId && this.cartesiaProxyEnabled && this.ttsProxyToken);
-    const speakProvider: Record<string, unknown> = useCartesia
-      ? {
-          type: 'cartesia',
-          model_id: cartesiaModelId,
-          voice: { mode: 'id', id: cartesiaVoiceId },
-          language: 'en',
-          speed: this.currentSpeed,
-        }
-      : {
-          type: 'deepgram',
-          model: 'aura-2-thalia-en',
-        };
-    const speak: Record<string, unknown> = { provider: speakProvider };
+    const deepgramSpeak = {
+      provider: {
+        type: 'deepgram',
+        model: 'aura-2-thalia-en',
+      },
+    };
+    const cartesiaSpeak: Record<string, unknown> = {
+      provider: {
+        type: 'cartesia',
+        model_id: cartesiaModelId,
+        voice: { mode: 'id', id: cartesiaVoiceId },
+        language: 'en',
+        speed: this.currentSpeed,
+      },
+    };
+    const speak: Record<string, unknown> | Record<string, unknown>[] = useCartesia
+      ? [cartesiaSpeak, deepgramSpeak]
+      : deepgramSpeak;
 
     if (useCartesia && this.ttsProxyToken) {
-      speak.endpoint = {
+      cartesiaSpeak.endpoint = {
         url: new URL('/api/cartesia/tts/bytes', origin).toString(),
         headers: { authorization: `Bearer ${this.ttsProxyToken}` },
       };
