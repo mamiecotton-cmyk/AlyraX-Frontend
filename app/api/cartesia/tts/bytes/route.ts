@@ -28,6 +28,37 @@ function verifyTtsProxyToken(token: string) {
   }
 }
 
+function normalizeLaughterMarkup(text: string) {
+  return text
+    .replace(/\*?\(?\b(?:laughs|chuckles|giggles)(?:\s+(?:softly|quietly|low|lightly|a little|under (?:his|her|their) breath))*\)?\*?/gi, '[laughter]')
+    .replace(/\s*\[laughter\]\s*/g, ' [laughter] ')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
+function normalizeLaughterInPayload(value: unknown): unknown {
+  if (typeof value === 'string') return normalizeLaughterMarkup(value);
+  if (Array.isArray(value)) return value.map(normalizeLaughterInPayload);
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, entry]) => [key, normalizeLaughterInPayload(entry)]),
+    );
+  }
+  return value;
+}
+
+async function getCartesiaRequestBody(req: Request) {
+  const body = await req.text();
+  const contentType = req.headers.get('content-type') || 'application/json';
+  if (!contentType.includes('application/json')) return normalizeLaughterMarkup(body);
+
+  try {
+    return JSON.stringify(normalizeLaughterInPayload(JSON.parse(body)));
+  } catch {
+    return normalizeLaughterMarkup(body);
+  }
+}
+
 export async function POST(req: Request) {
   const authHeader = req.headers.get('authorization') || '';
   const token = authHeader.replace(/^Bearer\s+/i, '').trim();
@@ -40,6 +71,8 @@ export async function POST(req: Request) {
     return new Response(JSON.stringify({ error: 'Missing CARTESIA_API_KEY' }), { status: 500 });
   }
 
+  const body = await getCartesiaRequestBody(req);
+
   const response = await fetch('https://api.cartesia.ai/tts/bytes', {
     method: 'POST',
     headers: {
@@ -47,7 +80,7 @@ export async function POST(req: Request) {
       'Cartesia-Version': process.env.CARTESIA_VERSION || '2026-03-01',
       'Content-Type': req.headers.get('content-type') || 'application/json',
     },
-    body: await req.text(),
+    body,
   });
 
   if (!response.ok) {
