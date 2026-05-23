@@ -21,6 +21,8 @@ type DeepgramMessage = {
   type?: string;
   role?: string;
   content?: string;
+  code?: string;
+  description?: string;
 };
 type CartesiaSpeed = 'slowest' | 'slow' | 'normal' | 'fast' | 'fastest';
 
@@ -241,8 +243,30 @@ class DeepgramVoiceClient {
       return;
     }
     if (message.type === 'Warning') {
+      if (
+        message.code === 'SPEAK_REQUEST_FAILED'
+        && message.description?.toLowerCase().includes('cartesia')
+      ) {
+        console.warn('Cartesia voice unavailable; switching this call to Deepgram fallback:', message);
+        this.switchToDeepgramSpeak();
+        return;
+      }
       console.warn('Deepgram warning:', message);
     }
+  }
+
+  private switchToDeepgramSpeak() {
+    if (this.socket?.readyState !== WebSocket.OPEN) return;
+    this.currentVoiceId = null;
+    this.socket.send(JSON.stringify({
+      type: 'UpdateSpeak',
+      speak: {
+        provider: {
+          type: 'deepgram',
+          model: 'aura-2-thalia-en',
+        },
+      },
+    }));
   }
 
   private sendSettings(options?: StartOptions) {
