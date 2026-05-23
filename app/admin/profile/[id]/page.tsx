@@ -286,6 +286,7 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
   const [videoSourceUrl, setVideoSourceUrl] = useState<string | null>(null);
   const [genVideo, setGenVideo] = useState(false);
   const [uploadingFrame, setUploadingFrame] = useState(false);
+  const [uploadingVideo, setUploadingVideo] = useState(false);
   const pollRef = useRef<NodeJS.Timeout | null>(null);
   const [viewerImageUrl, setViewerImageUrl] = useState<string | null>(null);
   const [viewerImage, setViewerImage] = useState<GalleryImage | null>(null);
@@ -606,6 +607,41 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
       setStatus('Video submitted — polling...');
       pollForVideo(data.prediction_id, sourceUrl, data.provider || 'atlas');
     } catch (err) { setStatus(err instanceof Error ? err.message : 'Failed'); setGenVideo(false); }
+  }
+
+  async function handleVideoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]; e.target.value = '';
+    if (!file) return;
+    setUploadingVideo(true);
+    setStatus('Uploading video...');
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+      const ext = file.name.split('.').pop() || 'mp4';
+      const { data, error } = await supabase.storage.from('companions').upload(`${user.id}/archetype-video-${id}-${Date.now()}.${ext}`, file, { contentType: file.type || 'video/mp4', upsert: true });
+      if (error) throw error;
+
+      const { data: urlData } = supabase.storage.from('companions').getPublicUrl(data.path);
+      const saveRes = await fetch('/api/archetypes/videos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          archetype_id: id,
+          video_url: urlData.publicUrl,
+          source_image_url: videoSourceUrl,
+          prompt_used: videoPrompt.trim() || 'Uploaded video',
+          is_featured: videos.length === 0,
+        }),
+      });
+      const saved = await saveRes.json();
+      if (!saveRes.ok) throw new Error(saved.error || 'Video save failed');
+      if (saved.video) setVideos((prev) => [...prev, saved.video]);
+      setStatus('Video uploaded.');
+    } catch (err) {
+      setStatus(err instanceof Error ? err.message : 'Video upload failed');
+    } finally {
+      setUploadingVideo(false);
+    }
   }
 
   useEffect(() => () => { if (pollRef.current) clearTimeout(pollRef.current); }, []);
@@ -992,6 +1028,15 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
                   {uploadingFrame ? '◈ Uploading...' : '◆ Choose Image'}
                   <input type="file" accept="image/*" onChange={handleFrameUpload} style={{ display: 'none' }} disabled={uploadingFrame} />
                 </label>
+              </div>
+
+              <div style={{ background: '#ffffff', border: '1px solid #e0e0d8', borderRadius: '3px', padding: '18px' }}>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', letterSpacing: '0.24em', textTransform: 'uppercase', color: '#e63946', marginBottom: '12px' }}>▣ Upload Video</div>
+                <label style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px', width: '100%', padding: '10px 12px', background: uploadingVideo ? '#f5f5f0' : '#ffffff', border: '1px solid #e0e0d8', borderRadius: '3px', cursor: uploadingVideo ? 'not-allowed' : 'pointer', fontFamily: 'var(--font-mono)', fontSize: '8.5px', letterSpacing: '0.14em', textTransform: 'uppercase', color: '#0a0a0a' }}>
+                  {uploadingVideo ? '▣ Uploading...' : '▣ Choose Video'}
+                  <input type="file" accept="video/*,.webp" onChange={handleVideoUpload} style={{ display: 'none' }} disabled={uploadingVideo} />
+                </label>
+                <div style={{ marginTop: '10px', fontFamily: 'var(--font-mono)', fontSize: '8px', color: '#0a0a0a', lineHeight: 1.6 }}>Uploaded clips are saved to this archetype and become featured when it has no videos yet.</div>
               </div>
 
               <div style={{ background: '#ffffff', border: '1px solid #e0e0d8', borderRadius: '3px', padding: '18px' }}>
