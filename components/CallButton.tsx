@@ -12,6 +12,12 @@ function isVoiceTranscriptRole(role?: string): role is VoiceTranscript['role'] {
   return role === 'user' || role === 'assistant';
 }
 
+function pickGreeting(options: string[], salt: string) {
+  const minuteBucket = Math.floor(Date.now() / 60000);
+  const nameWeight = [...salt].reduce((total, char) => total + char.charCodeAt(0), 0);
+  return options[(minuteBucket + nameWeight) % options.length];
+}
+
 export default function CallButton({
   scenario,
   companionId,
@@ -101,27 +107,52 @@ export default function CallButton({
   const buildVoiceGreeting = useCallback(() => {
     const persona = `${personaName || ''} ${personaTagline || ''}`.toLowerCase();
     const address = userName || 'baby';
+    const name = companionName || 'me';
     const memory = lastMemory?.lastUserMessage
       ? ` I remember where we left off.`
       : '';
+    const memoryWarmth = lastMemory?.lastUserMessage
+      ? ` I was thinking about what you said last time.`
+      : '';
 
     if (persona.includes('dominant')) {
-      return `There you are, ${address}.${memory} Take a breath and tell me what you want from me.`;
+      return pickGreeting([
+        `There you are, ${address}.${memory} I was wondering when you'd come back to me.`,
+        `${address}. Good. I wanted your voice in my ear today.${memoryWarmth}`,
+        `Hey, ${address}. It's ${name}. Take a breath and stay with me for a minute.`,
+      ], `${name}-${address}-dominant`);
     }
 
     if (persona.includes('submissive')) {
-      return `Hi ${address}.${memory} I'm here with you. Tell me how you want me tonight.`;
+      return pickGreeting([
+        `Hi ${address}.${memory} I missed hearing from you.`,
+        `Hey ${address}, it's ${name}. I'm right here with you.`,
+        `${address}, hi.${memoryWarmth} Tell me what you need from me first.`,
+      ], `${name}-${address}-submissive`);
     }
 
     if (persona.includes('romantic')) {
-      return `Hi ${address}.${memory} Come closer for me and tell me what mood you're in.`;
+      return pickGreeting([
+        `Hi ${address}.${memory} I like when it's just us like this.`,
+        `Hey ${address}, it's ${name}. Come closer for a second.`,
+        `${address}, I was hoping you'd call.${memoryWarmth}`,
+      ], `${name}-${address}-romantic`);
     }
 
     if (persona.includes('playful')) {
-      return `Hey ${address}.${memory} I was hoping you'd show up. What kind of trouble are we getting into?`;
+      return pickGreeting([
+        `Hey ${address}.${memory} I knew you'd find your way back to me.`,
+        `${address}, there you are. What mood are we causing today?`,
+        `It's ${name}. I was just thinking you were overdue for some attention.`,
+      ], `${name}-${address}-playful`);
     }
 
-    return `Hi ${address}, it's ${companionName || 'me'}.${memory} I'm here now. Tell me what you want.`;
+    return pickGreeting([
+      `Hi ${address}, it's ${name}.${memory} I'm glad you called.`,
+      `Hey ${address}. It's ${name}. I wanted a minute with you.`,
+      `${address}, hey.${memoryWarmth} Tell me what's been on your mind.`,
+      `It's ${name}. I like hearing from you, ${address}.`,
+    ], `${name}-${address}-default`);
   }, [companionName, lastMemory?.lastUserMessage, personaName, personaTagline, userName]);
 
   const startSecretCall = useCallback(async () => {
@@ -145,8 +176,15 @@ export default function CallButton({
         lastMemory: lastMemory?.summary || lastMemory?.lastUserMessage || undefined,
       };
 
+      const name = companionName || 'me';
+      const address = userName || 'baby';
+
       await vapi.start(undefined, isVideoMode ? {
-        firstMessage: `Tell me what you want to see${userName ? `, ${userName}` : ''}. Give me the scene, and I'll make it worth the wait.`,
+        firstMessage: pickGreeting([
+          `It's ${name}. Tell me what you want to see${userName ? `, ${userName}` : ''}.`,
+          `${address}, give me the scene. I'll make it worth the wait.`,
+          `Hey ${address}. Start with the mood, and I'll take it from there.`,
+        ], `${name}-${address}-video`),
         firstMessageMode: 'assistant-speaks-first',
         variableValues: {
           ...sharedValues,
