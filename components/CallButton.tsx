@@ -29,7 +29,6 @@ export default function CallButton({
   promptUsed,
   userName,
   lastMemory,
-  voiceLoading = false,
   autoStart = false,
 }: {
   scenario: string;
@@ -51,7 +50,6 @@ export default function CallButton({
   const autoStartedRef = useRef(false);
   const isVideoMode = scenario.toLowerCase().includes('video');
   const fallbackVoiceId = process.env.NEXT_PUBLIC_CARTESIA_VOICE_ID || '';
-  const hasVoice = Boolean(voiceId || fallbackVoiceId);
 
   useEffect(() => {
     if (!vapi) return;
@@ -156,7 +154,6 @@ export default function CallButton({
   }, [companionName, lastMemory?.lastUserMessage, personaName, personaTagline, userName]);
 
   const startSecretCall = useCallback(async () => {
-    if (!hasVoice) return;
     setCalling(true);
     if (!vapi) {
       console.error('Call failed: Deepgram voice client not initialized');
@@ -202,13 +199,13 @@ export default function CallButton({
       console.error("The Mouth failed to open:", err);
       setCalling(false);
     }
-  }, [archetypeId, buildVoiceGreeting, companionId, companionName, fallbackVoiceId, hasVoice, isVideoMode, lastMemory, personaName, personaTagline, promptUsed, userName, voiceId]);
+  }, [archetypeId, buildVoiceGreeting, companionId, companionName, fallbackVoiceId, isVideoMode, lastMemory, personaName, personaTagline, promptUsed, userName, voiceId]);
 
   useEffect(() => {
-    if (!autoStart || autoStartedRef.current || calling || connected || !hasVoice) return;
+    if (!autoStart || autoStartedRef.current || calling || connected) return;
     autoStartedRef.current = true;
     void startSecretCall();
-  }, [autoStart, calling, connected, hasVoice, startSecretCall]);
+  }, [autoStart, calling, connected, startSecretCall]);
 
   const endCall = () => {
     vapi?.stop();
@@ -228,14 +225,10 @@ export default function CallButton({
   return (
     <button
       onClick={startSecretCall}
-      disabled={calling || !hasVoice}
+      disabled={calling}
       className="bg-red-600 text-white px-8 py-4 rounded-full font-bold hover:bg-red-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
     >
-      {calling
-        ? "Connecting to AlyraX..."
-        : !hasVoice
-          ? voiceLoading ? "Loading voice..." : "Voice not assigned"
-          : isVideoMode ? "Start Video Call" : "Start Secret Call"}
+      {calling ? "Connecting to AlyraX..." : isVideoMode ? "Start Video Call" : "Start Secret Call"}
     </button>
   );
 }
