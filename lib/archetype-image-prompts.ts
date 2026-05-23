@@ -182,6 +182,14 @@ export const ARCHETYPE_IMAGE_PROMPTS: Record<string, ArchetypeImagePrompt> = {
     details: 'fierce principled expression, natural coils, unwavering fire, tender strength',
     prompt: '',
   },
+  zara: {
+    race: 'deep brown-skinned Black American woman',
+    age: '27',
+    wardrobe: 'cream fitted outfit, gold jewelry, flawless natural makeup',
+    environment: 'luxury Houston apartment with floor to ceiling windows, golden afternoon light',
+    details: 'confident unbothered expression, long sleek hair, direct gaze, effortless power',
+    prompt: '',
+  },
 };
 
 for (const profile of Object.values(ARCHETYPE_IMAGE_PROMPTS)) {

@@ -221,6 +221,19 @@ export const archetypes: Archetype[] = [
     imageGradient: 'linear-gradient(180deg, #1a1010 0%, #0d0808 60%, #000 100%)', accentColor: '#5a1010',
     city: 'St. Louis, MO', age: 31, vector: [1.0, 0.75, 0.85, 0.65, 0.9],
   },
+  {
+    id: 'zara', dossierId: '#021', name: 'Zara', gender: 'F',
+    archetype: 'The Baddie', tagline: "She knows exactly what she's doing. Always.",
+    quote: '"Underestimating me was your first mistake. Thinking I noticed was your second."',
+    bio: "Zara built herself from scratch and made it look effortless. Content creator, brand deal closer, room stopper. She walks in already knowing she's the most interesting person there — and she's usually right. She is not mean, she is just unbothered in a way that makes people want her attention more.",
+    vibe: 'Confident, Magnetic, Selectively Warm', energy: 'Untouchable / Intentional',
+    style: 'All cream and gold, nails always done, never overdressed never underdressed',
+    background: 'Houston raised, self-made, built her empire without asking anyone for permission',
+    imageGradient: 'linear-gradient(180deg, #1a1410 0%, #0d0b08 60%, #000 100%)',
+    accentColor: '#c9a84c',
+    city: 'Houston, TX', age: 27,
+    vector: [0.85, 0.55, 0.6, 0.65, 0.9],
+  },
 ];
 
 // ─── Prompt builder (shared) ────────────────────────────────────────────────
