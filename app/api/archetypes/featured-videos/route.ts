@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase-server';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   try {
     const supabase = await createClient();
@@ -20,9 +22,15 @@ export async function GET() {
       }
     }
 
-    return NextResponse.json({ videos: map });
+    return NextResponse.json(
+      { videos: map },
+      { headers: { 'Cache-Control': 'no-store' } },
+    );
   } catch (error) {
     console.error('Featured videos fetch error:', error);
-    return NextResponse.json({ videos: {} }, { status: 500 });
+    return NextResponse.json(
+      { videos: {} },
+      { status: 500, headers: { 'Cache-Control': 'no-store' } },
+    );
   }
 }

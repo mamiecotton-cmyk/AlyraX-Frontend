@@ -135,8 +135,16 @@ export default function AdminArchetypesPage() {
 
     async function load() {
       const [imagesRes, customRes] = await Promise.all([
-        fetch('/api/archetypes/images').then((r) => r.json()).catch(() => ({ images: {} })),
-        fetch('/api/archetypes/custom').then((r) => r.json()).catch(() => ({ archetypes: [] })),
+        fetch('/api/archetypes/images', { cache: 'no-store' })
+          .then((r) => {
+            if (!r.ok) throw new Error(`Images request failed: ${r.status}`);
+            return r.json();
+          })
+          .catch((error) => {
+            console.error('Admin archetype images load failed:', error);
+            return { images: {} };
+          }),
+        fetch('/api/archetypes/custom', { cache: 'no-store' }).then((r) => r.json()).catch(() => ({ archetypes: [] })),
       ]);
 
       const imageMap: ImageMap   = imagesRes.images  ?? {};

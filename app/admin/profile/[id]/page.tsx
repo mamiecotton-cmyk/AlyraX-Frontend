@@ -306,13 +306,13 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
           }
         }
         const [gRes, vRes, pRes] = await Promise.all([
-          fetch(`/api/archetypes/gallery?archetype_id=${id}`).then((r) => r.json()),
-          fetch(`/api/archetypes/videos?archetype_id=${id}`).then((r) => r.json()),
-          fetch('/api/archetypes/prompts').then((r) => r.json()),
+          fetch(`/api/archetypes/gallery?archetype_id=${id}`, { cache: 'no-store' }).then((r) => r.json()),
+          fetch(`/api/archetypes/videos?archetype_id=${id}`, { cache: 'no-store' }).then((r) => r.json()),
+          fetch('/api/archetypes/prompts', { cache: 'no-store' }).then((r) => r.json()),
         ]);
         let imgs: GalleryImage[] = gRes.images ?? [];
         if (imgs.length === 0) {
-          const iRes = await fetch('/api/archetypes/images');
+          const iRes = await fetch('/api/archetypes/images', { cache: 'no-store' });
           const { images } = await iRes.json();
           if (images?.[id]) {
             const saveRes = await fetch('/api/archetypes/gallery', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ archetype_id: id, image_url: images[id], is_main: true }) });
@@ -666,7 +666,16 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
   }
 
   async function setFeaturedVideo(video: GalleryVideo) {
-    await fetch(`/api/archetypes/videos/${video.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ is_featured: true }) });
+    const res = await fetch(`/api/archetypes/videos/${video.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ is_featured: true }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setStatus(data.error || 'Featured video update failed.');
+      return;
+    }
     setVideos((prev) => prev.map((v) => ({ ...v, is_featured: v.id === video.id })));
     setStatus('Featured video updated.');
   }

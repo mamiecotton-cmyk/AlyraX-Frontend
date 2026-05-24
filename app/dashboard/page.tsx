@@ -73,14 +73,14 @@ export default function DashboardPage() {
   }, [router, supabase]);
 
   useEffect(() => {
-    fetch('/api/archetypes/images')
+    fetch('/api/archetypes/images', { cache: 'no-store' })
       .then((r) => r.json())
       .then(({ images }) => setArchetypeImages(images || {}))
       .catch(() => {});
   }, []);
 
   useEffect(() => {
-    fetch("/api/archetypes/featured-videos")
+    fetch('/api/archetypes/featured-videos', { cache: 'no-store' })
       .then((r) => r.json())
       .then(({ videos }) => setArchetypeVideos(videos || {}))
       .catch(() => {});

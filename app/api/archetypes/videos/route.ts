@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase-server';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(req: NextRequest) {
   try {
     const archetypeId = req.nextUrl.searchParams.get('archetype_id');
@@ -14,10 +16,16 @@ export async function GET(req: NextRequest) {
       .order('sort_order', { ascending: true });
 
     if (error) throw error;
-    return NextResponse.json({ videos: data ?? [] });
+    return NextResponse.json(
+      { videos: data ?? [] },
+      { headers: { 'Cache-Control': 'no-store' } },
+    );
   } catch (error) {
     console.error('Videos fetch error:', error);
-    return NextResponse.json({ videos: [] }, { status: 500 });
+    return NextResponse.json(
+      { videos: [] },
+      { status: 500, headers: { 'Cache-Control': 'no-store' } },
+    );
   }
 }
 

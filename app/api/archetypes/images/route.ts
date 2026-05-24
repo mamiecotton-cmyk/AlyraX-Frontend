@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase-server';
 
+export const dynamic = 'force-dynamic';
+
 type ArchetypeImageRow = {
   archetype_id: string | null;
   image_url: string | null;
@@ -55,9 +57,15 @@ export async function GET() {
       galleryPicked.add(row.archetype_id);
     }
 
-    return NextResponse.json({ images: map });
+    return NextResponse.json(
+      { images: map },
+      { headers: { 'Cache-Control': 'no-store' } },
+    );
   } catch (error) {
     console.error('Archetype images fetch error:', error);
-    return NextResponse.json({ images: {} }, { status: 500 });
+    return NextResponse.json(
+      { images: {} },
+      { status: 500, headers: { 'Cache-Control': 'no-store' } },
+    );
   }
 }

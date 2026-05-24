@@ -22,20 +22,23 @@ export async function PATCH(
         .single();
 
       if (current?.archetype_id) {
-        await supabase
+        const { error: clearError } = await supabase
           .from('archetype_videos')
           .update({ is_featured: false })
           .eq('archetype_id', current.archetype_id);
+        if (clearError) throw clearError;
       }
     }
 
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('archetype_videos')
       .update(body)
-      .eq('id', videoId);
+      .eq('id', videoId)
+      .select('*')
+      .single();
 
     if (error) throw error;
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, video: data });
   } catch (error) {
     console.error('Video patch error:', error);
     return NextResponse.json({ error: 'Update failed' }, { status: 500 });

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase-server';
 
+export const dynamic = 'force-dynamic';
+
 type GalleryImageResponse = {
   id?: string | null;
   archetype_id?: string | null;
@@ -30,10 +32,16 @@ export async function GET(req: NextRequest) {
       .order('sort_order', { ascending: true });
 
     if (error) throw error;
-    return NextResponse.json({ images: (data ?? []).map(normalizeInlineImageUrl) });
+    return NextResponse.json(
+      { images: (data ?? []).map(normalizeInlineImageUrl) },
+      { headers: { 'Cache-Control': 'no-store' } },
+    );
   } catch (error) {
     console.error('Gallery fetch error:', error);
-    return NextResponse.json({ images: [] }, { status: 500 });
+    return NextResponse.json(
+      { images: [] },
+      { status: 500, headers: { 'Cache-Control': 'no-store' } },
+    );
   }
 }
 
