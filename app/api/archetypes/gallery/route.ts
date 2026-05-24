@@ -1,6 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase-server';
 
+type GalleryImageResponse = {
+  id?: string | null;
+  archetype_id?: string | null;
+  image_url?: string | null;
+};
+
+function normalizeInlineImageUrl(row: GalleryImageResponse) {
+  if (!row.archetype_id || !row.image_url?.startsWith('data:image/')) return row;
+  return {
+    ...row,
+    image_url: row.id
+      ? `/api/archetypes/images/${encodeURIComponent(row.archetype_id)}/data?galleryImageId=${encodeURIComponent(row.id)}`
+      : `/api/archetypes/images/${encodeURIComponent(row.archetype_id)}/data`,
+  };
+}
+
 export async function GET(req: NextRequest) {
   try {
     const archetypeId = req.nextUrl.searchParams.get('archetype_id');
@@ -14,7 +30,7 @@ export async function GET(req: NextRequest) {
       .order('sort_order', { ascending: true });
 
     if (error) throw error;
-    return NextResponse.json({ images: data ?? [] });
+    return NextResponse.json({ images: (data ?? []).map(normalizeInlineImageUrl) });
   } catch (error) {
     console.error('Gallery fetch error:', error);
     return NextResponse.json({ images: [] }, { status: 500 });

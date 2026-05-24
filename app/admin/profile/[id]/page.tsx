@@ -318,6 +318,18 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
             const saveRes = await fetch('/api/archetypes/gallery', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ archetype_id: id, image_url: images[id], is_main: true }) });
             const saveData = await saveRes.json();
             if (saveData.image) imgs = [saveData.image];
+            else {
+              imgs = [{
+                id: `legacy-${id}`,
+                archetype_id: id,
+                image_url: images[id],
+                seed: null,
+                style: 'legacy',
+                prompt_used: null,
+                is_main: true,
+                sort_order: 0,
+              }];
+            }
           }
         }
         setGallery(imgs);
@@ -718,32 +730,41 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
                 const secondaryImgs = gallery.filter((g) => g.id !== mainImg.id);
                 const mainIdx = gallery.findIndex((g) => g.id === mainImg.id);
 
-                const ImageCard = ({ img, i, isHero }: { img: GalleryImage; i: number; isHero: boolean }) => (
-                  <div style={{ background: '#ffffff', border: `1px solid ${img.is_main ? 'var(--gold)' : 'var(--border-dark)'}`, borderRadius: '3px', overflow: 'hidden' }}>
-                    <div style={{ position: 'relative', overflow: 'hidden', background: archetype.imageGradient, ...(isHero ? { display: 'flex', justifyContent: 'center', alignItems: 'center', maxHeight: '70vh' } : { aspectRatio: '3/4' }) }}>
-                      <div style={isHero ? { maxWidth: '520px', width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center' } : undefined}>
-                        <img src={img.image_url} alt="" style={isHero ? { width: '100%', height: 'auto', maxHeight: '70vh', objectFit: 'contain', objectPosition: 'center center', display: 'block' } : { width: '100%', height: '100%', objectFit: 'contain', objectPosition: 'center center', display: 'block' }} />
+                const ImageCard = ({ img, i, isHero }: { img: GalleryImage; i: number; isHero: boolean }) => {
+                  const isLegacyImage = img.id.startsWith('legacy-');
+                  return (
+                    <div style={{ background: '#ffffff', border: `1px solid ${img.is_main ? 'var(--gold)' : 'var(--border-dark)'}`, borderRadius: '3px', overflow: 'hidden' }}>
+                      <div style={{ position: 'relative', overflow: 'hidden', background: archetype.imageGradient, ...(isHero ? { display: 'flex', justifyContent: 'center', alignItems: 'center', maxHeight: '70vh' } : { aspectRatio: '3/4' }) }}>
+                        <div style={isHero ? { maxWidth: '520px', width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center' } : undefined}>
+                          <img src={img.image_url} alt="" style={isHero ? { width: '100%', height: 'auto', maxHeight: '70vh', objectFit: 'contain', objectPosition: 'center center', display: 'block' } : { width: '100%', height: '100%', objectFit: 'contain', objectPosition: 'center center', display: 'block' }} />
+                        </div>
+                        {img.is_main && <div style={{ position: 'absolute', top: '8px', left: '8px', fontFamily: 'var(--font-mono)', fontSize: '7px', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--onyx)', background: '#e63946', padding: '3px 8px', borderRadius: '2px' }}>{isLegacyImage ? 'Fallback' : 'Main'}</div>}
+                        {img.seed && <div style={{ position: 'absolute', bottom: '8px', left: '8px', fontFamily: 'var(--font-mono)', fontSize: '7px', color: '#ffffff', background: 'rgba(0,0,0,0.75)', padding: '2px 6px', borderRadius: '2px' }}>{img.seed}</div>}
                       </div>
-                      {img.is_main && <div style={{ position: 'absolute', top: '8px', left: '8px', fontFamily: 'var(--font-mono)', fontSize: '7px', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--onyx)', background: '#e63946', padding: '3px 8px', borderRadius: '2px' }}>Main</div>}
-                      {img.seed && <div style={{ position: 'absolute', bottom: '8px', left: '8px', fontFamily: 'var(--font-mono)', fontSize: '7px', color: '#ffffff', background: 'rgba(0,0,0,0.75)', padding: '2px 6px', borderRadius: '2px' }}>{img.seed}</div>}
-                    </div>
-                    <div style={{ padding: isHero ? '10px' : '8px', display: 'flex', flexDirection: isHero ? 'row' : 'column', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
-                      <div style={{ display: 'flex', gap: '4px', flex: isHero ? 0 : 1 }}>
-                        <button onClick={() => moveImage(i, 'up')} disabled={i === 0} style={{ ...BTN_MUTED, padding: '4px 10px', opacity: i === 0 ? 0.3 : 1 }}>▲</button>
-                        <button onClick={() => moveImage(i, 'down')} disabled={i === gallery.length - 1} style={{ ...BTN_MUTED, padding: '4px 10px', opacity: i === gallery.length - 1 ? 0.3 : 1 }}>▼</button>
+                      <div style={{ padding: isHero ? '10px' : '8px', display: 'flex', flexDirection: isHero ? 'row' : 'column', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
+                        {!isLegacyImage && (
+                          <>
+                            <div style={{ display: 'flex', gap: '4px', flex: isHero ? 0 : 1 }}>
+                              <button onClick={() => moveImage(i, 'up')} disabled={i === 0} style={{ ...BTN_MUTED, padding: '4px 10px', opacity: i === 0 ? 0.3 : 1 }}>▲</button>
+                              <button onClick={() => moveImage(i, 'down')} disabled={i === gallery.length - 1} style={{ ...BTN_MUTED, padding: '4px 10px', opacity: i === gallery.length - 1 ? 0.3 : 1 }}>▼</button>
+                            </div>
+                            {!img.is_main && <button onClick={() => setMainImage(img)} style={{ ...BTN_MUTED, padding: '4px 10px', fontSize: '8px', flex: isHero ? 0 : 1, textAlign: 'center' }}>Set Main</button>}
+                          </>
+                        )}
+                        <button onClick={() => { setVideoSourceUrl(img.image_url); setTab('videos'); setStatus('Source frame set.'); }} style={{ ...BTN_MUTED, padding: '4px 10px', fontSize: '8px', flex: isHero ? 0 : 1, textAlign: 'center' }}>▷ Video</button>
+                        {!isLegacyImage && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); deleteImage(img); }}
+                            disabled={deletingImageId !== null}
+                            style={{ ...BTN_DANGER, padding: '4px 10px', flex: isHero ? 0 : 1, textAlign: 'center', opacity: deletingImageId === img.id ? 0.5 : 1, cursor: deletingImageId !== null ? 'not-allowed' : 'pointer' }}
+                          >
+                            {deletingImageId === img.id ? 'Deleting...' : '✕ Delete'}
+                          </button>
+                        )}
                       </div>
-                      {!img.is_main && <button onClick={() => setMainImage(img)} style={{ ...BTN_MUTED, padding: '4px 10px', fontSize: '8px', flex: isHero ? 0 : 1, textAlign: 'center' }}>Set Main</button>}
-                      <button onClick={() => { setVideoSourceUrl(img.image_url); setTab('videos'); setStatus('Source frame set.'); }} style={{ ...BTN_MUTED, padding: '4px 10px', fontSize: '8px', flex: isHero ? 0 : 1, textAlign: 'center' }}>▷ Video</button>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); deleteImage(img); }}
-                        disabled={deletingImageId !== null}
-                        style={{ ...BTN_DANGER, padding: '4px 10px', flex: isHero ? 0 : 1, textAlign: 'center', opacity: deletingImageId === img.id ? 0.5 : 1, cursor: deletingImageId !== null ? 'not-allowed' : 'pointer' }}
-                      >
-                        {deletingImageId === img.id ? 'Deleting...' : '✕ Delete'}
-                      </button>
                     </div>
-                  </div>
-                );
+                  );
+                };
 
                 return (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
