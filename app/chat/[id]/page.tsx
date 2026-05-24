@@ -211,7 +211,6 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
   const [companionNicknameInput, setCompanionNicknameInput] = useState('');
   const [viewer, setViewer] = useState<ViewerState>(null);
   const [archetypeImage, setArchetypeImage] = useState<string | null>(null);
-  const [archetypeVideo, setArchetypeVideo] = useState<string | null>(null);
   const [chatCompanion, setChatCompanion] = useState<ChatCompanion | null>(null);
   const [personaVoice, setPersonaVoice] = useState<PersonaVoice | null>(null);
   const [factsMemory, setFactsMemory] = useState<{ summary: string } | null>(null);
@@ -277,11 +276,6 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
     fetch('/api/archetypes/images', { cache: 'no-store' })
       .then(r => r.json())
       .then(({ images }) => setArchetypeImage(images?.[id] ?? null))
-      .catch(() => {});
-
-    fetch('/api/archetypes/featured-videos', { cache: 'no-store' })
-      .then(r => r.json())
-      .then(({ videos }) => setArchetypeVideo(videos?.[id] ?? null))
       .catch(() => {});
   }, [id]);
 
@@ -545,10 +539,7 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
     : chatCompanion?.personas?.voice_id;
   const companionVoiceId = linkedCompanionVoiceId || personaVoice?.voice_id;
   const profileImageUrl = archetypeImage || chatCompanion?.image_url || null;
-  const mediaUrl = calling ? profileImageUrl : archetypeVideo || profileImageUrl;
-  const isVideoMedia = Boolean(
-    mediaUrl && (/\.(mp4|webm|mov)(\?|$)/i.test(mediaUrl) || mediaUrl.startsWith('/api/video-proxy')),
-  );
+  const mediaUrl = profileImageUrl;
 
   // Group messages by date for dividers
   const groupedMessages: { date: string; messages: Message[] }[] = [];
@@ -583,22 +574,11 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
           {/* Media */}
           <div style={{ position: 'relative', width: '100%', height: '380px', overflow: 'hidden', flexShrink: 0 }}>
             {mediaUrl ? (
-              isVideoMedia ? (
-                <video
-                  src={mediaUrl}
-                  autoPlay
-                  muted
-                  loop
-                  playsInline
-                  style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center top', display: 'block' }}
-                />
-              ) : (
-                <img
-                  src={mediaUrl}
-                  alt={companionDisplayName}
-                  style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center top', display: 'block' }}
-                />
-              )
+              <img
+                src={mediaUrl}
+                alt={companionDisplayName}
+                style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center top', display: 'block' }}
+              />
             ) : (
               <div style={{ width: '100%', height: '100%', background: archetype.imageGradient, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <div style={{ fontFamily: 'var(--font-display)', fontSize: '64px', color: 'rgba(255,255,255,0.1)' }}>{archetype.name[0]}</div>
