@@ -362,7 +362,43 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    return new Response(openrouterResponse.body, {
+    const transformedBody = openrouterResponse.body.pipeThrough(new TransformStream({
+      transform(chunk, controller) {
+        let text = new TextDecoder().decode(chunk);
+
+        // Laughing
+        text = text.replace(/\*(?:laughs?|chuckles?|giggles?|snickers?)[^*]{0,40}\*/gi, 'haha');
+        text = text.replace(/\((?:laughs?|chuckles?|giggles?|snickers?)[^)]{0,40}\)/gi, 'haha');
+
+        // Breathing / sighing
+        text = text.replace(/\*(?:sighs?|exhales?|inhales?|breathes?)[^*]{0,40}\*/gi, 'mmm');
+        text = text.replace(/\((?:sighs?|exhales?|inhales?|breathes?)[^)]{0,40}\)/gi, 'mmm');
+
+        // Moaning / pleasure
+        text = text.replace(/\*(?:moans?|groans?|whimpers?|gasps?|purrs?)[^*]{0,40}\*/gi, 'mmm');
+        text = text.replace(/\((?:moans?|groans?|whimpers?|gasps?|purrs?)[^)]{0,40}\)/gi, 'mmm');
+
+        // Physical actions - just strip these, no replacement
+        text = text.replace(/\*(?:smiles?|grins?|winks?|nods?|shrugs?|leans?|moves?|walks?|sits?|stands?|touches?|runs?|fingers?|bites?|licks?|kisses?)[^*]{0,40}\*/gi, '');
+        text = text.replace(/\((?:smiles?|grins?|winks?|nods?|shrugs?|leans?|moves?|walks?|sits?|stands?|touches?|runs?|fingers?|bites?|licks?|kisses?)[^)]{0,40}\)/gi, '');
+
+        // Pausing / thinking
+        text = text.replace(/\*(?:pauses?|thinks?|hesitates?|considers?|waits?)[^*]{0,40}\*/gi, '...');
+        text = text.replace(/\((?:pauses?|thinks?|hesitates?|considers?|waits?)[^)]{0,40}\)/gi, '...');
+
+        // Whispering - keep the text but drop the tag
+        text = text.replace(/\*(?:whispers?)[^*]{0,40}\*/gi, '');
+        text = text.replace(/\((?:whispers?)[^)]{0,40}\)/gi, '');
+
+        // Catch-all for anything remaining in asterisks or parens
+        text = text.replace(/\*[^*]{1,80}\*/g, '');
+        text = text.replace(/\([^)]{1,80}\)/g, '');
+
+        controller.enqueue(new TextEncoder().encode(text));
+      },
+    }));
+
+    return new Response(transformedBody, {
       headers: {
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache',
