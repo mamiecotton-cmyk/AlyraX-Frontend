@@ -34,6 +34,7 @@ type Relationship = {
 
 type ChatCompanion = {
   id: string;
+  image_url: string | null;
   personas: { voice_id: string | null } | { voice_id: string | null }[] | null;
 };
 
@@ -241,7 +242,7 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
 
       const { data: companionData } = await supabase
         .from('companions')
-        .select('id, personas(voice_id)')
+        .select('id, image_url, personas(voice_id)')
         .eq('user_id', user.id)
         .eq('archetype_id', id)
         .maybeSingle();
@@ -543,7 +544,7 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
     ? chatCompanion.personas[0]?.voice_id
     : chatCompanion?.personas?.voice_id;
   const companionVoiceId = linkedCompanionVoiceId || personaVoice?.voice_id;
-  const mediaUrl = archetypeVideo || archetypeImage;
+  const mediaUrl = archetypeVideo || archetypeImage || chatCompanion?.image_url || null;
   const isWebp = mediaUrl?.includes('.webp');
 
   // Group messages by date for dividers
