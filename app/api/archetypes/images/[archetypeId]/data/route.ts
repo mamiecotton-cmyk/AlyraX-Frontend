@@ -69,7 +69,11 @@ export async function GET(
     }
 
     if (!imageUrl) return NextResponse.json({ error: 'Image not found' }, { status: 404 });
-    if (!imageUrl.startsWith('data:image/')) return NextResponse.redirect(imageUrl);
+    if (!imageUrl.startsWith('data:image/')) {
+      const redirect = NextResponse.redirect(imageUrl);
+      redirect.headers.set('Cache-Control', 'public, max-age=31536000, immutable');
+      return redirect;
+    }
 
     const response = dataUrlToResponse(imageUrl);
     if (!response) return NextResponse.json({ error: 'Invalid image data' }, { status: 422 });
