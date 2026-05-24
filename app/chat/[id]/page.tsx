@@ -274,12 +274,12 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
 
   // Load archetype media
   useEffect(() => {
-    fetch('/api/archetypes/images')
+    fetch('/api/archetypes/images', { cache: 'no-store' })
       .then(r => r.json())
       .then(({ images }) => setArchetypeImage(images?.[id] ?? null))
       .catch(() => {});
 
-    fetch('/api/archetypes/featured-videos')
+    fetch('/api/archetypes/featured-videos', { cache: 'no-store' })
       .then(r => r.json())
       .then(({ videos }) => setArchetypeVideo(videos?.[id] ?? null))
       .catch(() => {});
@@ -544,8 +544,11 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
     ? chatCompanion.personas[0]?.voice_id
     : chatCompanion?.personas?.voice_id;
   const companionVoiceId = linkedCompanionVoiceId || personaVoice?.voice_id;
-  const mediaUrl = archetypeVideo || archetypeImage || chatCompanion?.image_url || null;
-  const isWebp = mediaUrl?.includes('.webp');
+  const profileImageUrl = archetypeImage || chatCompanion?.image_url || null;
+  const mediaUrl = calling ? profileImageUrl : archetypeVideo || profileImageUrl;
+  const isVideoMedia = Boolean(
+    mediaUrl && (/\.(mp4|webm|mov)(\?|$)/i.test(mediaUrl) || mediaUrl.startsWith('/api/video-proxy')),
+  );
 
   // Group messages by date for dividers
   const groupedMessages: { date: string; messages: Message[] }[] = [];
@@ -580,10 +583,13 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
           {/* Media */}
           <div style={{ position: 'relative', width: '100%', height: '380px', overflow: 'hidden', flexShrink: 0 }}>
             {mediaUrl ? (
-              isWebp ? (
-                <img
+              isVideoMedia ? (
+                <video
                   src={mediaUrl}
-                  alt={companionDisplayName}
+                  autoPlay
+                  muted
+                  loop
+                  playsInline
                   style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center top', display: 'block' }}
                 />
               ) : (
@@ -683,7 +689,7 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
           <div className="chat-header" style={{ padding: '16px 24px', borderBottom: '1px solid #1a1a1a', background: '#0a0a0a', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <div style={{ width: '36px', height: '36px', borderRadius: '50%', overflow: 'hidden', background: archetype.imageGradient, flexShrink: 0 }}>
-                {archetypeImage && <img src={archetypeImage} alt={companionDisplayName} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center top' }} />}
+                {profileImageUrl && <img src={profileImageUrl} alt={companionDisplayName} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center top' }} />}
               </div>
               <div>
                 <div style={{ fontFamily: 'var(--font-display)', fontSize: '18px', color: '#ffffff', lineHeight: 1 }}>{companionDisplayName}</div>
@@ -751,7 +757,7 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
                       {/* Companion avatar */}
                       {!isUser && (
                         <div style={{ width: '28px', height: '28px', borderRadius: '50%', overflow: 'hidden', background: archetype.imageGradient, flexShrink: 0, opacity: showAvatar ? 1 : 0 }}>
-                          {archetypeImage && showAvatar && <img src={archetypeImage} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center top' }} />}
+                          {profileImageUrl && showAvatar && <img src={profileImageUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center top' }} />}
                         </div>
                       )}
 
@@ -799,7 +805,7 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
             {sending && (
               <div style={{ display: 'flex', alignItems: 'flex-end', gap: '8px' }}>
                 <div style={{ width: '28px', height: '28px', borderRadius: '50%', overflow: 'hidden', background: archetype.imageGradient, flexShrink: 0 }}>
-                  {archetypeImage && <img src={archetypeImage} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center top' }} />}
+                  {profileImageUrl && <img src={profileImageUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center top' }} />}
                 </div>
                 <div style={{ padding: '10px 16px', background: '#1a1a1a', borderRadius: '18px 18px 18px 4px', display: 'flex', gap: '4px', alignItems: 'center' }}>
                   {[0, 1, 2].map(i => (
