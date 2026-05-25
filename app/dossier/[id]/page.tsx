@@ -75,17 +75,22 @@ export default function DossierPage({ params }: Props) {
     ((archetype.vector[0] + archetype.vector[1] + archetype.vector[2]) / 3) * 100,
   );
 
+  async function ensureCompanion() {
+    const res = await fetch('/api/companion/create-from-archetype', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ archetypeId: id }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to add companion');
+    setAddedToCollection(true);
+    return data as { companion_id?: string; voice_id?: string | null };
+  }
+
   async function handleAddToCollection() {
     setAddingToCollection(true);
     try {
-      const res = await fetch('/api/companion/create-from-archetype', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ archetypeId: id }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to add companion');
-      setAddedToCollection(true);
+      await ensureCompanion();
       setTimeout(() => router.push(`/chat/${id}`), 800);
     } catch (err) {
       console.error('Failed to add companion:', err);
@@ -94,8 +99,32 @@ export default function DossierPage({ params }: Props) {
     }
   }
 
+  async function handleStartChat() {
+    setAddingToCollection(true);
+    try {
+      await ensureCompanion();
+      router.push(`/chat/${id}`);
+    } catch (err) {
+      console.error('Failed to start chat:', err);
+    } finally {
+      setAddingToCollection(false);
+    }
+  }
+
+  async function handleStartCall() {
+    setAddingToCollection(true);
+    try {
+      await ensureCompanion();
+      router.push(`/chat/${id}?call=1`);
+    } catch (err) {
+      console.error('Failed to start call:', err);
+    } finally {
+      setAddingToCollection(false);
+    }
+  }
+
   const actions = [
-    { label: 'Chat', accent: '#a782ff', onClick: () => router.push(`/chat/${id}`), icon: 'chat' },
+    { label: addingToCollection ? 'Opening...' : 'Chat', accent: '#a782ff', onClick: handleStartChat, icon: 'chat' },
     { label: 'Group Chat', accent: '#20c7ff', onClick: () => router.push('/dashboard'), icon: 'group' },
     {
       label: addedToCollection ? 'Added ✓' : addingToCollection ? 'Adding...' : 'Add to Collection',
@@ -103,7 +132,7 @@ export default function DossierPage({ params }: Props) {
       onClick: handleAddToCollection,
       icon: 'spark',
     },
-    { label: 'Call', accent: '#16d8a3', onClick: () => router.push('/onboarding'), icon: 'call' },
+    { label: addingToCollection ? 'Opening...' : 'Call', accent: '#16d8a3', onClick: handleStartCall, icon: 'call' },
   ];
 
   return (
@@ -760,7 +789,7 @@ export default function DossierPage({ params }: Props) {
           <div className="dossier-action-grid">
             {actions.map((action) => (
               <button
-                key={action.label}
+                key={`${action.icon}-${action.label}`}
                 className="dossier-action"
                 onClick={action.onClick}
                 style={{ '--action-accent': action.accent } as CSSProperties}
