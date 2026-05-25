@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase-server';
 import { archetypes } from '@/lib/archetypes';
-import { getArchetypeImagePrompt } from '@/lib/archetype-image-prompts';
 
 export const maxDuration = 300;
 
@@ -21,7 +20,6 @@ export async function POST(req: NextRequest) {
     if (!archetype) return NextResponse.json({ error: 'Archetype not found' }, { status: 404 });
 
     if (media_type === 'image') {
-      const profile = getArchetypeImagePrompt(archetype);
       const { data: companionData } = await supabase
         .from('companions')
         .select('image_url')
@@ -42,15 +40,6 @@ export async function POST(req: NextRequest) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           description: media_prompt,
-          structured_prompt: profile ? {
-            race: profile.race,
-            gender: archetype.gender,
-            age: profile.age,
-            wardrobe: profile.wardrobe,
-            environment: profile.environment,
-            details: profile.details,
-          } : undefined,
-          gender: archetype.gender,
           style: 'portrait',
           num_inference_steps: 30,
           guidance_scale: 7,

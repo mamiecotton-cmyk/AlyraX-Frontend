@@ -1,7 +1,6 @@
 import { after, NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase-server';
 import { archetypes, type Archetype } from '@/lib/archetypes';
-import { getArchetypeImagePrompt } from '@/lib/archetype-image-prompts';
 import { formatFactsBlock, loadCompanionFacts, mergeCompanionFacts, normalizeFacts } from '@/lib/companion-facts';
 
 export const maxDuration = 60;
@@ -123,12 +122,7 @@ function isVideoRequest(message: string): boolean {
 }
 
 // Build selfie image prompt from user message + archetype
-function buildSelfiePrompt(message: string, archetype: Archetype): string {
-  const profile = getArchetypeImagePrompt(archetype);
-  const base = profile
-    ? `${profile.race}, ${profile.age} years old, ${profile.details}`
-    : `${archetype.vibe.toLowerCase()}, ${archetype.energy.toLowerCase()}`;
-
+function buildSelfiePrompt(message: string, _archetype: Archetype): string {
   const lower = message.toLowerCase();
 
   // Default scene: intentionally different from the main portrait.
@@ -156,7 +150,7 @@ function buildSelfiePrompt(message: string, archetype: Archetype): string {
     cameraStyle = 'gym mirror selfie or straight-on phone shot';
   }
 
-  return `${base}, ${wardrobe}, ${scene}, genuine expression, ${cameraStyle}, DSLR quality, natural skin, photorealistic, NOT a copy of any other photo`;
+  return `${wardrobe}, ${scene}, genuine expression, ${cameraStyle}, DSLR quality, natural skin, photorealistic, NOT a copy of any other photo`;
 }
 
 // Build companion system prompt
