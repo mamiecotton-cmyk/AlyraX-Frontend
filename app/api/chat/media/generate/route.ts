@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase-server';
 import { archetypes } from '@/lib/archetypes';
+import { getArchetypeImagePrompt } from '@/lib/archetype-image-prompts';
 
 export const maxDuration = 300;
 
@@ -20,45 +21,91 @@ export async function POST(req: NextRequest) {
     if (!archetype) return NextResponse.json({ error: 'Archetype not found' }, { status: 404 });
 
     if (media_type === 'image') {
-      const { data: companionData } = await supabase
-        .from('companions')
-        .select('image_url')
-        .eq('user_id', user.id)
-        .eq('archetype_id', archetype_id)
-        .maybeSingle();
+      const profile = getArchetypeImagePrompt(archetype);
 
+      // Get archetype main image for face reference
       const { data: imageData } = await supabase
         .from('archetype_images')
         .select('image_url')
         .eq('archetype_id', archetype_id)
         .maybeSingle();
-      const referenceImageUrl = companionData?.image_url || imageData?.image_url || undefined;
 
-      // Submit image generation job
-      const genRes = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'https://alyra-x-frontend.vercel.app'}/api/generate-companion`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          description: media_prompt,
-          style: 'portrait',
-          num_inference_steps: 30,
-          guidance_scale: 7,
-          seed: -1,
-          reference_image_url: referenceImageUrl,
-          reference_mode: 'identity',
-          reference_strength: 0.18,
-          denoise_strength: 0.82,
-        }),
-      });
+      const faceImageUrl = imageData?.image_url;
 
-      const genData = await genRes.json();
+      if (faceImageUrl) {
+        try {
+          const selfieRes = await fetch(
+            `${process.env.NEXT_PUBLIC_APP_URL || 'https://alyra-x-frontend.vercel.app'}/api/generate-selfie`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                face_image_url: faceImageUrl,
+                prompt: media_prompt,
+              }),
+            }
+          );
 
-      if (!genRes.ok) {
-        await supabase.from('chat_messages').update({ media_status: 'failed' }).eq('id', message_id);
-        return NextResponse.json({ error: genData.error || 'Generation failed' }, { status: 500 });
+          const selfieData = await selfieRes.json();
+
+          if (selfieRes.ok && selfieData.image_url) {
+            await supabase
+              .from('chat_messages')
+              .update({
+                media_url: selfieData.image_url,
+                media_status: 'ready',
+              })
+              .eq('id', message_id);
+
+            return NextResponse.json({
+              image_url: selfieData.image_url,
+              message_id,
+              status: 'ready',
+            });
+          }
+        } catch (err) {
+          console.error('InstantID selfie failed, falling back:', err);
+        }
       }
 
-      // Return job ID for client to poll
+      // Fallback to existing pipeline
+      const genRes = await fetch(
+        `${process.env.NEXT_PUBLIC_APP_URL || 'https://alyra-x-frontend.vercel.app'}/api/generate-companion`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            description: media_prompt,
+            structured_prompt: profile ? {
+              race: profile.race,
+              gender: archetype.gender,
+              age: profile.age,
+              wardrobe: profile.wardrobe,
+              environment: profile.environment,
+              details: profile.details,
+            } : undefined,
+            gender: archetype.gender,
+            style: 'portrait',
+            num_inference_steps: 30,
+            guidance_scale: 7,
+            seed: -1,
+          }),
+        }
+      );
+
+      if (!genRes.ok) {
+        const genData = await genRes.json();
+        await supabase
+          .from('chat_messages')
+          .update({ media_status: 'failed' })
+          .eq('id', message_id);
+        return NextResponse.json(
+          { error: genData.error || 'Generation failed' },
+          { status: 500 }
+        );
+      }
+
+      const genData = await genRes.json();
       return NextResponse.json({
         jobId: genData.jobId,
         message_id,
@@ -80,7 +127,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'No source image for video' }, { status: 400 });
       }
 
-      const videoRes = await fetch('https://alyra-x-frontend.vercel.app/api/generate-video', {
+      const videoRes = await fetch(`${req.nextUrl.origin}/api/generate-video`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -88,6 +135,8 @@ export async function POST(req: NextRequest) {
           userMessage: media_prompt,
           frameUrl,
           wardrobeState: 'clothed',
+          characterGender: archetype.gender,
+          characterName: archetype.name,
           conversationHistory: [{ role: 'user', content: media_prompt }],
         }),
       });
