@@ -22,9 +22,14 @@ export async function POST(req: NextRequest) {
 
     if (media_type === 'image') {
       const profile = getArchetypeImagePrompt(archetype);
+      const { data: imageData } = await supabase
+        .from('archetype_images')
+        .select('image_url')
+        .eq('archetype_id', archetype_id)
+        .maybeSingle();
 
       // Submit image generation job
-      const genRes = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL ? 'https://alyra-x-frontend.vercel.app' : ''}/api/generate-companion`, {
+      const genRes = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'https://alyra-x-frontend.vercel.app'}/api/generate-companion`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -42,6 +47,9 @@ export async function POST(req: NextRequest) {
           num_inference_steps: 30,
           guidance_scale: 7,
           seed: -1,
+          reference_image_url: imageData?.image_url || undefined,
+          reference_strength: 0.22,
+          denoise_strength: 0.72,
         }),
       });
 
