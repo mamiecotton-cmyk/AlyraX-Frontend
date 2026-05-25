@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase-server';
+import { deleteR2ObjectByUrl } from '@/lib/r2-storage';
 
 export async function PATCH(
   req: NextRequest,
@@ -110,12 +111,15 @@ export async function DELETE(
       }
     }
 
-    // Try to delete from Supabase Storage if it's a storage URL
+    // Try to delete from R2 first, then Supabase Storage for older uploads.
     try {
-      const url = new URL(img.image_url);
-      const pathParts = url.pathname.split('/companions/');
-      if (pathParts.length > 1) {
-        await supabase.storage.from('companions').remove([pathParts[1]]);
+      const deletedFromR2 = await deleteR2ObjectByUrl(img.image_url);
+      if (!deletedFromR2) {
+        const url = new URL(img.image_url);
+        const pathParts = url.pathname.split('/companions/');
+        if (pathParts.length > 1) {
+          await supabase.storage.from('companions').remove([pathParts[1]]);
+        }
       }
     } catch {
       // Not a storage URL or already gone — ignore

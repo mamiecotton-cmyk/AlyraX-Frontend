@@ -120,22 +120,18 @@ export default function OnboardingPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      const extension = file.name.split('.').pop()?.toLowerCase() || 'png';
-      const fileName = `${user.id}/inspiration/${Date.now()}.${extension}`;
-      const { data, error } = await supabase.storage
-        .from('companions')
-        .upload(fileName, file, {
-          contentType: file.type || 'image/png',
-          upsert: true,
-        });
+      const formData = new FormData();
+      formData.set('file', file);
+      formData.set('kind', 'inspiration');
 
-      if (error) throw error;
+      const response = await fetch('/api/storage/r2-upload', {
+        method: 'POST',
+        body: formData,
+      });
+      const data = await response.json();
+      if (!response.ok || !data.url) throw new Error(data.error || 'Upload failed');
 
-      const { data: urlData } = supabase.storage
-        .from('companions')
-        .getPublicUrl(data.path);
-
-      setInspirationImageUrl(urlData.publicUrl);
+      setInspirationImageUrl(data.url as string);
       setInspirationStatus('Inspiration saved');
     } catch (error) {
       console.error('Inspiration upload failed:', error);

@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase-server';
+import { deleteR2ObjectByUrl } from '@/lib/r2-storage';
 
 async function removeCompanionStorageImage(supabase: Awaited<ReturnType<typeof createClient>>, imageUrl: string) {
   try {
+    const deletedFromR2 = await deleteR2ObjectByUrl(imageUrl);
+    if (deletedFromR2) return;
+
     const url = new URL(imageUrl);
     const pathParts = url.pathname.split('/companions/');
     if (pathParts.length > 1) {

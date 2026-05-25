@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase-server';
+import { deleteR2ObjectByUrl } from '@/lib/r2-storage';
 
 export async function PATCH(
   req: NextRequest,
@@ -55,12 +56,27 @@ export async function DELETE(
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
 
+    const { data: video } = await supabase
+      .from('archetype_videos')
+      .select('video_url')
+      .eq('id', videoId)
+      .single();
+
     const { error } = await supabase
       .from('archetype_videos')
       .delete()
       .eq('id', videoId);
 
     if (error) throw error;
+
+    if (video?.video_url) {
+      try {
+        await deleteR2ObjectByUrl(video.video_url);
+      } catch {
+        // Already gone or not an R2 URL.
+      }
+    }
+
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Video delete error:', error);

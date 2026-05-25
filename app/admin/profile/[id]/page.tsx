@@ -37,6 +37,7 @@ type Tab = 'images' | 'videos';
 type ImageStyle = 'portrait' | 'fullbody' | 'fullscreen';
 type PackSize = 1 | 5 | 10;
 type ReferenceBehavior = 'prompt' | 'balanced' | 'match';
+type R2UploadKind = 'archetype-image' | 'archetype-frame' | 'archetype-video';
 type StructuredPromptFields = {
   race: string;
   gender: 'M' | 'F';
@@ -500,17 +501,27 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
     if (!file) return;
     setStatus('Uploading image...');
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
-      const ext = file.name.split('.').pop() || 'jpg';
-      const { data, error } = await supabase.storage.from('companions').upload(`${user.id}/archetype-${id}-${Date.now()}.${ext}`, file, { contentType: file.type, upsert: true });
-      if (error) throw error;
-      const { data: urlData } = supabase.storage.from('companions').getPublicUrl(data.path);
-      const saveRes = await fetch('/api/archetypes/gallery', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ archetype_id: id, image_url: urlData.publicUrl, is_main: gallery.length === 0, style: 'upload' }) });
+      const imageUrl = await uploadFileToR2(file, 'archetype-image');
+      const saveRes = await fetch('/api/archetypes/gallery', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ archetype_id: id, image_url: imageUrl, is_main: gallery.length === 0, style: 'upload' }) });
       const saved = await saveRes.json();
       if (saved.image) setGallery((prev) => [...prev, saved.image]);
       setStatus('Uploaded.');
     } catch (err) { setStatus(err instanceof Error ? err.message : 'Upload failed'); }
+  }
+
+  async function uploadFileToR2(file: File, kind: R2UploadKind) {
+    const formData = new FormData();
+    formData.set('file', file);
+    formData.set('kind', kind);
+    formData.set('archetypeId', id);
+
+    const res = await fetch('/api/storage/r2-upload', {
+      method: 'POST',
+      body: formData,
+    });
+    const data = await res.json();
+    if (!res.ok || !data.url) throw new Error(data.error || 'Upload failed');
+    return data.url as string;
   }
 
   async function setMainImage(img: GalleryImage) {
@@ -560,13 +571,8 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
     if (!file) return;
     setUploadingFrame(true); setStatus('Uploading frame...');
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
-      const ext = file.name.split('.').pop() || 'jpg';
-      const { data, error } = await supabase.storage.from('companions').upload(`${user.id}/frame-${id}-${Date.now()}.${ext}`, file, { contentType: file.type, upsert: true });
-      if (error) throw error;
-      const { data: urlData } = supabase.storage.from('companions').getPublicUrl(data.path);
-      setVideoSourceUrl(urlData.publicUrl);
+      const frameUrl = await uploadFileToR2(file, 'archetype-frame');
+      setVideoSourceUrl(frameUrl);
       setStatus('Frame ready.');
     } catch (err) { setStatus(err instanceof Error ? err.message : 'Frame upload failed'); }
     setUploadingFrame(false);
@@ -627,19 +633,13 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
     setUploadingVideo(true);
     setStatus('Uploading video...');
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
-      const ext = file.name.split('.').pop() || 'mp4';
-      const { data, error } = await supabase.storage.from('companions').upload(`${user.id}/archetype-video-${id}-${Date.now()}.${ext}`, file, { contentType: file.type || 'video/mp4', upsert: true });
-      if (error) throw error;
-
-      const { data: urlData } = supabase.storage.from('companions').getPublicUrl(data.path);
+      const videoUrl = await uploadFileToR2(file, 'archetype-video');
       const saveRes = await fetch('/api/archetypes/videos', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           archetype_id: id,
-          video_url: urlData.publicUrl,
+          video_url: videoUrl,
           source_image_url: videoSourceUrl,
           prompt_used: videoPrompt.trim() || 'Uploaded video',
           is_featured: videos.length === 0,
