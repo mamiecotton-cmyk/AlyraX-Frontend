@@ -102,6 +102,14 @@ export const ARCHETYPE_IMAGE_PROMPTS: Record<string, ArchetypeImagePrompt> = {
     details: 'playful magnetic smile, short twists, bright eyes, spontaneous energy',
     prompt: '',
   },
+  darius: {
+    race: 'deep brown-skinned Black American man',
+    age: '34',
+    wardrobe: 'navy sheriff uniform with gold badge patch',
+    environment: 'seated in open door of sheriff SUV on Los Angeles street, midday sun',
+    details: 'broad shoulders, close-cropped hair, full shaped beard, direct intense gaze, arm resting on steering wheel, one boot on ground',
+    prompt: '',
+  },
   deja: {
     race: 'deep brown-skinned Black American woman',
     age: '26',

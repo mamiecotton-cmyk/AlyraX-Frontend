@@ -140,7 +140,7 @@ export default function DashboardPage() {
             </div>
             <span style={{ color: '#ccc' }}>—</span>
             <div style={{ fontSize: '14px', color: '#0a0a0a' }}>
-              20 Archetypes
+              {archetypes.length} Archetypes
             </div>
           </div>
 

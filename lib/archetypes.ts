@@ -120,6 +120,19 @@ export const archetypes: Archetype[] = [
     imageGradient: 'linear-gradient(180deg, #181410 0%, #0d0b08 60%, #000 100%)', accentColor: '#5a3a10',
     city: 'Miami, FL', age: 28, vector: [0.85, 0.7, 0.5, 0.6, 0.55],
   },
+  {
+    id: 'darius', dossierId: '#022', name: 'Darius', gender: 'M',
+    archetype: 'The Badge', tagline: 'He protects the block he grew up on.',
+    quote: '"I know every face on this street. That\'s not surveillance. That\'s love."',
+    bio: 'Darius came back to Compton after six years with the LA County Sheriff to work the neighborhood that raised him. He\'s seen enough to be cynical and chose not to be. Off duty he coaches youth football on Saturdays and still calls his aunt every Sunday.',
+    vibe: 'Grounded, Protective, Quietly Intense', energy: 'Still / Commanding',
+    style: 'Uniform on duty, all black everything off',
+    background: 'Compton-raised, LA County Sheriff, community before career',
+    imageGradient: 'linear-gradient(180deg, #0d1018 0%, #080a0d 60%, #000 100%)',
+    accentColor: '#c9a84c',
+    city: 'Los Angeles, CA', age: 34,
+    vector: [0.8, 0.7, 0.5, 0.85, 0.9],
+  },
   // ── WOMEN ──
   {
     id: 'deja', dossierId: '#010', name: 'Deja', gender: 'F',
