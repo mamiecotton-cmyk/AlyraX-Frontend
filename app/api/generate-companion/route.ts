@@ -14,7 +14,7 @@ type StructuredPrompt = {
 type ComfyOutput = [string, number] | string;
 type ComfyWorkflowNode = {
   class_type: string;
-  inputs: Record<string, ComfyOutput | number | string>;
+  inputs: Record<string, ComfyOutput | number | string | boolean>;
 };
 type ComfyWorkflow = Record<string, ComfyWorkflowNode>;
 
@@ -188,6 +188,34 @@ function isComfyCheckpointValidationError(error: string) {
   return normalized.includes('checkpoint') || normalized.includes('ckpt_name') || normalized.includes('value_not_in_list');
 }
 
+async function fetchReferenceImage(referenceImageUrl?: string) {
+  if (!referenceImageUrl) return null;
+
+  const imageRes = await fetch(referenceImageUrl);
+  if (!imageRes.ok) {
+    throw new Error(`Reference image fetch failed: ${imageRes.status}`);
+  }
+
+  return Buffer.from(await imageRes.arrayBuffer());
+}
+
+async function uploadReferenceToComfy(baseUrl: string, filename: string, imageBuffer: Buffer) {
+  const formData = new FormData();
+  formData.set('image', new File([new Uint8Array(imageBuffer)], filename, { type: 'image/png' }));
+  formData.set('type', 'input');
+  formData.set('overwrite', 'true');
+
+  const uploadResponse = await fetch(`${normalizeComfyUrl(baseUrl)}/upload/image`, {
+    method: 'POST',
+    body: formData,
+  });
+
+  if (!uploadResponse.ok) {
+    const error = await uploadResponse.text();
+    throw new Error(`ComfyUI reference upload failed: ${error}`);
+  }
+}
+
 async function submitRunPodImage({
   prompt,
   negative,
@@ -217,6 +245,8 @@ async function submitRunPodImage({
   }
 
   console.log('Using RUNPOD_IMAGE_ENDPOINT_ID:', imageEndpointId);
+  const referenceImageFilename = referenceImageUrl ? 'reference_input.png' : undefined;
+  const referenceImageBuffer = await fetchReferenceImage(referenceImageUrl);
   const workflow = buildComfySdxlWorkflow({
     prompt,
     negative,
@@ -225,6 +255,8 @@ async function submitRunPodImage({
     seed,
     steps: numInferenceSteps,
     cfg: guidanceScale,
+    referenceImageFilename,
+    denoise: denoiseStrength,
   });
 
   const runpodResponse = await fetch(
@@ -238,6 +270,12 @@ async function submitRunPodImage({
       body: JSON.stringify({
         input: {
           workflow,
+          ...(referenceImageBuffer && referenceImageFilename ? {
+            images: [{
+              name: referenceImageFilename,
+              image: referenceImageBuffer.toString('base64'),
+            }],
+          } : {}),
           prompt,
           negative_prompt: negative,
           num_inference_steps: numInferenceSteps,
@@ -278,6 +316,8 @@ function buildComfySdxlWorkflow({
   seed,
   steps,
   cfg,
+  referenceImageFilename,
+  denoise,
 }: {
   prompt: string;
   negative: string;
@@ -286,10 +326,12 @@ function buildComfySdxlWorkflow({
   seed: number;
   steps: number;
   cfg: number;
+  referenceImageFilename?: string;
+  denoise?: number;
 }): ComfyWorkflow {
   const resolvedSeed = seed >= 0 ? seed : Math.floor(Math.random() * 2 ** 32);
-
-  return {
+  const hasReferenceImage = Boolean(referenceImageFilename);
+  const workflow: ComfyWorkflow = {
     '1': {
       class_type: 'CheckpointLoaderSimple',
       inputs: {
@@ -310,14 +352,46 @@ function buildComfySdxlWorkflow({
         clip: ['1', 1],
       },
     },
-    '4': {
+  };
+
+  if (hasReferenceImage) {
+    workflow['8'] = {
+      class_type: 'LoadImage',
+      inputs: {
+        image: referenceImageFilename || '',
+        upload: 'image',
+      },
+    };
+    workflow['9'] = {
+      class_type: 'ImageScale',
+      inputs: {
+        image: ['8', 0],
+        upscale_method: 'lanczos',
+        width,
+        height,
+        crop: 'center',
+      },
+    };
+    workflow['10'] = {
+      class_type: 'VAEEncode',
+      inputs: {
+        pixels: ['9', 0],
+        vae: ['1', 2],
+      },
+    };
+  } else {
+    workflow['4'] = {
       class_type: 'EmptyLatentImage',
       inputs: {
         width,
         height,
         batch_size: 1,
       },
-    },
+    };
+  }
+
+  return {
+    ...workflow,
     '5': {
       class_type: 'KSampler',
       inputs: {
@@ -326,11 +400,11 @@ function buildComfySdxlWorkflow({
         cfg,
         sampler_name: process.env.COMFYUI_SAMPLER || 'dpmpp_2m',
         scheduler: process.env.COMFYUI_SCHEDULER || 'karras',
-        denoise: 1,
+        denoise: hasReferenceImage ? denoise ?? 0.52 : 1,
         model: ['1', 0],
         positive: ['2', 0],
         negative: ['3', 0],
-        latent_image: ['4', 0],
+        latent_image: hasReferenceImage ? ['10', 0] : ['4', 0],
       },
     },
     '6': {
@@ -394,6 +468,11 @@ export async function POST(req: NextRequest) {
       if (!comfyUrl) {
         return NextResponse.json({ error: 'Missing COMFYUI_BASE_URL' }, { status: 500 });
       }
+      const referenceImageFilename = reference_image_url ? 'reference_input.png' : undefined;
+      const referenceImageBuffer = await fetchReferenceImage(reference_image_url);
+      if (referenceImageFilename && referenceImageBuffer) {
+        await uploadReferenceToComfy(comfyUrl, referenceImageFilename, referenceImageBuffer);
+      }
 
       const comfyResponse = await fetch(`${normalizeComfyUrl(comfyUrl)}/prompt`, {
         method: 'POST',
@@ -407,6 +486,8 @@ export async function POST(req: NextRequest) {
             seed,
             steps: num_inference_steps,
             cfg: guidance_scale,
+            referenceImageFilename,
+            denoise: effectiveDenoiseStrength,
           }),
         }),
       });
@@ -431,6 +512,8 @@ export async function POST(req: NextRequest) {
       if (!comfyEndpointId) {
         return NextResponse.json({ error: 'Missing RUNPOD_COMFYUI_ENDPOINT_ID' }, { status: 500 });
       }
+      const referenceImageFilename = reference_image_url ? 'reference_input.png' : undefined;
+      const referenceImageBuffer = await fetchReferenceImage(reference_image_url);
 
       const workflow = buildComfySdxlWorkflow({
         prompt,
@@ -440,6 +523,8 @@ export async function POST(req: NextRequest) {
         seed,
         steps: num_inference_steps,
         cfg: guidance_scale,
+        referenceImageFilename,
+        denoise: effectiveDenoiseStrength,
       });
 
       console.log('Submitting RunPod ComfyUI image workflow', {
@@ -459,6 +544,12 @@ export async function POST(req: NextRequest) {
           body: JSON.stringify({
             input: {
               workflow,
+              ...(referenceImageBuffer && referenceImageFilename ? {
+                images: [{
+                  name: referenceImageFilename,
+                  image: referenceImageBuffer.toString('base64'),
+                }],
+              } : {}),
             },
           }),
         }

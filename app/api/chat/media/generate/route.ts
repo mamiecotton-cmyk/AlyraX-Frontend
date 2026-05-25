@@ -56,8 +56,9 @@ export async function POST(req: NextRequest) {
           guidance_scale: 7,
           seed: -1,
           reference_image_url: referenceImageUrl,
-          reference_strength: 0.22,
-          denoise_strength: 0.72,
+          reference_mode: 'identity',
+          reference_strength: 0.65,
+          denoise_strength: 0.45,
         }),
       });
 
