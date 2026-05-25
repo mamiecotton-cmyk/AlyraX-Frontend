@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase-server';
+import { archetypes } from '@/lib/archetypes';
 
 export const maxDuration = 300;
 
@@ -47,6 +48,13 @@ type ConversationMessage = {
   content: string;
 };
 
+type CharacterGender = 'M' | 'F' | 'unknown';
+
+type ImageDimensions = {
+  width: number;
+  height: number;
+};
+
 // ─── Video Provider ────────────────────────────────────────────────────────
 
 type VideoProvider = 'runpod' | 'atlas';
@@ -56,6 +64,8 @@ type VideoProvider = 'runpod' | 'atlas';
 function buildWan21Workflow(
   imageFilename: string,
   positivePrompt: string,
+  negativePrompt: string,
+  dimensions: ImageDimensions,
 ): Record<string, unknown> {
   return {
     '37': {
@@ -97,7 +107,7 @@ function buildWan21Workflow(
     },
     '7': {
       inputs: {
-        text: 'static, blurry, low quality, deformed, ugly, bad anatomy, watermark',
+        text: negativePrompt,
         clip: ['38', 0],
       },
       class_type: 'CLIPTextEncode',
@@ -117,8 +127,8 @@ function buildWan21Workflow(
         vae: ['39', 0],
         clip_vision_output: ['51', 0],
         start_image: ['52', 0],
-        width: 480,
-        height: 832,
+        width: dimensions.width,
+        height: dimensions.height,
         length: 81,
         batch_size: 1,
       },
@@ -167,9 +177,85 @@ function buildWan21Workflow(
   };
 }
 
+function roundToMultiple(value: number, multiple: number) {
+  return Math.max(multiple, Math.round(value / multiple) * multiple);
+}
+
+function getPngDimensions(buffer: Buffer): ImageDimensions | null {
+  if (buffer.length < 24 || buffer.toString('ascii', 1, 4) !== 'PNG') return null;
+  return {
+    width: buffer.readUInt32BE(16),
+    height: buffer.readUInt32BE(20),
+  };
+}
+
+function getJpegDimensions(buffer: Buffer): ImageDimensions | null {
+  if (buffer.length < 4 || buffer[0] !== 0xff || buffer[1] !== 0xd8) return null;
+
+  let offset = 2;
+  while (offset < buffer.length) {
+    if (buffer[offset] !== 0xff) return null;
+    const marker = buffer[offset + 1];
+    const length = buffer.readUInt16BE(offset + 2);
+    if (marker >= 0xc0 && marker <= 0xc3) {
+      return {
+        height: buffer.readUInt16BE(offset + 5),
+        width: buffer.readUInt16BE(offset + 7),
+      };
+    }
+    offset += 2 + length;
+  }
+
+  return null;
+}
+
+function getWebpDimensions(buffer: Buffer): ImageDimensions | null {
+  if (buffer.length < 30 || buffer.toString('ascii', 0, 4) !== 'RIFF' || buffer.toString('ascii', 8, 12) !== 'WEBP') return null;
+
+  const chunk = buffer.toString('ascii', 12, 16);
+  if (chunk === 'VP8X' && buffer.length >= 30) {
+    return {
+      width: 1 + buffer.readUIntLE(24, 3),
+      height: 1 + buffer.readUIntLE(27, 3),
+    };
+  }
+
+  if (chunk === 'VP8 ' && buffer.length >= 30) {
+    return {
+      width: buffer.readUInt16LE(26) & 0x3fff,
+      height: buffer.readUInt16LE(28) & 0x3fff,
+    };
+  }
+
+  if (chunk === 'VP8L' && buffer.length >= 25) {
+    const bits = buffer.readUInt32LE(21);
+    return {
+      width: (bits & 0x3fff) + 1,
+      height: ((bits >> 14) & 0x3fff) + 1,
+    };
+  }
+
+  return null;
+}
+
+function getImageDimensions(buffer: Buffer): ImageDimensions | null {
+  return getPngDimensions(buffer) || getJpegDimensions(buffer) || getWebpDimensions(buffer);
+}
+
+function getVideoDimensions(source: ImageDimensions | null): ImageDimensions {
+  if (!source?.width || !source?.height) return { width: 480, height: 832 };
+
+  const aspect = source.width / source.height;
+  const width = 480;
+  const height = Math.min(896, Math.max(512, roundToMultiple(width / aspect, 16)));
+
+  return { width, height };
+}
+
 async function submitRunPodVideo(
   imageUrl: string,
   positivePrompt: string,
+  negativePrompt: string,
   requestId: string,
 ): Promise<string | null> {
   const endpointId = process.env.RUNPOD_VIDEO_ENDPOINT_ID;
@@ -182,18 +268,21 @@ async function submitRunPodVideo(
   // The RunPod ComfyUI worker accepts images via the `images` input field
   // and saves them to /comfyui/input/ before running the workflow
   let imageBase64: string;
+  let videoDimensions: ImageDimensions;
   try {
     const imageRes = await fetch(imageUrl);
     if (!imageRes.ok) throw new Error(`Image fetch failed: ${imageRes.status}`);
     const imageBuffer = await imageRes.arrayBuffer();
-    imageBase64 = Buffer.from(imageBuffer).toString('base64');
+    const buffer = Buffer.from(imageBuffer);
+    imageBase64 = buffer.toString('base64');
+    videoDimensions = getVideoDimensions(getImageDimensions(buffer));
   } catch (err) {
     console.error(`[${requestId}] Failed to fetch companion image:`, err);
     return null;
   }
 
   const imageFilename = 'companion_input.png';
-  const workflow = buildWan21Workflow(imageFilename, positivePrompt);
+  const workflow = buildWan21Workflow(imageFilename, positivePrompt, negativePrompt, videoDimensions);
 
   try {
     const res = await fetch(
@@ -291,9 +380,76 @@ async function submitAtlasVideo(
 
 function getPersonaVoice(personaName?: string | null) {
   const n = personaName?.toLowerCase() || '';
-  if (n.includes('dominant')) return 'Voice: commanding, possessive. She tells him what he is seeing.';
-  if (n.includes('submissive')) return 'Voice: breathless, eager, devoted. She describes how much she loves being watched.';
-  return 'Voice: sultry, confident, dirty. She narrates like she owns the room.';
+  if (n.includes('dominant')) return 'Voice: commanding, possessive, and in control.';
+  if (n.includes('submissive')) return 'Voice: breathless, eager, and devoted.';
+  return 'Voice: confident, intimate, and natural.';
+}
+
+function normalizeCharacterGender(value: unknown): CharacterGender {
+  if (value === 'M' || value === 'male' || value === 'man') return 'M';
+  if (value === 'F' || value === 'female' || value === 'woman') return 'F';
+  return 'unknown';
+}
+
+function getCharacterTerms(gender: CharacterGender) {
+  if (gender === 'M') {
+    return {
+      noun: 'adult man',
+      subject: 'he',
+      object: 'him',
+      possessive: 'his',
+      subjectTitle: 'He',
+    };
+  }
+
+  if (gender === 'F') {
+    return {
+      noun: 'adult woman',
+      subject: 'she',
+      object: 'her',
+      possessive: 'her',
+      subjectTitle: 'She',
+    };
+  }
+
+  return {
+    noun: 'adult person',
+    subject: 'they',
+    object: 'them',
+    possessive: 'their',
+    subjectTitle: 'They',
+  };
+}
+
+function buildVideoNegativePrompt(gender: CharacterGender) {
+  const base = [
+    'static',
+    'blurry',
+    'low quality',
+    'deformed',
+    'ugly',
+    'bad anatomy',
+    'warped body',
+    'distorted face',
+    'melting face',
+    'extra limbs',
+    'missing limbs',
+    'mutated hands',
+    'body transformation',
+    'identity change',
+    'wrong ethnicity',
+    'different person',
+    'watermark',
+    'text',
+  ];
+
+  if (gender === 'M') {
+    base.push('woman', 'female', 'girl', 'feminine face', 'breasts', 'long hair', 'makeup', 'dress', 'gender swap');
+  } else if (gender === 'F') {
+    base.push('man', 'male', 'masculine face', 'beard', 'mustache', 'broad male shoulders', 'gender swap');
+  }
+
+  return base.join(', ');
 }
 
 function normalizeWardrobeState(value: unknown): WardrobeState {
@@ -366,11 +522,17 @@ async function askEuryaleForScenePlan(
   userMessage: string,
   conversationHistory: ConversationMessage[],
   wardrobeState: WardrobeState,
+  characterGender: CharacterGender,
+  characterName?: string | null,
   personaName?: string | null,
   retryReason?: string,
 ): Promise<string | null> {
   if (!OPENROUTER_API_KEY) return null;
 
+  const terms = getCharacterTerms(characterGender);
+  const characterLine = characterName
+    ? `The character is ${characterName}, a consenting ${terms.noun}. Use ${terms.subject}/${terms.object}/${terms.possessive} pronouns.`
+    : `The character is a consenting ${terms.noun}. Use ${terms.subject}/${terms.object}/${terms.possessive} pronouns.`;
   const recentHistory = conversationHistory.slice(-12);
   const continuityInstruction =
     wardrobeState === 'nude'
@@ -403,19 +565,21 @@ async function askEuryaleForScenePlan(
       messages: [
         {
           role: 'system',
-          content: `You write adult image-to-video prompts for a consenting adult character.
+          content: `You write image-to-video prompts for a consenting adult character.
 
 Base the next clip on the user's latest request, the companion's latest narrated audio transcript, the last 6 conversation exchanges, and the anchor image.
+${characterLine}
 ${continuityInstruction}
 ${retryReason ? `Regenerate because the previous draft failed validation: ${retryReason}` : ''}
 
 You are a JSON scene planner, not the companion. Do not answer as dialogue. Do not write a sentence to the user.
-Movement license: she can shift, turn, walk, change framing, move closer or farther, and adjust the camera relationship naturally.
+Movement license: ${terms.subject} can shift, turn, walk, change framing, move closer or farther, and adjust the camera relationship naturally.
+Preserve the anchor image identity, face, race, gender presentation, body type, proportions, and source-frame aspect. Do not stretch the body, feminize, masculinize, change anatomy, change race, or turn ${terms.object} into a different person.
 Do not use identity boilerplate. Do not write "same adult woman in source image". Do not lock the pose or require exact pose matching.
-Prompts should be visual motion beats only, 3-6 strings, max 28 words each, no location changes. Let the video model infer visible details from the anchor image.
+Prompts should be visual motion beats only, 3-6 strings, max 24 words each, no location changes. Let the video model infer visible details from the anchor image.
 Describe actions, motion, framing, expression, and camera relationship without labeling the visible state.
 Return continuityState as "start", "middle", or "complete" so the next clip can continue internally.
-Dirty talk lines are first person, present tense, concise, and matched to the user's request.
+Spoken lines are first person, present tense, concise, and matched to the user's request.
 ${getPersonaVoice(personaName)}
 
 Return ONLY valid JSON:
@@ -453,6 +617,8 @@ async function generateVideoScenePlan(
   userMessage: string,
   conversationHistory: ConversationMessage[],
   wardrobeState: WardrobeState,
+  characterGender: CharacterGender,
+  characterName?: string | null,
   personaName?: string | null,
   requestId?: string,
   trace?: string[],
@@ -467,6 +633,8 @@ async function generateVideoScenePlan(
         userMessage,
         conversationHistory,
         wardrobeState,
+        characterGender,
+        characterName,
         personaName,
         retryReason,
       );
@@ -523,9 +691,13 @@ export async function POST(req: NextRequest) {
       conversationHistory,
       frameUrl,
       wardrobeState: requestedWardrobeState,
+      characterGender: requestedCharacterGender,
+      characterName: requestedCharacterName,
     } = await req.json();
 
     const wardrobeState = normalizeWardrobeState(requestedWardrobeState);
+    let characterGender = normalizeCharacterGender(requestedCharacterGender);
+    const characterName = typeof requestedCharacterName === 'string' ? requestedCharacterName : null;
 
     console.log(`[${requestId}] === VIDEO REQUEST START ===`, {
       hasUserId: Boolean(userId),
@@ -548,7 +720,7 @@ export async function POST(req: NextRequest) {
 
     let companionQuery = supabase
       .from('companions')
-      .select('image_url, personas(name)')
+      .select('image_url, name, archetype_id, personas(name)')
       .eq('user_id', userId);
 
     if (activeCompanionId) {
@@ -562,15 +734,22 @@ export async function POST(req: NextRequest) {
     }
 
     const imageUrl = frameUrl || companion.image_url;
+    const companionArchetype = archetypes.find((archetype) => archetype.id === companion.archetype_id);
+    if (characterGender === 'unknown') {
+      characterGender = normalizeCharacterGender(companionArchetype?.gender);
+    }
     const persona = Array.isArray(companion.personas)
       ? companion.personas[0]
       : (companion.personas as CompanionPersona | null);
+    const effectiveCharacterName = characterName || companion.name || companionArchetype?.name || null;
 
     // Generate scene plan (same for both providers)
     const scenePlan = await generateVideoScenePlan(
       userMessage || '',
       Array.isArray(conversationHistory) ? conversationHistory : [],
       wardrobeState,
+      characterGender,
+      effectiveCharacterName,
       persona?.name,
       requestId,
       trace,
@@ -585,6 +764,7 @@ export async function POST(req: NextRequest) {
 
     // Build a single combined prompt for Wan2.1 (join scene prompts)
     const wan21Prompt = scenePlan.prompts.join(', ');
+    const negativePrompt = buildVideoNegativePrompt(characterGender);
 
     // ── Try RunPod Wan2.1 first ──
     let provider: VideoProvider = 'runpod';
@@ -593,7 +773,7 @@ export async function POST(req: NextRequest) {
     if (process.env.RUNPOD_VIDEO_ENDPOINT_ID) {
       trace.push('runpod-attempt');
       console.log(`[${requestId}] RUNPOD_VIDEO_ENDPOINT_ID=${process.env.RUNPOD_VIDEO_ENDPOINT_ID} imageUrl=${imageUrl}`);
-      predictionId = await submitRunPodVideo(imageUrl, wan21Prompt, requestId);
+      predictionId = await submitRunPodVideo(imageUrl, wan21Prompt, negativePrompt, requestId);
       console.log(`[${requestId}] RunPod predictionId=${predictionId}`);
     }
 

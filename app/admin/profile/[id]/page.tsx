@@ -172,7 +172,7 @@ function limitWords(value: string, maxWords: number) {
 function shortComposition(style: ImageStyle) {
   if (style === 'fullbody') return 'full body in frame';
   if (style === 'fullscreen') return 'vertical full screen scene';
-  return 'tight head-and-shoulders portrait, no empty headroom';
+  return 'portrait head and shoulders only, cropped at upper chest, face fills frame, no legs, no shoes, no full body';
 }
 
 function formatAge(age: string) {
@@ -185,19 +185,27 @@ function formatAge(age: string) {
 function buildStructuredPreview(fields: StructuredPromptFields, style: ImageStyle, manualPrompt: string) {
   const identity = [
     compactText(fields.race),
-    fields.gender === 'M' ? 'male' : 'female',
+    fields.gender === 'M' ? 'adult male man, masculine face' : 'adult female woman, feminine face',
     formatAge(fields.age),
   ].filter(Boolean).join(' ');
 
+  const wardrobe = style === 'portrait'
+    ? compactText(fields.wardrobe)
+      .split(',')
+      .map((part) => part.trim())
+      .filter((part) => !/\b(shoes?|sneakers?|boots?|feet|footwear|jordans?)\b/i.test(part))
+      .join(', ') || compactText(fields.wardrobe)
+    : compactText(fields.wardrobe);
+
   return limitWords([
+    shortComposition(style),
     identity,
-    compactText(fields.wardrobe),
+    wardrobe,
     compactText(fields.environment),
     compactText(fields.details),
     compactText(manualPrompt),
     HUMAN_REALISM,
-    shortComposition(style),
-  ].filter(Boolean).join(', '), 55);
+  ].filter(Boolean).join(', '), 115);
 }
 
 function suggestionIndex(seed: string, offset: number, length: number) {
@@ -619,7 +627,19 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
-      const res = await fetch('/api/generate-video', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: user.id, userMessage: videoPrompt, frameUrl: sourceUrl, wardrobeState: 'clothed', conversationHistory: [{ role: 'user', content: videoPrompt }] }) });
+      const res = await fetch('/api/generate-video', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.id,
+          userMessage: videoPrompt,
+          frameUrl: sourceUrl,
+          wardrobeState: 'clothed',
+          characterGender: archetype?.gender,
+          characterName: archetype?.name,
+          conversationHistory: [{ role: 'user', content: videoPrompt }],
+        }),
+      });
       const data = await res.json();
       if (!res.ok || !data.prediction_id) throw new Error(data.error || 'Submission failed');
       setStatus('Video submitted — polling...');
@@ -975,13 +995,13 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                   {videos.map((vid, i) => (
                     <div key={vid.id} style={{ background: '#ffffff', border: `1px solid ${vid.is_featured ? 'var(--gold)' : 'var(--border-dark)'}`, borderRadius: '3px', overflow: 'hidden', display: 'grid', gridTemplateColumns: '180px 1fr' }}>
-                      <div style={{ position: 'relative', background: '#000' }}>
+                      <div style={{ position: 'relative', background: '#000', aspectRatio: '9 / 16', alignSelf: 'start' }}>
                         {vid.video_url.includes('.webp') ? (
                           <div style={{ width: '100%', height: '100%', position: 'relative', overflow: 'hidden' }}>
                             <img
                               src={vid.video_url}
                               alt="Generated clip"
-                              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                              style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}
                             />
                             <div style={{
                               position: 'absolute',
@@ -992,25 +1012,9 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
                               background: 'linear-gradient(transparent, rgba(0,0,0,0.85))',
                               pointerEvents: 'none',
                             }} />
-                            <style>{`
-                              @keyframes loopFade {
-                                0%   { opacity: 1; }
-                                80%  { opacity: 1; }
-                                90%  { opacity: 0; }
-                                95%  { opacity: 0; }
-                                100% { opacity: 1; }
-                              }
-                            `}</style>
-                            <div style={{
-                              position: 'absolute',
-                              inset: 0,
-                              background: 'rgba(0,0,0,0)',
-                              animation: 'loopFade 5s ease-in-out infinite',
-                              pointerEvents: 'none',
-                            }} />
                           </div>
                         ) : (
-                          <video src={vid.video_url} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} controls playsInline preload="metadata" />
+                          <video src={vid.video_url} style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} controls playsInline preload="metadata" />
                         )}
                         {vid.is_featured && <div style={{ position: 'absolute', top: '6px', left: '6px', fontFamily: 'var(--font-mono)', fontSize: '7px', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--onyx)', background: '#e63946', padding: '2px 6px', borderRadius: '2px' }}>Featured</div>}
                       </div>

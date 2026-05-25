@@ -149,9 +149,6 @@ export default function ArchetypeCard({
                 }}
               />
             )}
-            {isWebp && (
-              <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', animation: 'loopFade 5s ease-in-out infinite' }} />
-            )}
           </>
         )}
 
@@ -249,14 +246,6 @@ export default function ArchetypeCard({
           .card-hover [data-card-meta] {
             font-size: 10px !important;
           }
-        }
-
-        @keyframes loopFade {
-          0%   { opacity: 0; background: transparent; }
-          70%  { opacity: 0; background: transparent; }
-          82%  { opacity: 1; background: rgba(0,0,0,0.95); }
-          95%  { opacity: 1; background: rgba(0,0,0,0.95); }
-          100% { opacity: 0; background: transparent; }
         }
       `}</style>
     </article>

@@ -30,7 +30,7 @@ function getErrorMessage(error: unknown) {
 }
 
 function getRunPodImageEndpointId() {
-  return process.env.RUNPOD_COMFYUI_ENDPOINT_ID || process.env.RUNPOD_IMAGE_ENDPOINT_ID;
+  return process.env.RUNPOD_COMFYUI_ENDPOINT_ID || process.env.RUNPOD_VIDEO_ENDPOINT_ID || process.env.RUNPOD_IMAGE_ENDPOINT_ID;
 }
 
 function getImagePayload(output: Record<string, unknown> | undefined) {

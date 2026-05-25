@@ -20,6 +20,8 @@ export async function POST(req: NextRequest) {
     const archetype = archetypes.find(a => a.id === archetype_id);
     if (!archetype) return NextResponse.json({ error: 'Archetype not found' }, { status: 404 });
 
+    const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://alyra-x-frontend.vercel.app';
+
     if (media_type === 'image') {
       const profile = getArchetypeImagePrompt(archetype);
 
@@ -32,21 +34,21 @@ export async function POST(req: NextRequest) {
 
       const faceImageUrl = imageData?.image_url;
 
+      // Try InstantID first if we have a reference image
       if (faceImageUrl) {
         try {
-          const selfieRes = await fetch(
-            `${process.env.NEXT_PUBLIC_APP_URL || 'https://alyra-x-frontend.vercel.app'}/api/generate-selfie`,
-            {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                face_image_url: faceImageUrl,
-                prompt: media_prompt,
-              }),
-            }
-          );
+          console.log('Attempting InstantID selfie for', archetype_id);
+          const selfieRes = await fetch(`${APP_URL}/api/generate-selfie`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              face_image_url: faceImageUrl,
+              prompt: media_prompt,
+            }),
+          });
 
           const selfieData = await selfieRes.json();
+          console.log('InstantID response:', selfieRes.status, selfieData);
 
           if (selfieRes.ok && selfieData.image_url) {
             await supabase
@@ -69,32 +71,30 @@ export async function POST(req: NextRequest) {
       }
 
       // Fallback to existing pipeline
-      const genRes = await fetch(
-        `${process.env.NEXT_PUBLIC_APP_URL || 'https://alyra-x-frontend.vercel.app'}/api/generate-companion`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            description: media_prompt,
-            structured_prompt: profile ? {
-              race: profile.race,
-              gender: archetype.gender,
-              age: profile.age,
-              wardrobe: profile.wardrobe,
-              environment: profile.environment,
-              details: profile.details,
-            } : undefined,
+      console.log('Falling back to standard pipeline for', archetype_id);
+      const genRes = await fetch(`${APP_URL}/api/generate-companion`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          description: media_prompt,
+          structured_prompt: profile ? {
+            race: profile.race,
             gender: archetype.gender,
-            style: 'portrait',
-            num_inference_steps: 30,
-            guidance_scale: 7,
-            seed: -1,
-          }),
-        }
-      );
+            age: profile.age,
+            wardrobe: profile.wardrobe,
+            environment: profile.environment,
+            details: profile.details,
+          } : undefined,
+          gender: archetype.gender,
+          style: 'portrait',
+          num_inference_steps: 30,
+          guidance_scale: 7,
+          seed: -1,
+        }),
+      });
 
+      const genData = await genRes.json();
       if (!genRes.ok) {
-        const genData = await genRes.json();
         await supabase
           .from('chat_messages')
           .update({ media_status: 'failed' })
@@ -105,7 +105,6 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      const genData = await genRes.json();
       return NextResponse.json({
         jobId: genData.jobId,
         message_id,
@@ -114,7 +113,6 @@ export async function POST(req: NextRequest) {
     }
 
     if (media_type === 'video') {
-      // Get archetype main image for video source
       const { data: imageData } = await supabase
         .from('archetype_images')
         .select('image_url')
@@ -123,11 +121,14 @@ export async function POST(req: NextRequest) {
 
       const frameUrl = imageData?.image_url;
       if (!frameUrl) {
-        await supabase.from('chat_messages').update({ media_status: 'failed' }).eq('id', message_id);
+        await supabase
+          .from('chat_messages')
+          .update({ media_status: 'failed' })
+          .eq('id', message_id);
         return NextResponse.json({ error: 'No source image for video' }, { status: 400 });
       }
 
-      const videoRes = await fetch(`${req.nextUrl.origin}/api/generate-video`, {
+      const videoRes = await fetch(`${APP_URL}/api/generate-video`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -135,8 +136,6 @@ export async function POST(req: NextRequest) {
           userMessage: media_prompt,
           frameUrl,
           wardrobeState: 'clothed',
-          characterGender: archetype.gender,
-          characterName: archetype.name,
           conversationHistory: [{ role: 'user', content: media_prompt }],
         }),
       });
@@ -144,8 +143,14 @@ export async function POST(req: NextRequest) {
       const videoData = await videoRes.json();
 
       if (!videoRes.ok || !videoData.prediction_id) {
-        await supabase.from('chat_messages').update({ media_status: 'failed' }).eq('id', message_id);
-        return NextResponse.json({ error: videoData.error || 'Video generation failed' }, { status: 500 });
+        await supabase
+          .from('chat_messages')
+          .update({ media_status: 'failed' })
+          .eq('id', message_id);
+        return NextResponse.json(
+          { error: videoData.error || 'Video generation failed' },
+          { status: 500 }
+        );
       }
 
       return NextResponse.json({
@@ -157,6 +162,7 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ error: 'Unknown media type' }, { status: 400 });
+
   } catch (error) {
     console.error('Chat media generate error:', error);
     return NextResponse.json({ error: 'Media generation failed' }, { status: 500 });

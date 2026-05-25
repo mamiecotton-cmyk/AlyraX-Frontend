@@ -65,13 +65,25 @@ function getImageSettings(style: string) {
 function getShortComposition(style: string) {
   if (style === 'fullbody') return 'full body in frame';
   if (style === 'fullscreen') return 'vertical full screen scene';
-  return 'tight head-and-shoulders portrait, no empty headroom';
+  return 'portrait head and shoulders only, cropped at upper chest, face fills frame, no legs, no shoes, no full body';
 }
 
 function getGenderLabel(gender: unknown) {
-  if (gender === 'M') return 'male';
-  if (gender === 'F') return 'female';
+  if (gender === 'M') return 'adult male man, masculine face';
+  if (gender === 'F') return 'adult female woman, feminine face';
   return cleanPromptPart(gender);
+}
+
+function getWardrobeForStyle(style: string, wardrobe?: string) {
+  const cleaned = cleanPromptPart(wardrobe);
+  if (!cleaned || style !== 'portrait') return cleaned;
+
+  const visiblePortraitItems = cleaned
+    .split(',')
+    .map((part) => part.trim())
+    .filter((part) => !/\b(shoes?|sneakers?|boots?|feet|footwear|jordans?)\b/i.test(part));
+
+  return visiblePortraitItems.join(', ') || cleaned;
 }
 
 function normalizeAge(age: string) {
@@ -123,41 +135,53 @@ function buildCompactPrompt({
     ].filter(Boolean).join(' ');
 
     return limitWords([
+      composition,
       identity,
-      cleanPromptPart(structuredPrompt?.wardrobe),
+      getWardrobeForStyle(style, structuredPrompt?.wardrobe),
       cleanPromptPart(structuredPrompt?.environment),
       cleanPromptPart(structuredPrompt?.details),
       manualDetails,
       referenceTag,
       HUMAN_REALISM,
-      composition,
-    ].filter(Boolean).join(', '), 55);
+    ].filter(Boolean).join(', '), 115);
   }
 
-  const genericGender = gender === 'M' ? 'adult male' : gender === 'F' ? 'adult female' : '';
+  const genericGender = gender === 'M' ? 'adult male man, masculine face' : gender === 'F' ? 'adult female woman, feminine face' : '';
 
   return limitWords([
+    composition,
     genericGender,
     manualDetails,
     referenceTag,
     HUMAN_REALISM,
-    composition,
-  ].filter(Boolean).join(', '), 55);
+  ].filter(Boolean).join(', '), 115);
 }
 
-function getSubjectNegative(gender: unknown, structuredPrompt?: StructuredPrompt) {
+function wardrobeImpliesCoveredTorso(wardrobe?: string) {
+  return /\b(shirt|tee|t-shirt|top|jacket|hoodie|sweater|coat|blazer|suit|turtleneck|oxford|linen)\b/i.test(cleanPromptPart(wardrobe));
+}
+
+function getSubjectNegative(gender: unknown, structuredPrompt?: StructuredPrompt, style?: string) {
   const parts: string[] = [];
   const effectiveGender = structuredPrompt?.gender || gender;
   const race = cleanPromptPart(structuredPrompt?.race).toLowerCase();
 
   if (effectiveGender === 'F') {
-    parts.push('man', 'male', 'masculine face', 'beard', 'mustache');
+    parts.push('man', 'male', 'masculine face', 'beard', 'mustache', 'broad male shoulders');
   } else if (effectiveGender === 'M') {
-    parts.push('woman', 'female', 'feminine face', 'breasts');
+    parts.push('woman', 'female', 'girl', 'feminine face', 'breasts', 'long hair', 'makeup', 'dress');
   }
 
   if (race.includes('black') || race.includes('african')) {
     parts.push('white person', 'caucasian', 'european features', 'wrong ethnicity');
+  }
+
+  if (style === 'portrait') {
+    parts.push('full body', 'standing full body', 'legs visible', 'feet visible', 'shoes visible', 'distant subject');
+  }
+
+  if (wardrobeImpliesCoveredTorso(structuredPrompt?.wardrobe)) {
+    parts.push('shirtless', 'bare chest', 'topless', 'nude torso', 'bare torso');
   }
 
   return parts.join(', ');
@@ -176,7 +200,7 @@ function getComfyCheckpoint() {
 }
 
 function getRunPodComfyEndpointId() {
-  return process.env.RUNPOD_COMFYUI_ENDPOINT_ID;
+  return process.env.RUNPOD_COMFYUI_ENDPOINT_ID || process.env.RUNPOD_VIDEO_ENDPOINT_ID;
 }
 
 function getImageGenerationProvider() {
@@ -450,7 +474,7 @@ export async function POST(req: NextRequest) {
     const effectiveDenoiseStrength = reference_image_url ? denoise_strength ?? 0.76 : undefined;
 
     // Merge negative prompts (server style negatives + client-provided negatives)
-    const negative = [styleNegative, getSubjectNegative(gender, structured_prompt), incomingNegative].filter(Boolean).join(', ');
+    const negative = [styleNegative, getSubjectNegative(gender, structured_prompt, style), incomingNegative].filter(Boolean).join(', ');
     const prompt = buildCompactPrompt({
       description: cleanPromptPart(description),
       style,
