@@ -3,65 +3,82 @@ import { NextRequest, NextResponse } from 'next/server';
 export const maxDuration = 300;
 
 function buildInstantIDWorkflow(
-  faceImageBase64: string,
+  faceImageUrl: string,
   prompt: string,
   negativePrompt: string,
   seed: number,
 ) {
   return {
     '1': {
-      class_type: 'InstantID',
+      class_type: 'InstantIDModelLoader',
       inputs: {
-        control_net_name: 'instantid_controlnet.safetensors',
-        ip_adapter_file: 'instantid_ip_adapter.bin',
-        image: faceImageBase64,
-        model: ['2', 0],
-        positive: ['3', 0],
-        negative: ['4', 0],
-        image_kps: ['5', 0],
-        face_embeds: ['5', 1],
-        ip_adapter_scale: 0.8,
-        control_net_conditioning_scale: 0.8,
-        start_at: 0.0,
-        end_at: 1.0,
+        instantid_file: 'ip-adapter.bin',
       },
     },
     '2': {
+      class_type: 'InstantIDFaceAnalysis',
+      inputs: {
+        provider: 'CUDA',
+      },
+    },
+    '3': {
       class_type: 'CheckpointLoaderSimple',
       inputs: {
         ckpt_name: process.env.COMFYUI_CHECKPOINT || 'realismIllustriousBy_v55FP16.safetensors',
       },
     },
-    '3': {
-      class_type: 'CLIPTextEncode',
-      inputs: {
-        text: prompt,
-        clip: ['2', 1],
-      },
-    },
     '4': {
       class_type: 'CLIPTextEncode',
       inputs: {
-        text: negativePrompt,
-        clip: ['2', 1],
+        text: prompt,
+        clip: ['3', 1],
       },
     },
     '5': {
-      class_type: 'InstantIDFaceAnalysis',
+      class_type: 'CLIPTextEncode',
       inputs: {
-        provider: 'CUDA',
-        image: faceImageBase64,
+        text: negativePrompt,
+        clip: ['3', 1],
       },
     },
     '6': {
-      class_type: 'EmptyLatentImage',
+      class_type: 'ControlNetLoader',
       inputs: {
-        width: 768,
-        height: 1024,
-        batch_size: 1,
+        control_net_name: 'instantid_controlnet.safetensors',
       },
     },
     '7': {
+      class_type: 'LoadImage',
+      inputs: {
+        image: faceImageUrl,
+      },
+    },
+    '8': {
+      class_type: 'ApplyInstantID',
+      inputs: {
+        instantid: ['1', 0],
+        insightface: ['2', 0],
+        control_net: ['6', 0],
+        image: ['7', 0],
+        model: ['3', 0],
+        positive: ['4', 0],
+        negative: ['5', 0],
+        ip_weight: 0.8,
+        cn_strength: 0.8,
+        start_at: 0.0,
+        end_at: 1.0,
+        noise: 0.35,
+      },
+    },
+    '9': {
+      class_type: 'EmptyLatentImage',
+      inputs: {
+        width: 1016,
+        height: 1016,
+        batch_size: 1,
+      },
+    },
+    '10': {
       class_type: 'KSampler',
       inputs: {
         seed,
@@ -70,24 +87,24 @@ function buildInstantIDWorkflow(
         sampler_name: 'dpmpp_2m',
         scheduler: 'karras',
         denoise: 1,
-        model: ['1', 0],
-        positive: ['1', 1],
-        negative: ['1', 2],
-        latent_image: ['6', 0],
+        model: ['8', 0],
+        positive: ['8', 1],
+        negative: ['8', 2],
+        latent_image: ['9', 0],
       },
     },
-    '8': {
+    '11': {
       class_type: 'VAEDecode',
       inputs: {
-        samples: ['7', 0],
-        vae: ['2', 2],
+        samples: ['10', 0],
+        vae: ['3', 2],
       },
     },
-    '9': {
+    '12': {
       class_type: 'SaveImage',
       inputs: {
         filename_prefix: 'alyrax-selfie',
-        images: ['8', 0],
+        images: ['11', 0],
       },
     },
   };
@@ -108,17 +125,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing RunPod config' }, { status: 500 });
     }
 
-    // Fetch the face image and convert to base64
-    const imageRes = await fetch(face_image_url);
-    if (!imageRes.ok) {
-      return NextResponse.json({ error: 'Failed to fetch face image' }, { status: 500 });
-    }
-    const imageBuffer = await imageRes.arrayBuffer();
-    const faceImageBase64 = Buffer.from(imageBuffer).toString('base64');
-
     const negPrompt = negative_prompt || 'cartoon, anime, illustration, deformed, ugly, blurry, watermark, text, bad anatomy';
     const seed = Math.floor(Math.random() * 2 ** 32);
-    const workflow = buildInstantIDWorkflow(faceImageBase64, prompt, negPrompt, seed);
+    const workflow = buildInstantIDWorkflow(face_image_url, prompt, negPrompt, seed);
 
     // Submit to RunPod
     const submitRes = await fetch(
@@ -140,6 +149,7 @@ export async function POST(req: NextRequest) {
     }
 
     const { id: jobId } = await submitRes.json();
+    console.log('InstantID job submitted:', jobId);
 
     // Poll for result
     for (let attempt = 0; attempt < 120; attempt++) {
@@ -151,16 +161,16 @@ export async function POST(req: NextRequest) {
       );
 
       const statusData = await statusRes.json();
+      console.log('InstantID status:', statusData.status, 'attempt:', attempt);
 
       if (statusData.status === 'COMPLETED') {
-        // Upload to R2
         const output = statusData.output;
-        const imageData = Array.isArray(output?.images)
-          ? output.images[0]
-          : output;
+        const images = Array.isArray(output?.images) ? output.images : [];
+        const firstImage = images[0];
+        const base64 = firstImage?.data || firstImage?.image || '';
 
-        const base64 = imageData?.data || imageData?.image || '';
         if (!base64) {
+          console.error('No image data in response:', JSON.stringify(output));
           return NextResponse.json({ error: 'No image in response' }, { status: 500 });
         }
 
@@ -187,10 +197,12 @@ export async function POST(req: NextRequest) {
         }));
 
         const imageUrl = `${process.env.CLOUDFLARE_R2_PUBLIC_URL}/${fileName}`;
+        console.log('InstantID selfie saved:', imageUrl);
         return NextResponse.json({ image_url: imageUrl, success: true });
       }
 
       if (statusData.status === 'FAILED') {
+        console.error('InstantID job failed:', statusData);
         return NextResponse.json(
           { error: statusData.error || 'Generation failed' },
           { status: 500 }
