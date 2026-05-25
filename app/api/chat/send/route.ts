@@ -131,22 +131,32 @@ function buildSelfiePrompt(message: string, archetype: Archetype): string {
 
   const lower = message.toLowerCase();
 
-  let scene = profile?.environment ?? archetype.city;
-  let wardrobe = profile?.wardrobe ?? archetype.style.toLowerCase();
+  // Default scene: intentionally different from the main portrait.
+  let scene = 'casual indoor setting, warm ambient light, relaxed moment';
+  let wardrobe = 'casual off-duty outfit, relaxed styling';
+  let cameraStyle = 'phone selfie angle, slight upward tilt, close crop';
 
   if (lower.includes('outside') || lower.includes('outdoor') || lower.includes('street')) {
-    scene = 'outdoor street, natural light';
+    scene = 'outdoor street, natural light, candid moment';
+    cameraStyle = 'phone selfie, street background slightly blurred';
   }
   if (lower.includes('mirror') || lower.includes('bathroom')) {
-    scene = 'bathroom mirror selfie, warm light';
-    wardrobe = 'casual, natural look';
+    scene = 'bathroom mirror selfie, warm vanity light';
+    wardrobe = 'casual, fresh out the shower energy';
+    cameraStyle = 'mirror selfie, phone visible in reflection';
   }
   if (lower.includes('bed') || lower.includes('morning') || lower.includes('woke')) {
-    scene = 'bedroom, soft morning light';
-    wardrobe = 'cozy, relaxed';
+    scene = 'bedroom, soft morning window light';
+    wardrobe = 'no shirt or casual tee, just woke up';
+    cameraStyle = 'low angle phone selfie, pillow in background';
+  }
+  if (lower.includes('gym') || lower.includes('workout')) {
+    scene = 'gym, natural light from windows';
+    wardrobe = 'workout clothes, slight sweat';
+    cameraStyle = 'gym mirror selfie or straight-on phone shot';
   }
 
-  return `${base}, ${wardrobe}, ${scene}, genuine warm smile, candid moment, DSLR photo, natural skin, photorealistic`;
+  return `${base}, ${wardrobe}, ${scene}, genuine expression, ${cameraStyle}, DSLR quality, natural skin, photorealistic, NOT a copy of any other photo`;
 }
 
 // Build companion system prompt
