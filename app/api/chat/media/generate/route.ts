@@ -35,13 +35,16 @@ export async function POST(req: NextRequest) {
         .eq('archetype_id', archetype_id)
         .maybeSingle();
       const referenceImageUrl = companionData?.image_url || imageData?.image_url || undefined;
+      const selfiePrompt = referenceImageUrl
+        ? `${media_prompt}, same person as reference image, fresh candid selfie, different pose, different expression, different framing, do not copy the source photo composition`
+        : media_prompt;
 
       // Submit image generation job
       const genRes = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'https://alyra-x-frontend.vercel.app'}/api/generate-companion`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          description: media_prompt,
+          description: selfiePrompt,
           structured_prompt: profile ? {
             race: profile.race,
             gender: archetype.gender,
@@ -57,8 +60,8 @@ export async function POST(req: NextRequest) {
           seed: -1,
           reference_image_url: referenceImageUrl,
           reference_mode: 'identity',
-          reference_strength: 0.65,
-          denoise_strength: 0.45,
+          reference_strength: 0.55,
+          denoise_strength: 0.58,
         }),
       });
 
