@@ -401,6 +401,14 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
     });
 
     const data = await res.json();
+
+    if (data.status === 'ready' && data.image_url) {
+      setMessages(prev => prev.map(m =>
+        m.id === msg.id ? { ...m, media_status: 'ready', media_url: data.image_url } : m
+      ));
+      return;
+    }
+
     if (data.jobId) {
       pollMediaJob(msg.id, data.jobId, msg.media_type, data.provider);
     }
