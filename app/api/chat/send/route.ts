@@ -9,7 +9,7 @@ export const maxDuration = 60;
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 // Text chat uses the roleplay model so archetype personalities stay consistent.
 const CHAT_MODEL = process.env.OPENROUTER_CHAT_MODEL || 'sao10k/l3.3-euryale-70b';
-const CHAT_MAX_TOKENS = 240;
+const CHAT_MAX_TOKENS = 400;
 const CHAT_TIMEOUT_MS = 24_000;
 const CHAT_RETRY_COUNT = 2;
 const FACT_MODEL = process.env.OPENROUTER_FACT_MODEL || 'deepseek/deepseek-v4-flash';
@@ -324,7 +324,7 @@ export async function POST(req: NextRequest) {
     const wantsVideo = isVideoRequest(message);
 
     // Get companion text response from LLM
-    const recentHistory = (history ?? []).slice(-8).map((m: { role: string; content: string }) => ({
+    const recentHistory = (history ?? []).slice(-30).map((m: { role: string; content: string }) => ({
       role: m.role === 'companion' ? 'assistant' : 'user',
       content: m.content ?? '',
     })) as ChatMessage[];
