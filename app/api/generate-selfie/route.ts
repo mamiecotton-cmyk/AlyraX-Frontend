@@ -63,7 +63,7 @@ function buildInstantIDWorkflow(
         positive: ['4', 0],
         negative: ['5', 0],
         weight: 1.2,
-        cn_strength: 1.0,
+        cn_strength: 0.85,
         start_at: 0.0,
         end_at: 1.0,
         noise: 0.35,
@@ -82,7 +82,7 @@ function buildInstantIDWorkflow(
       inputs: {
         seed,
         steps: 30,
-        cfg: 7.5,
+        cfg: 8.5,
         sampler_name: 'dpmpp_2m',
         scheduler: 'karras',
         denoise: 1,

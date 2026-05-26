@@ -22,25 +22,28 @@ function isAdultSelfieRequest(message: string): boolean {
 export function buildSelfiePrompt(message: string, archetype: Archetype): string {
   const profile = getArchetypeImagePrompt(archetype);
   const adultSelfie = isAdultSelfieRequest(message);
+  const userRequest = message.trim();
 
   if (profile) {
     if (adultSelfie) {
       return [
+        `user request: ${userRequest}`,
+        'follow the requested setting, pose, framing, camera angle, and nudity level exactly',
         `private adult nude selfie of a clearly ${profile.age}-year-old ${profile.race}`,
         profile.details,
-        'unclothed, no outfit, no wardrobe, intimate private bedroom or bathroom mirror setting',
-        'phone selfie angle, casual private moment, mirror selfie',
-        message,
+        'unclothed, no outfit, no wardrobe, do not add clothing unless the user specifically requested clothing',
+        'phone selfie, casual private moment',
         'photorealistic DSLR, natural skin texture, soft cinematic light',
       ].filter(Boolean).join(', ');
     }
 
     return [
+      `user request: ${userRequest}`,
+      'follow the requested setting, pose, framing, and camera angle',
       `documentary portrait photograph of a ${profile.age}-year-old ${profile.race}`,
       profile.details,
       profile.wardrobe,
-      'phone selfie angle, casual moment, mirror selfie',
-      message,
+      'phone selfie angle, casual moment',
       'photorealistic DSLR, natural skin texture, soft cinematic light',
     ].filter(Boolean).join(', ');
   }
@@ -50,8 +53,8 @@ export function buildSelfiePrompt(message: string, archetype: Archetype): string
     : 'Black American woman, dark brown skin, feminine face';
 
   if (adultSelfie) {
-    return `private adult nude selfie of a clearly ${archetype.age}-year-old ${genderAnchor}, unclothed, no outfit, no wardrobe, intimate private bedroom or bathroom mirror setting, ${message}, photorealistic, natural skin`;
+    return `user request: ${userRequest}, follow the requested setting, pose, framing, camera angle, and nudity level exactly, private adult nude selfie of a clearly ${archetype.age}-year-old ${genderAnchor}, unclothed, no outfit, no wardrobe, do not add clothing unless the user specifically requested clothing, phone selfie, casual private moment, photorealistic, natural skin`;
   }
 
-  return `${genderAnchor}, ${archetype.vibe.toLowerCase()}, phone selfie, casual moment, ${message}, photorealistic, natural skin`;
+  return `user request: ${userRequest}, follow the requested setting, pose, framing, and camera angle, ${genderAnchor}, ${archetype.vibe.toLowerCase()}, phone selfie, casual moment, photorealistic, natural skin`;
 }
