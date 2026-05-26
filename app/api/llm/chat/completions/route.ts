@@ -308,7 +308,7 @@ export async function POST(req: NextRequest) {
 
     const conversationMessages = incomingMessages
       .filter((m: { role: string }) => m.role !== 'system')
-      .slice(isVideoMode ? -8 : -6);
+      .slice(isVideoMode ? -20 : -16);
 
     const systemContent = [
       ADULT_BASE_PROMPT,
@@ -339,7 +339,7 @@ export async function POST(req: NextRequest) {
       model,
       messages,
       temperature: isVideoMode ? 0.85 : 0.92,
-      max_tokens: isVideoMode ? 160 : 140,
+      max_tokens: isVideoMode ? 300 : 280,
       stream: true,
     };
 
