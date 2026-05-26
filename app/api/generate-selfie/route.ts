@@ -111,7 +111,7 @@ function buildInstantIDWorkflow(
 
 export async function POST(req: NextRequest) {
   try {
-    const { face_image_url, prompt, negative_prompt } = await req.json();
+    const { face_image_url, prompt, gender } = await req.json();
 
     if (!face_image_url || !prompt) {
       return NextResponse.json({ error: 'Missing face_image_url or prompt' }, { status: 400 });
@@ -131,7 +131,11 @@ export async function POST(req: NextRequest) {
     const imageBuffer = await imageRes.arrayBuffer();
     const faceImageBase64 = Buffer.from(imageBuffer).toString('base64');
 
-    const negPrompt = negative_prompt || 'different person, changed face, wrong identity, face does not match reference, duplicate person, extra person, cartoon, anime, illustration, deformed, ugly, blurry, watermark, text, bad anatomy';
+    const genderNegative = gender === 'M'
+      ? 'woman, female, feminine, breasts, long hair, girl, she'
+      : 'man, male, masculine, beard, short hair, he';
+
+    const negPrompt = `${genderNegative}, cartoon, anime, deformed, ugly, blurry, watermark, wrong ethnicity, white person, caucasian`;
     const seed = Math.floor(Math.random() * 2 ** 32);
     const workflow = buildInstantIDWorkflow(prompt, negPrompt, seed);
 

@@ -1,6 +1,7 @@
 import { after, NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase-server';
 import { archetypes, type Archetype } from '@/lib/archetypes';
+import { getArchetypeImagePrompt } from '@/lib/archetype-image-prompts';
 import { formatFactsBlock, loadCompanionFacts, mergeCompanionFacts, normalizeFacts } from '@/lib/companion-facts';
 
 export const maxDuration = 60;
@@ -122,40 +123,18 @@ function isVideoRequest(message: string): boolean {
 }
 
 // Build selfie image prompt from user message + archetype
-function buildSelfiePrompt(message: string, _archetype: Archetype): string {
-  const lower = message.toLowerCase();
+function buildSelfiePrompt(message: string, archetype: Archetype): string {
+  const profile = getArchetypeImagePrompt(archetype);
 
-  // Default scene: intentionally different from the main portrait.
-  let scene = 'casual indoor setting, warm ambient light, relaxed moment';
-  let wardrobe = 'casual off-duty outfit, relaxed styling';
-  let cameraStyle = 'phone selfie angle, slight upward tilt, close crop';
+  const identityAnchor = profile
+    ? `${profile.race}, ${profile.age} years old, ${profile.details}`
+    : `${archetype.vibe.toLowerCase()}`;
 
-  if (lower.includes('outside') || lower.includes('outdoor') || lower.includes('street')) {
-    scene = 'outdoor street, natural light, candid moment';
-    cameraStyle = 'phone selfie, street background slightly blurred';
-  }
-  if (lower.includes('mirror') || lower.includes('bathroom')) {
-    scene = 'bathroom mirror selfie, warm vanity light';
-    wardrobe = 'casual, fresh out the shower energy';
-    cameraStyle = 'mirror selfie, phone visible in reflection';
-  }
-  if (lower.includes('bed') || lower.includes('morning') || lower.includes('woke')) {
-    scene = 'bedroom, soft morning window light';
-    wardrobe = 'no shirt or casual tee, just woke up';
-    cameraStyle = 'low angle phone selfie, pillow in background';
-  }
-  if (lower.includes('gym') || lower.includes('workout')) {
-    scene = 'gym, natural light from windows';
-    wardrobe = 'workout clothes, slight sweat';
-    cameraStyle = 'gym mirror selfie or straight-on phone shot';
-  }
-  if (/\b(naked|nude|unclothed|bare|nothing on)\b/.test(lower)) {
-    scene = 'private bedroom setting, soft intimate light, adult private moment';
-    wardrobe = 'nude adult selfie, no clothing';
-    cameraStyle = 'phone selfie angle, close crop, private candid framing';
-  }
+  const genderAnchor = archetype.gender === 'M'
+    ? 'Black American man, masculine face, male body, short hair, beard'
+    : 'Black American woman, feminine face, female body';
 
-  return `${wardrobe}, ${scene}, genuine expression, ${cameraStyle}, DSLR quality, natural skin, photorealistic, NOT a copy of any other photo`;
+  return `${identityAnchor}, ${genderAnchor}, phone selfie, casual moment, ${message}, photorealistic, natural skin, DSLR quality`;
 }
 
 // Build companion system prompt

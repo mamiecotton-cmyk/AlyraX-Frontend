@@ -51,8 +51,8 @@ export async function POST(req: NextRequest) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               face_image_url: faceImageUrl,
-              prompt: buildReferenceOnlyPrompt(media_prompt),
-              negative_prompt: REFERENCE_ONLY_NEGATIVE,
+              prompt: media_prompt,
+              gender: archetype.gender,
             }),
           });
 
