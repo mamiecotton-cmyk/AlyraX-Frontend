@@ -34,36 +34,41 @@ export function buildSelfiePrompt(message: string, archetype: Archetype): string
   const adultSelfie = isAdultSelfieRequest(message);
   const explicitSelfie = isExplicitSelfieRequest(message);
   const userRequest = message.trim();
-  const genderAnchor = archetype.gender === 'M'
-    ? 'Black American man, dark brown skin, masculine face'
-    : 'Black American woman, dark brown skin, feminine face';
-  const subjectAnchor = profile
-    ? `clearly ${profile.age}-year-old ${profile.race}`
-    : `clearly ${archetype.age}-year-old ${genderAnchor}`;
   const requestedFormat = explicitSelfie
     ? 'phone selfie angle, casual private moment'
     : 'requested image composition, natural camera perspective, do not make it a selfie unless the user requested a selfie';
 
-  if (adultSelfie) {
+  if (profile) {
+    if (adultSelfie) {
+      return [
+        `user request: ${userRequest}`,
+        'follow the requested setting, pose, framing, camera angle, and nudity level exactly',
+        `private adult nude image of a clearly ${profile.age}-year-old ${profile.race}`,
+        profile.details,
+        'unclothed, no outfit, no wardrobe, do not add clothing unless the user specifically requested clothing',
+        requestedFormat,
+        'photorealistic DSLR, natural skin texture, soft cinematic light',
+      ].filter(Boolean).join(', ');
+    }
+
     return [
       `user request: ${userRequest}`,
-      'follow the user request exactly; the user request overrides all default style, pose, setting, framing, and camera angle',
-      `private adult nude image of a ${subjectAnchor}`,
-      'same person as the reference image; use the reference image for face identity only',
-      'do not copy the reference pose, outfit, background, lighting, or composition',
-      'unclothed, no outfit, no wardrobe, do not add clothing unless the user specifically requested clothing',
+      'follow the requested setting, pose, framing, and camera angle',
+      `documentary portrait photograph of a ${profile.age}-year-old ${profile.race}`,
+      profile.details,
+      profile.wardrobe,
       requestedFormat,
-      'photorealistic, natural skin texture',
+      'photorealistic DSLR, natural skin texture, soft cinematic light',
     ].filter(Boolean).join(', ');
   }
 
-  return [
-    `user request: ${userRequest}`,
-    'follow the user request exactly; the user request overrides all default style, pose, setting, framing, and camera angle',
-    `photorealistic image of a ${subjectAnchor}`,
-    'same person as the reference image; use the reference image for face identity only',
-    'do not copy the reference pose, outfit, background, lighting, or composition',
-    requestedFormat,
-    'natural skin texture',
-  ].filter(Boolean).join(', ');
+  const genderAnchor = archetype.gender === 'M'
+    ? 'Black American man, dark brown skin, masculine face'
+    : 'Black American woman, dark brown skin, feminine face';
+
+  if (adultSelfie) {
+    return `user request: ${userRequest}, follow the requested setting, pose, framing, camera angle, and nudity level exactly, private adult nude image of a clearly ${archetype.age}-year-old ${genderAnchor}, unclothed, no outfit, no wardrobe, do not add clothing unless the user specifically requested clothing, ${requestedFormat}, photorealistic, natural skin`;
+  }
+
+  return `user request: ${userRequest}, follow the requested setting, pose, framing, and camera angle, ${genderAnchor}, ${archetype.vibe.toLowerCase()}, ${requestedFormat}, photorealistic, natural skin`;
 }
