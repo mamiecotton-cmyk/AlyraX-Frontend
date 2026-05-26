@@ -1,19 +1,43 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase-server';
 import { archetypes } from '@/lib/archetypes';
+import { getArchetypeImagePrompt } from '@/lib/archetype-image-prompts';
 
 export const maxDuration = 300;
 
-function buildReferenceOnlyPrompt(prompt: string) {
-  return [
-    'same person as the reference image',
-    'same face and identity as the reference image',
-    prompt,
-  ].filter(Boolean).join(', ');
+function structuredPromptForArchetype(archetype: NonNullable<(typeof archetypes)[number]>) {
+  const promptProfile = getArchetypeImagePrompt(archetype);
+  return {
+    race: promptProfile?.race ?? 'Black American',
+    gender: archetype.gender,
+    age: promptProfile?.age ?? String(archetype.age),
+    wardrobe: promptProfile?.wardrobe ?? archetype.style,
+    environment: promptProfile?.environment ?? archetype.city,
+    details: promptProfile?.details ?? `${archetype.style.toLowerCase()}, ${archetype.energy.toLowerCase()}`,
+  };
 }
 
-const REFERENCE_ONLY_NEGATIVE =
-  'different person, changed face, wrong identity, face does not match reference, duplicate person, extra person';
+function subjectNegativeForArchetype(archetype: NonNullable<(typeof archetypes)[number]>) {
+  const wrongGender = archetype.gender === 'F'
+    ? 'man, male, masculine face, beard, mustache'
+    : 'woman, female, feminine face, breasts';
+
+  return [
+    wrongGender,
+    'white person',
+    'caucasian',
+    'european features',
+    'wrong ethnicity',
+    'wrong gender',
+  ].join(', ');
+}
+
+function adminPromptForArchetype(
+  archetype: NonNullable<(typeof archetypes)[number]>,
+  savedPrompt?: string | null,
+) {
+  return savedPrompt || getArchetypeImagePrompt(archetype)?.prompt || '';
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -36,65 +60,26 @@ export async function POST(req: NextRequest) {
       // Get archetype main image for face reference
       const { data: imageData } = await supabase
         .from('archetype_images')
-        .select('image_url')
+        .select('image_url, prompt_used')
         .eq('archetype_id', archetype_id)
         .maybeSingle();
 
-      const faceImageUrl = imageData?.image_url;
+      const adminPrompt = adminPromptForArchetype(archetype, imageData?.prompt_used);
+      const description = [adminPrompt, media_prompt].filter(Boolean).join(', ');
 
-      // Try InstantID first if we have a reference image
-      if (faceImageUrl) {
-        try {
-          console.log('Attempting InstantID selfie for', archetype_id);
-          const selfieRes = await fetch(`${APP_URL}/api/generate-selfie`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              face_image_url: faceImageUrl,
-              prompt: media_prompt,
-              gender: archetype.gender,
-            }),
-          });
-
-          const selfieData = await selfieRes.json();
-          console.log('InstantID response:', selfieRes.status, selfieData);
-
-          if (selfieRes.ok && selfieData.image_url) {
-            await supabase
-              .from('chat_messages')
-              .update({
-                media_url: selfieData.image_url,
-                media_status: 'ready',
-              })
-              .eq('id', message_id);
-
-            return NextResponse.json({
-              image_url: selfieData.image_url,
-              message_id,
-              status: 'ready',
-            });
-          }
-        } catch (err) {
-          console.error('InstantID selfie failed, falling back:', err);
-        }
-      }
-
-      // Fallback to existing pipeline
-      console.log('Falling back to standard pipeline for', archetype_id);
+      console.log('Generating chat image with admin prompt settings for', archetype_id);
       const genRes = await fetch(`${APP_URL}/api/generate-companion`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          description: faceImageUrl ? buildReferenceOnlyPrompt(media_prompt) : media_prompt,
+          description,
+          structured_prompt: structuredPromptForArchetype(archetype),
+          gender: archetype.gender,
+          negative_prompt: subjectNegativeForArchetype(archetype),
           style: 'portrait',
-          num_inference_steps: 30,
-          guidance_scale: 7,
+          num_inference_steps: 35,
+          guidance_scale: 5,
           seed: -1,
-          negative_prompt: REFERENCE_ONLY_NEGATIVE,
-          reference_image_url: faceImageUrl || undefined,
-          reference_mode: faceImageUrl ? 'identity' : undefined,
-          reference_strength: faceImageUrl ? 0.18 : undefined,
-          denoise_strength: faceImageUrl ? 0.82 : undefined,
         }),
       });
 
