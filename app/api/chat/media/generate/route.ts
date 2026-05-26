@@ -29,6 +29,17 @@ function subjectNegativeForArchetype(archetype: NonNullable<(typeof archetypes)[
     'european features',
     'wrong ethnicity',
     'wrong gender',
+    'phone visible',
+    'camera visible',
+    'phone covering body',
+    'camera covering body',
+    'object blocking body',
+    'hands covering body',
+    'modesty cover',
+    'strategically covered',
+    'cropped body',
+    'cropped legs',
+    'cropped feet',
   ].join(', ');
 }
 
@@ -63,15 +74,19 @@ export async function POST(req: NextRequest) {
         .eq('archetype_id', archetype_id)
         .maybeSingle();
 
-      const referenceImageUrl = imageData?.image_url || null;
       const imageStyle = styleForMediaPrompt(media_prompt);
+      const referenceImageUrl = imageStyle === 'fullbody' ? null : imageData?.image_url || null;
+      const fullBodyInstruction = imageStyle === 'fullbody'
+        ? 'full body head to toe visible, entire body in frame, legs and feet visible, no phone or camera visible, no object blocking body'
+        : '';
+      const description = [media_prompt, fullBodyInstruction].filter(Boolean).join(', ');
 
       console.log('Generating chat image with identity reference for', archetype_id);
       const genRes = await fetch(`${APP_URL}/api/generate-companion`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          description: media_prompt,
+          description,
           structured_prompt: structuredPromptForArchetype(archetype),
           gender: archetype.gender,
           negative_prompt: subjectNegativeForArchetype(archetype),
