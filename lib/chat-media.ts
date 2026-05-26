@@ -48,7 +48,7 @@ export function buildSelfiePrompt(message: string, archetype: Archetype): string
         profile.details,
         'unclothed, no outfit, no wardrobe, do not add clothing unless the user specifically requested clothing',
         requestedFormat,
-        'photorealistic DSLR, natural skin texture, soft cinematic light',
+        'raw photorealistic DSLR photograph, real human skin texture, visible pores, natural lighting, not cartoon, not illustration, not CGI',
       ].filter(Boolean).join(', ');
     }
 
@@ -60,7 +60,7 @@ export function buildSelfiePrompt(message: string, archetype: Archetype): string
       profile.details,
       profile.wardrobe,
       requestedFormat,
-      'photorealistic DSLR, natural skin texture, soft cinematic light',
+      'raw photorealistic DSLR photograph, real human skin texture, visible pores, natural lighting, not cartoon, not illustration, not CGI',
     ].filter(Boolean).join(', ');
   }
 
@@ -69,8 +69,8 @@ export function buildSelfiePrompt(message: string, archetype: Archetype): string
     : 'Black American woman, dark brown skin, feminine face';
 
   if (adultSelfie) {
-    return `user request: ${userRequest}, follow the requested setting, pose, framing, viewpoint, and nudity level exactly, private adult nude image of a clearly ${archetype.age}-year-old ${genderAnchor}, unclothed, no outfit, no wardrobe, do not add clothing unless the user specifically requested clothing, ${requestedFormat}, photorealistic, natural skin`;
+    return `user request: ${userRequest}, follow the requested setting, pose, framing, viewpoint, and nudity level exactly, private adult nude image of a clearly ${archetype.age}-year-old ${genderAnchor}, unclothed, no outfit, no wardrobe, do not add clothing unless the user specifically requested clothing, ${requestedFormat}, raw photorealistic DSLR photograph, real human skin texture, visible pores, natural lighting, not cartoon, not illustration, not CGI`;
   }
 
-  return `user request: ${userRequest}, follow the requested setting, pose, framing, and viewpoint, ${genderAnchor}, ${archetype.vibe.toLowerCase()}, ${requestedFormat}, photorealistic, natural skin`;
+  return `user request: ${userRequest}, follow the requested setting, pose, framing, and viewpoint, ${genderAnchor}, ${archetype.vibe.toLowerCase()}, ${requestedFormat}, raw photorealistic DSLR photograph, real human skin texture, visible pores, natural lighting, not cartoon, not illustration, not CGI`;
 }
