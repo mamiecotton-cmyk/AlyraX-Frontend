@@ -22,8 +22,8 @@ export function buildSelfiePrompt(message: string, archetype: Archetype): string
     : `${archetype.vibe.toLowerCase()}`;
 
   const genderAnchor = archetype.gender === 'M'
-    ? 'Black American man, masculine face, male body, short hair, beard'
-    : 'Black American woman, feminine face, female body';
+    ? 'Black American man, dark brown skin, masculine face, male body'
+    : 'Black American woman, dark brown skin, feminine face, female body';
 
-  return `${identityAnchor}, ${genderAnchor}, phone selfie, casual moment, ${message}, photorealistic, natural skin, DSLR quality`;
+  return `portrait head and shoulders only, cropped at upper chest, face fills frame, no legs, no shoes, no full body, same person as the reference image, same face and identity as the reference image, ${identityAnchor}, ${genderAnchor}, phone selfie, casual moment, photorealistic, natural skin, DSLR quality`;
 }
