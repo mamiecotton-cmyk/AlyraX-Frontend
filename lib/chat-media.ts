@@ -35,14 +35,14 @@ export function buildSelfiePrompt(message: string, archetype: Archetype): string
   const explicitSelfie = isExplicitSelfieRequest(message);
   const userRequest = message.trim();
   const requestedFormat = explicitSelfie
-    ? 'phone selfie angle, casual private moment'
-    : 'requested image composition, natural camera perspective, do not make it a selfie unless the user requested a selfie';
+    ? 'front-facing selfie perspective, arm-length framing, phone and camera are not visible in frame, no object blocking the subject'
+    : 'requested image composition, natural photographic perspective, do not make it a selfie unless the user requested a selfie';
 
   if (profile) {
     if (adultSelfie) {
       return [
         `user request: ${userRequest}`,
-        'follow the requested setting, pose, framing, camera angle, and nudity level exactly',
+        'follow the requested setting, pose, framing, viewpoint, and nudity level exactly',
         'preserve the exact face, skin tone, hair color, hairstyle, and identity from the reference image',
         `private adult nude image of a clearly ${profile.age}-year-old ${profile.race}`,
         profile.details,
@@ -54,7 +54,7 @@ export function buildSelfiePrompt(message: string, archetype: Archetype): string
 
     return [
       `user request: ${userRequest}`,
-      'follow the requested setting, pose, framing, and camera angle',
+      'follow the requested setting, pose, framing, and viewpoint',
       'preserve the exact face, skin tone, hair color, hairstyle, and identity from the reference image',
       `documentary portrait photograph of a ${profile.age}-year-old ${profile.race}`,
       profile.details,
@@ -69,8 +69,8 @@ export function buildSelfiePrompt(message: string, archetype: Archetype): string
     : 'Black American woman, dark brown skin, feminine face';
 
   if (adultSelfie) {
-    return `user request: ${userRequest}, follow the requested setting, pose, framing, camera angle, and nudity level exactly, private adult nude image of a clearly ${archetype.age}-year-old ${genderAnchor}, unclothed, no outfit, no wardrobe, do not add clothing unless the user specifically requested clothing, ${requestedFormat}, photorealistic, natural skin`;
+    return `user request: ${userRequest}, follow the requested setting, pose, framing, viewpoint, and nudity level exactly, private adult nude image of a clearly ${archetype.age}-year-old ${genderAnchor}, unclothed, no outfit, no wardrobe, do not add clothing unless the user specifically requested clothing, ${requestedFormat}, photorealistic, natural skin`;
   }
 
-  return `user request: ${userRequest}, follow the requested setting, pose, framing, and camera angle, ${genderAnchor}, ${archetype.vibe.toLowerCase()}, ${requestedFormat}, photorealistic, natural skin`;
+  return `user request: ${userRequest}, follow the requested setting, pose, framing, and viewpoint, ${genderAnchor}, ${archetype.vibe.toLowerCase()}, ${requestedFormat}, photorealistic, natural skin`;
 }
