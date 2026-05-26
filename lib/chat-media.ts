@@ -17,13 +17,20 @@ export function isVideoRequest(message: string): boolean {
 export function buildSelfiePrompt(message: string, archetype: Archetype): string {
   const profile = getArchetypeImagePrompt(archetype);
 
-  const identityAnchor = profile
-    ? `${profile.race}, ${profile.age} years old, ${profile.details}`
-    : `${archetype.vibe.toLowerCase()}`;
+  if (profile) {
+    return [
+      `documentary portrait photograph of a ${profile.age}-year-old ${profile.race}`,
+      profile.details,
+      profile.wardrobe,
+      'phone selfie angle, casual moment, mirror selfie',
+      message,
+      'photorealistic DSLR, natural skin texture, soft cinematic light',
+    ].filter(Boolean).join(', ');
+  }
 
   const genderAnchor = archetype.gender === 'M'
-    ? 'Black American man, dark brown skin, masculine face, male body'
-    : 'Black American woman, dark brown skin, feminine face, female body';
+    ? 'Black American man, dark brown skin, masculine face'
+    : 'Black American woman, dark brown skin, feminine face';
 
-  return `portrait head and shoulders only, cropped at upper chest, face fills frame, no legs, no shoes, no full body, same person as the reference image, same face and identity as the reference image, ${identityAnchor}, ${genderAnchor}, phone selfie, casual moment, photorealistic, natural skin, DSLR quality`;
+  return `${genderAnchor}, ${archetype.vibe.toLowerCase()}, phone selfie, casual moment, ${message}, photorealistic, natural skin`;
 }
