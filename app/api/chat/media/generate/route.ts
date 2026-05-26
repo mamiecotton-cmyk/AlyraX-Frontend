@@ -1,9 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase-server';
 import { archetypes } from '@/lib/archetypes';
-import { getArchetypeImagePrompt } from '@/lib/archetype-image-prompts';
 
 export const maxDuration = 300;
+
+function buildReferenceOnlyPrompt(prompt: string) {
+  return [
+    'same person as the reference image',
+    'same face and identity as the reference image',
+    prompt,
+  ].filter(Boolean).join(', ');
+}
+
+const REFERENCE_ONLY_NEGATIVE =
+  'different person, changed face, wrong identity, face does not match reference, duplicate person, extra person';
 
 export async function POST(req: NextRequest) {
   try {
@@ -23,8 +33,6 @@ export async function POST(req: NextRequest) {
     const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://alyra-x-frontend.vercel.app';
 
     if (media_type === 'image') {
-      const profile = getArchetypeImagePrompt(archetype);
-
       // Get archetype main image for face reference
       const { data: imageData } = await supabase
         .from('archetype_images')
@@ -43,7 +51,8 @@ export async function POST(req: NextRequest) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               face_image_url: faceImageUrl,
-              prompt: media_prompt,
+              prompt: buildReferenceOnlyPrompt(media_prompt),
+              negative_prompt: REFERENCE_ONLY_NEGATIVE,
             }),
           });
 
@@ -76,20 +85,16 @@ export async function POST(req: NextRequest) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          description: media_prompt,
-          structured_prompt: profile ? {
-            race: profile.race,
-            gender: archetype.gender,
-            age: profile.age,
-            wardrobe: profile.wardrobe,
-            environment: profile.environment,
-            details: profile.details,
-          } : undefined,
-          gender: archetype.gender,
+          description: faceImageUrl ? buildReferenceOnlyPrompt(media_prompt) : media_prompt,
           style: 'portrait',
           num_inference_steps: 30,
           guidance_scale: 7,
           seed: -1,
+          negative_prompt: REFERENCE_ONLY_NEGATIVE,
+          reference_image_url: faceImageUrl || undefined,
+          reference_mode: faceImageUrl ? 'identity' : undefined,
+          reference_strength: faceImageUrl ? 0.18 : undefined,
+          denoise_strength: faceImageUrl ? 0.82 : undefined,
         }),
       });
 

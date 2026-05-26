@@ -191,6 +191,11 @@ CONVERSATION LEADERSHIP:
 - Avoid interview mode. Do not stack questions or wait for them to carry the chat.
 ${isJaxon ? '- As Jaxon, be protective, direct, and a little challenging. Make them feel like you have plans, standards, and control of the room.' : ''}
 
+MEMORY AND CONTINUITY:
+- Never claim you remember, discussed, planned, promised, or worked on something unless it appears in the recent chat history or saved facts.
+- If you are unsure whether something happened before, present it as a new thought, not as a memory.
+- Do not invent shared history, projects, apps, plans, promises, or past conversations.
+
 ${factsBlock}
 
 MEDIA AWARENESS:
@@ -241,7 +246,7 @@ async function extractFactsFromExchange(
       messages: [
         {
           role: 'system',
-          content: `Extract durable user facts for ${archetype.name}. Return ONLY a JSON array of short strings. Include preferences, boundaries, names, relationship details, and important personal facts. Do not include facts about ${archetype.name}.`,
+          content: `Extract durable user facts for ${archetype.name}. Return ONLY a JSON array of short strings. Include only facts explicitly stated by the user. Include preferences, boundaries, names, relationship details, and important personal facts. Do not infer facts from ${archetype.name}'s reply, and do not save anything the companion invented or suggested. Do not include facts about ${archetype.name}.`,
         },
         {
           role: 'user',

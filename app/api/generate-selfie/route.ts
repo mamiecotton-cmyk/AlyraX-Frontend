@@ -131,7 +131,7 @@ export async function POST(req: NextRequest) {
     const imageBuffer = await imageRes.arrayBuffer();
     const faceImageBase64 = Buffer.from(imageBuffer).toString('base64');
 
-    const negPrompt = negative_prompt || 'cartoon, anime, illustration, deformed, ugly, blurry, watermark, text, bad anatomy';
+    const negPrompt = negative_prompt || 'different person, changed face, wrong identity, face does not match reference, duplicate person, extra person, cartoon, anime, illustration, deformed, ugly, blurry, watermark, text, bad anatomy';
     const seed = Math.floor(Math.random() * 2 ** 32);
     const workflow = buildInstantIDWorkflow(prompt, negPrompt, seed);
 
