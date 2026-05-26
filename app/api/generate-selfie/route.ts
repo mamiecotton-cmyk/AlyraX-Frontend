@@ -135,7 +135,7 @@ export async function POST(req: NextRequest) {
       ? 'woman, female, feminine, breasts, long hair, girl, she'
       : 'man, male, masculine, beard, short hair, he';
 
-    const negPrompt = `${genderNegative}, cartoon, anime, deformed, ugly, blurry, watermark, wrong ethnicity, white person, caucasian`;
+    const negPrompt = `${genderNegative}, minor, child, teen, teenager, underage, young-looking, cartoon, anime, deformed, ugly, blurry, watermark, wrong ethnicity, white person, caucasian`;
     const seed = Math.floor(Math.random() * 2 ** 32);
     const workflow = buildInstantIDWorkflow(prompt, negPrompt, seed);
 
