@@ -3,7 +3,6 @@ import { NextRequest, NextResponse } from 'next/server';
 export const maxDuration = 300;
 
 function buildInstantIDWorkflow(
-  faceImageUrl: string,
   prompt: string,
   negativePrompt: string,
   seed: number,
@@ -50,7 +49,7 @@ function buildInstantIDWorkflow(
     '7': {
       class_type: 'LoadImage',
       inputs: {
-        image: faceImageUrl,
+        image: 'face_reference.jpg',
       },
     },
     '8': {
@@ -63,7 +62,7 @@ function buildInstantIDWorkflow(
         model: ['3', 0],
         positive: ['4', 0],
         negative: ['5', 0],
-        ip_weight: 0.8,
+        weight: 0.8,
         cn_strength: 0.8,
         start_at: 0.0,
         end_at: 1.0,
@@ -125,9 +124,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing RunPod config' }, { status: 500 });
     }
 
+    const imageRes = await fetch(face_image_url);
+    if (!imageRes.ok) {
+      return NextResponse.json({ error: 'Failed to fetch face image' }, { status: 500 });
+    }
+    const imageBuffer = await imageRes.arrayBuffer();
+    const faceImageBase64 = Buffer.from(imageBuffer).toString('base64');
+
     const negPrompt = negative_prompt || 'cartoon, anime, illustration, deformed, ugly, blurry, watermark, text, bad anatomy';
     const seed = Math.floor(Math.random() * 2 ** 32);
-    const workflow = buildInstantIDWorkflow(face_image_url, prompt, negPrompt, seed);
+    const workflow = buildInstantIDWorkflow(prompt, negPrompt, seed);
 
     // Submit to RunPod
     const submitRes = await fetch(
@@ -138,7 +144,15 @@ export async function POST(req: NextRequest) {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${apiKey}`,
         },
-        body: JSON.stringify({ input: { workflow } }),
+        body: JSON.stringify({
+          input: {
+            workflow,
+            images: [{
+              name: 'face_reference.jpg',
+              image: faceImageBase64,
+            }],
+          },
+        }),
       }
     );
 
