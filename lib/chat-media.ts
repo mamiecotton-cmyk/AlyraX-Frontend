@@ -1,10 +1,15 @@
 import { type Archetype } from '@/lib/archetypes';
 import { getArchetypeImagePrompt } from '@/lib/archetype-image-prompts';
 
-// Detect if user is requesting a selfie/photo.
+// Detect if user is requesting an image/photo.
 export function isSelfieRequest(message: string): boolean {
   const lower = message.toLowerCase();
-  return /\b(selfie|pic|picture|photo|send me|show me|take a|snap|what (are|do) you look(ing)?|what('re| are) you wearing)\b/.test(lower);
+  return (
+    /\b(selfie|pic|picture|photo|image|portrait|shot|snap)\b/.test(lower)
+    || /\b(send|show|take|make|create)\s+(me\s+)?(a\s+|an\s+|some\s+)?(selfie|pic|picture|photo|image|portrait|shot|snap)\b/.test(lower)
+    || /\bwhat (are|do) you look(ing)?\b/.test(lower)
+    || /\bwhat('re| are) you wearing\b/.test(lower)
+  );
 }
 
 // Detect if user is requesting a video.
@@ -18,21 +23,30 @@ function isAdultSelfieRequest(message: string): boolean {
   return /\b(nude|naked|uncensored|nsfw|adult|explicit|topless|shirtless|bare|intimate)\b/.test(lower);
 }
 
-// Build selfie image prompt from user message + archetype.
+function isExplicitSelfieRequest(message: string): boolean {
+  const lower = message.toLowerCase();
+  return /\b(selfie|snap|mirror selfie|phone selfie)\b/.test(lower);
+}
+
+// Build image prompt from user message + archetype.
 export function buildSelfiePrompt(message: string, archetype: Archetype): string {
   const profile = getArchetypeImagePrompt(archetype);
   const adultSelfie = isAdultSelfieRequest(message);
+  const explicitSelfie = isExplicitSelfieRequest(message);
   const userRequest = message.trim();
+  const requestedFormat = explicitSelfie
+    ? 'phone selfie angle, casual private moment'
+    : 'requested image composition, natural camera perspective, do not make it a selfie unless the user requested a selfie';
 
   if (profile) {
     if (adultSelfie) {
       return [
         `user request: ${userRequest}`,
         'follow the requested setting, pose, framing, camera angle, and nudity level exactly',
-        `private adult nude selfie of a clearly ${profile.age}-year-old ${profile.race}`,
+        `private adult nude image of a clearly ${profile.age}-year-old ${profile.race}`,
         profile.details,
         'unclothed, no outfit, no wardrobe, do not add clothing unless the user specifically requested clothing',
-        'phone selfie, casual private moment',
+        requestedFormat,
         'photorealistic DSLR, natural skin texture, soft cinematic light',
       ].filter(Boolean).join(', ');
     }
@@ -43,7 +57,7 @@ export function buildSelfiePrompt(message: string, archetype: Archetype): string
       `documentary portrait photograph of a ${profile.age}-year-old ${profile.race}`,
       profile.details,
       profile.wardrobe,
-      'phone selfie angle, casual moment',
+      requestedFormat,
       'photorealistic DSLR, natural skin texture, soft cinematic light',
     ].filter(Boolean).join(', ');
   }
@@ -53,8 +67,8 @@ export function buildSelfiePrompt(message: string, archetype: Archetype): string
     : 'Black American woman, dark brown skin, feminine face';
 
   if (adultSelfie) {
-    return `user request: ${userRequest}, follow the requested setting, pose, framing, camera angle, and nudity level exactly, private adult nude selfie of a clearly ${archetype.age}-year-old ${genderAnchor}, unclothed, no outfit, no wardrobe, do not add clothing unless the user specifically requested clothing, phone selfie, casual private moment, photorealistic, natural skin`;
+    return `user request: ${userRequest}, follow the requested setting, pose, framing, camera angle, and nudity level exactly, private adult nude image of a clearly ${archetype.age}-year-old ${genderAnchor}, unclothed, no outfit, no wardrobe, do not add clothing unless the user specifically requested clothing, ${requestedFormat}, photorealistic, natural skin`;
   }
 
-  return `user request: ${userRequest}, follow the requested setting, pose, framing, and camera angle, ${genderAnchor}, ${archetype.vibe.toLowerCase()}, phone selfie, casual moment, photorealistic, natural skin`;
+  return `user request: ${userRequest}, follow the requested setting, pose, framing, and camera angle, ${genderAnchor}, ${archetype.vibe.toLowerCase()}, ${requestedFormat}, photorealistic, natural skin`;
 }

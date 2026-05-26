@@ -72,8 +72,8 @@ function timeSince(iso: string) {
 function isVoiceMediaRequest(message: string) {
   const lower = message.toLowerCase();
   return (
-    /\b(selfie|pic|picture|photo|snap)\b/.test(lower)
-    || /\b(send|show|take)\s+(me\s+)?(a\s+)?(selfie|pic|picture|photo|snap)\b/.test(lower)
+    /\b(selfie|pic|picture|photo|image|portrait|shot|snap)\b/.test(lower)
+    || /\b(send|show|take|make|create)\s+(me\s+)?(a\s+|an\s+|some\s+)?(selfie|pic|picture|photo|image|portrait|shot|snap)\b/.test(lower)
     || /\bwhat (are|do) you look(ing)?\b/.test(lower)
     || /\bwhat('re| are) you wearing\b/.test(lower)
   );
