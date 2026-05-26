@@ -18,7 +18,6 @@ function buildInstantIDWorkflow(
       class_type: 'InstantIDFaceAnalysis',
       inputs: {
         provider: 'CUDA',
-        image: ['7', 0],
       },
     },
     '3': {

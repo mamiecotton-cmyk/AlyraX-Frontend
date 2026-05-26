@@ -74,12 +74,31 @@ export async function POST(req: NextRequest) {
               status: 'ready',
             });
           }
+
+          await supabase
+            .from('chat_messages')
+            .update({ media_status: 'failed' })
+            .eq('id', message_id);
+
+          return NextResponse.json(
+            { error: selfieData.error || 'Reference image generation failed' },
+            { status: 500 }
+          );
         } catch (err) {
-          console.error('InstantID selfie failed, falling back:', err);
+          console.error('InstantID selfie failed:', err);
+          await supabase
+            .from('chat_messages')
+            .update({ media_status: 'failed' })
+            .eq('id', message_id);
+
+          return NextResponse.json(
+            { error: 'Reference image generation failed' },
+            { status: 500 }
+          );
         }
       }
 
-      // Fallback to existing pipeline
+      // Fallback to existing pipeline only when no reference image exists.
       console.log('Falling back to standard pipeline for', archetype_id);
       const genRes = await fetch(`${APP_URL}/api/generate-companion`, {
         method: 'POST',
