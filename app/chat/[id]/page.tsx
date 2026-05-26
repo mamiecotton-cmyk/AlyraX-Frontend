@@ -69,6 +69,16 @@ function timeSince(iso: string) {
   return `${months} months`;
 }
 
+function isVoiceMediaRequest(message: string) {
+  const lower = message.toLowerCase();
+  return (
+    /\b(selfie|pic|picture|photo|snap)\b/.test(lower)
+    || /\b(send|show|take)\s+(me\s+)?(a\s+)?(selfie|pic|picture|photo|snap)\b/.test(lower)
+    || /\bwhat (are|do) you look(ing)?\b/.test(lower)
+    || /\bwhat('re| are) you wearing\b/.test(lower)
+  );
+}
+
 // ── Media Message Component ─────────────────────────────────────────────────
 function MediaMessage({
   message,
@@ -217,6 +227,7 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const pollingRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
+  const voiceMediaRequestsRef = useRef<Map<string, number>>(new Map());
 
   // ── Load ──────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -413,6 +424,50 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
       pollMediaJob(msg.id, data.jobId, msg.media_type, data.provider);
     }
   }, [id, pollMediaJob]);
+
+  const handleVoiceTranscript = useCallback(async (transcript: string) => {
+    if (!conversationId || !archetype) return;
+
+    const normalized = transcript.toLowerCase().replace(/\s+/g, ' ').trim();
+    if (!normalized || !isVoiceMediaRequest(normalized)) return;
+
+    const now = Date.now();
+    const lastRequestedAt = voiceMediaRequestsRef.current.get(normalized);
+    if (lastRequestedAt && now - lastRequestedAt < 120_000) return;
+    voiceMediaRequestsRef.current.set(normalized, now);
+
+    try {
+      const res = await fetch('/api/chat/media/request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          conversation_id: conversationId,
+          archetype_id: id,
+          message: transcript,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setSendError(data.error || 'Photo request failed');
+        return;
+      }
+
+      const incoming = [data.userMessage, data.mediaMessage].filter(Boolean) as Message[];
+      if (incoming.length) {
+        setMessages(prev => {
+          const existingIds = new Set(prev.map(m => m.id));
+          return [...prev, ...incoming.filter(m => !existingIds.has(m.id))];
+        });
+      }
+
+      if (data.mediaMessage) {
+        await startMediaGeneration(data.mediaMessage);
+      }
+    } catch {
+      setSendError('Photo request failed');
+    }
+  }, [archetype, conversationId, id, startMediaGeneration]);
 
   // Auto-start generation for any generating messages on load
   useEffect(() => {
@@ -645,6 +700,7 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
                 archetypeId={id}
                 userName={userName}
                 lastMemory={factsMemory}
+                onUserTranscript={handleVoiceTranscript}
                 voiceLoading={loading}
                 autoStart={searchParams.get('call') === '1'}
               />

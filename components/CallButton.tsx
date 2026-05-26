@@ -41,6 +41,7 @@ export default function CallButton({
   promptUsed,
   userName,
   lastMemory,
+  onUserTranscript,
   autoStart = false,
 }: {
   scenario: string;
@@ -53,6 +54,7 @@ export default function CallButton({
   promptUsed?: string | null;
   userName?: string | null;
   lastMemory?: CompanionMemory | null;
+  onUserTranscript?: (transcript: string) => void;
   voiceLoading?: boolean;
   autoStart?: boolean;
 }) {
@@ -111,6 +113,7 @@ export default function CallButton({
         ...messagesRef.current,
         { role: message.role, content: message.transcript },
       ].slice(-24);
+      if (message.role === 'user') onUserTranscript?.(message.transcript);
     };
     vapi.on('call-start', onStart);
     vapi.on('call-end', onEnd);
@@ -122,7 +125,7 @@ export default function CallButton({
       vapi?.off('error', onError);
       vapi?.off('message', onMessage);
     };
-  }, [companionId, isVideoMode]);
+  }, [companionId, isVideoMode, onUserTranscript]);
 
   const buildVoiceGreeting = useCallback(() => {
     const persona = `${personaName || ''} ${personaTagline || ''}`.toLowerCase();
