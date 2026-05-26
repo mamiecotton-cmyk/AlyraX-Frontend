@@ -75,11 +75,13 @@ export async function POST(req: NextRequest) {
         .maybeSingle();
 
       const imageStyle = styleForMediaPrompt(media_prompt);
-      const referenceImageUrl = imageStyle === 'fullbody' ? null : imageData?.image_url || null;
+      const referenceImageUrl = imageData?.image_url || null;
       const fullBodyInstruction = imageStyle === 'fullbody'
-        ? 'full body head to toe visible, entire body in frame, legs and feet visible, no phone or camera visible, no object blocking body'
+        ? 'full body head to toe visible, entire body in frame, legs and feet visible, same face and identity as reference image, no phone or camera visible, no object blocking body'
         : '';
       const description = [media_prompt, fullBodyInstruction].filter(Boolean).join(', ');
+      const referenceDenoise = imageStyle === 'fullbody' ? 0.92 : 0.70;
+      const referenceStrength = imageStyle === 'fullbody' ? 0.12 : 0.18;
 
       console.log('Generating chat image with identity reference for', archetype_id);
       const genRes = await fetch(`${APP_URL}/api/generate-companion`, {
@@ -96,8 +98,8 @@ export async function POST(req: NextRequest) {
           seed: -1,
           reference_image_url: referenceImageUrl || undefined,
           reference_mode: referenceImageUrl ? 'identity' : undefined,
-          reference_strength: referenceImageUrl ? 0.18 : undefined,
-          denoise_strength: referenceImageUrl ? 0.70 : undefined,
+          reference_strength: referenceImageUrl ? referenceStrength : undefined,
+          denoise_strength: referenceImageUrl ? referenceDenoise : undefined,
         }),
       });
 
