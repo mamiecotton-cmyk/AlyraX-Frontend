@@ -181,14 +181,6 @@ RULES:
 - Be warm, present, and genuinely interested in them`;
 }
 
-function buildMediaReply(wantsVideo: boolean) {
-  if (wantsVideo) {
-    return 'Give me a sec, I got you.';
-  }
-
-  return 'Give me a sec, I got you.';
-}
-
 function parseFactResponse(content: string) {
   try {
     const parsed = JSON.parse(content) as unknown;
@@ -341,24 +333,19 @@ export async function POST(req: NextRequest) {
 
     const facts = await loadCompanionFacts(supabase, user.id, archetype_id);
     const systemPrompt = buildSystemPrompt(archetype, relationship, formatFactsBlock(facts));
-    const mediaOnlyRequest = wantsSelfie || wantsVideo;
 
-    if (!OPENROUTER_API_KEY && !mediaOnlyRequest) {
+    if (!OPENROUTER_API_KEY) {
       return NextResponse.json(
         { error: 'Missing OPENROUTER_API_KEY', userMessage: userMsg },
         { status: 500 }
       );
     }
 
-    const response = mediaOnlyRequest
-      ? { content: buildMediaReply(wantsVideo), model: 'local-media-reply', attempts: [] as ChatAttempt[] }
-      : await fetchOpenRouterChat([
-        { role: 'system', content: systemPrompt },
-        ...recentHistory,
-        { role: 'user', content: message },
-      ]);
-
-    const { content: companionText, model: responseModel, attempts } = response;
+    const { content: companionText, model: responseModel, attempts } = await fetchOpenRouterChat([
+      { role: 'system', content: systemPrompt },
+      ...recentHistory,
+      { role: 'user', content: message },
+    ]);
 
     if (!companionText) {
       console.error('OpenRouter chat failed after fallbacks:', JSON.stringify(attempts));
