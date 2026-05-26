@@ -11,8 +11,8 @@ function structuredPromptForArchetype(archetype: NonNullable<(typeof archetypes)
     race: promptProfile?.race ?? 'Black American',
     gender: archetype.gender,
     age: promptProfile?.age ?? String(archetype.age),
-    wardrobe: promptProfile?.wardrobe ?? archetype.style,
-    environment: promptProfile?.environment ?? archetype.city,
+    wardrobe: '',
+    environment: '',
     details: promptProfile?.details ?? `${archetype.style.toLowerCase()}, ${archetype.energy.toLowerCase()}`,
   };
 }
@@ -32,11 +32,10 @@ function subjectNegativeForArchetype(archetype: NonNullable<(typeof archetypes)[
   ].join(', ');
 }
 
-function adminPromptForArchetype(
-  archetype: NonNullable<(typeof archetypes)[number]>,
-  savedPrompt?: string | null,
-) {
-  return savedPrompt || getArchetypeImagePrompt(archetype)?.prompt || '';
+function styleForMediaPrompt(prompt: string) {
+  return /\b(full body|full-body|head to toe|entire body|whole body|legs?|standing|spread)\b/i.test(prompt)
+    ? 'fullbody'
+    : 'portrait';
 }
 
 export async function POST(req: NextRequest) {
@@ -60,26 +59,30 @@ export async function POST(req: NextRequest) {
       // Get archetype main image for face reference
       const { data: imageData } = await supabase
         .from('archetype_images')
-        .select('image_url, prompt_used')
+        .select('image_url')
         .eq('archetype_id', archetype_id)
         .maybeSingle();
 
-      const adminPrompt = adminPromptForArchetype(archetype, imageData?.prompt_used);
-      const description = [adminPrompt, media_prompt].filter(Boolean).join(', ');
+      const referenceImageUrl = imageData?.image_url || null;
+      const imageStyle = styleForMediaPrompt(media_prompt);
 
-      console.log('Generating chat image with admin prompt settings for', archetype_id);
+      console.log('Generating chat image with identity reference for', archetype_id);
       const genRes = await fetch(`${APP_URL}/api/generate-companion`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          description,
+          description: media_prompt,
           structured_prompt: structuredPromptForArchetype(archetype),
           gender: archetype.gender,
           negative_prompt: subjectNegativeForArchetype(archetype),
-          style: 'portrait',
+          style: imageStyle,
           num_inference_steps: 35,
           guidance_scale: 5,
           seed: -1,
+          reference_image_url: referenceImageUrl || undefined,
+          reference_mode: referenceImageUrl ? 'identity' : undefined,
+          reference_strength: referenceImageUrl ? 0.18 : undefined,
+          denoise_strength: referenceImageUrl ? 0.70 : undefined,
         }),
       });
 
