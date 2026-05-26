@@ -28,17 +28,24 @@ function isExplicitSelfieRequest(message: string): boolean {
   return /\b(selfie|snap|mirror selfie|phone selfie)\b/.test(lower);
 }
 
+function isMirrorSelfieRequest(message: string): boolean {
+  return /\b(mirror selfie|mirror pic|mirror picture|mirror photo|in the mirror|bathroom mirror)\b/i.test(message);
+}
+
 // Build image prompt from user message + archetype.
 export function buildSelfiePrompt(message: string, archetype: Archetype): string {
   const profile = getArchetypeImagePrompt(archetype);
   const adultSelfie = isAdultSelfieRequest(message);
   const explicitSelfie = isExplicitSelfieRequest(message);
+  const mirrorSelfie = isMirrorSelfieRequest(message);
   const userRequest = message.trim();
   const identity = profile
     ? `clearly ${profile.age}-year-old ${profile.race}, ${profile.details}`
     : `clearly ${archetype.age}-year-old ${archetype.gender === 'M' ? 'Black American man, masculine face' : 'Black American woman, feminine face'}`;
-  const perspective = explicitSelfie
-    ? 'selfie perspective'
+  const perspective = mirrorSelfie
+    ? 'mirror selfie perspective requested by the user'
+    : explicitSelfie
+      ? 'front-facing selfie perspective, not a mirror selfie, no reflection, no phone or camera visible in frame'
     : 'natural photographic perspective, not a selfie unless requested';
 
   if (adultSelfie) {

@@ -17,10 +17,14 @@ function structuredPromptForArchetype(archetype: NonNullable<(typeof archetypes)
   };
 }
 
-function subjectNegativeForArchetype(archetype: NonNullable<(typeof archetypes)[number]>) {
+function subjectNegativeForArchetype(
+  archetype: NonNullable<(typeof archetypes)[number]>,
+  prompt: string,
+) {
   const wrongGender = archetype.gender === 'F'
     ? 'man, male, masculine face, beard, mustache'
     : 'woman, female, feminine face, breasts';
+  const mirrorRequested = /\b(mirror selfie|mirror pic|mirror picture|mirror photo|in the mirror|bathroom mirror)\b/i.test(prompt);
 
   return [
     wrongGender,
@@ -40,6 +44,7 @@ function subjectNegativeForArchetype(archetype: NonNullable<(typeof archetypes)[
     'cropped body',
     'cropped legs',
     'cropped feet',
+    ...(!mirrorRequested ? ['mirror selfie', 'mirror reflection', 'bathroom mirror', 'reflection shot'] : []),
   ].join(', ');
 }
 
@@ -91,7 +96,7 @@ export async function POST(req: NextRequest) {
           description,
           structured_prompt: structuredPromptForArchetype(archetype),
           gender: archetype.gender,
-          negative_prompt: subjectNegativeForArchetype(archetype),
+          negative_prompt: subjectNegativeForArchetype(archetype, media_prompt),
           style: imageStyle,
           num_inference_steps: 35,
           guidance_scale: 5,
