@@ -43,6 +43,7 @@ export function buildSelfiePrompt(message: string, archetype: Archetype): string
       return [
         `user request: ${userRequest}`,
         'follow the requested setting, pose, framing, camera angle, and nudity level exactly',
+        'preserve the exact face, skin tone, hair color, hairstyle, and identity from the reference image',
         `private adult nude image of a clearly ${profile.age}-year-old ${profile.race}`,
         profile.details,
         'unclothed, no outfit, no wardrobe, do not add clothing unless the user specifically requested clothing',
@@ -54,6 +55,7 @@ export function buildSelfiePrompt(message: string, archetype: Archetype): string
     return [
       `user request: ${userRequest}`,
       'follow the requested setting, pose, framing, and camera angle',
+      'preserve the exact face, skin tone, hair color, hairstyle, and identity from the reference image',
       `documentary portrait photograph of a ${profile.age}-year-old ${profile.race}`,
       profile.details,
       profile.wardrobe,

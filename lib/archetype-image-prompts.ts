@@ -195,7 +195,7 @@ export const ARCHETYPE_IMAGE_PROMPTS: Record<string, ArchetypeImagePrompt> = {
     age: '27',
     wardrobe: 'cream fitted outfit, gold jewelry, flawless natural makeup',
     environment: 'luxury Houston apartment with floor to ceiling windows, golden afternoon light',
-    details: 'confident unbothered expression, long sleek hair, direct gaze, effortless power',
+    details: 'confident unbothered expression, long sleek honey-blonde hair with laid edges, direct gaze, effortless power',
     prompt: '',
   },
 };
