@@ -81,10 +81,15 @@ export async function POST(req: NextRequest) {
 
       const imageStyle = styleForMediaPrompt(media_prompt);
       const referenceImageUrl = imageData?.image_url || null;
+      const promptAdherenceInstruction = [
+        'highest priority: follow the user request exactly',
+        'do not substitute a different pose, framing, camera setup, outfit, or scene',
+        'only use mirror, phone, selfie, full-body, crop, clothing, or location details when the user requested them',
+      ].join(', ');
       const fullBodyInstruction = imageStyle === 'fullbody'
         ? 'full body head to toe visible, entire body in frame, legs and feet visible, close facial match to the reference image, same face shape, same facial features, same identity as reference image, no phone or camera visible, no object blocking body'
         : '';
-      const description = [media_prompt, fullBodyInstruction].filter(Boolean).join(', ');
+      const description = [promptAdherenceInstruction, media_prompt, fullBodyInstruction].filter(Boolean).join(', ');
       const referenceDenoise = imageStyle === 'fullbody' ? 0.84 : 0.70;
       const referenceStrength = imageStyle === 'fullbody' ? 0.22 : 0.18;
 
