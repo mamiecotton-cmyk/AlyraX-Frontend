@@ -90,8 +90,8 @@ export async function POST(req: NextRequest) {
         ? 'full body head to toe visible, entire body in frame, legs and feet visible, close facial match to the reference image, same face shape, same facial features, same identity as reference image, no phone or camera visible, no object blocking body'
         : '';
       const description = [promptAdherenceInstruction, media_prompt, fullBodyInstruction].filter(Boolean).join(', ');
-      const referenceDenoise = imageStyle === 'fullbody' ? 0.84 : 0.70;
-      const referenceStrength = imageStyle === 'fullbody' ? 0.22 : 0.18;
+      const referenceDenoise = imageStyle === 'fullbody' ? 0.65 : 0.55;
+      const referenceStrength = imageStyle === 'fullbody' ? 0.35 : 0.40;
 
       console.log('Generating chat image with identity reference for', archetype_id);
       const genRes = await fetch(`${APP_URL}/api/generate-companion`, {
