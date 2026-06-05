@@ -16,6 +16,20 @@ type FluxWorkflowParams = {
 
 type ImageStyle = 'portrait' | 'fullbody';
 
+const PHOTOREALISM_PROMPT = [
+  'RAW candid DSLR photo',
+  'photorealistic human',
+  'real person',
+  'natural skin texture',
+  'visible skin pores',
+  'realistic eyes',
+  'real camera photo',
+  'not cartoon',
+  'not anime',
+  'not illustration',
+  'not 3d render',
+].join(', ');
+
 function buildFluxWorkflow({
   prompt,
   loraFile,
@@ -135,7 +149,9 @@ function buildFinalPrompt(prompt: string, triggerWord: string, style: ImageStyle
         ].join(', ')
       : 'portrait selfie composition';
 
-  return [triggerWord, composition, promptWithoutTrigger].filter(Boolean).join(', ');
+  return [triggerWord, PHOTOREALISM_PROMPT, composition, promptWithoutTrigger]
+    .filter(Boolean)
+    .join(', ');
 }
 
 function styleToDimensions(style: ImageStyle) {
