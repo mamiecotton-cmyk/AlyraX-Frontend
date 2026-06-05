@@ -227,6 +227,7 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const pollingRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
+  const mediaGenerationRequestsRef = useRef<Set<string>>(new Set());
   const voiceMediaRequestsRef = useRef<Map<string, number>>(new Map());
 
   // ── Load ──────────────────────────────────────────────────────────────────
@@ -399,29 +400,36 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
   // ── Start media generation for a placeholder message ──────────────────────
   const startMediaGeneration = useCallback(async (msg: Message) => {
     if (!msg.media_prompt || !msg.media_type) return;
+    if (mediaGenerationRequestsRef.current.has(msg.id)) return;
 
-    const res = await fetch('/api/chat/media/generate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        message_id: msg.id,
-        archetype_id: id,
-        media_type: msg.media_type,
-        media_prompt: msg.media_prompt,
-      }),
-    });
+    mediaGenerationRequestsRef.current.add(msg.id);
 
-    const data = await res.json();
+    try {
+      const res = await fetch('/api/chat/media/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message_id: msg.id,
+          archetype_id: id,
+          media_type: msg.media_type,
+          media_prompt: msg.media_prompt,
+        }),
+      });
 
-    if (data.status === 'ready' && data.image_url) {
-      setMessages(prev => prev.map(m =>
-        m.id === msg.id ? { ...m, media_status: 'ready', media_url: data.image_url } : m
-      ));
-      return;
-    }
+      const data = await res.json();
 
-    if (data.jobId) {
-      pollMediaJob(msg.id, data.jobId, msg.media_type, data.provider);
+      if (data.status === 'ready' && data.image_url) {
+        setMessages(prev => prev.map(m =>
+          m.id === msg.id ? { ...m, media_status: 'ready', media_url: data.image_url } : m
+        ));
+        return;
+      }
+
+      if (data.jobId) {
+        pollMediaJob(msg.id, data.jobId, msg.media_type, data.provider);
+      }
+    } finally {
+      mediaGenerationRequestsRef.current.delete(msg.id);
     }
   }, [id, pollMediaJob]);
 
