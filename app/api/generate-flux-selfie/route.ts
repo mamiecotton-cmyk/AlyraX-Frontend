@@ -1,0 +1,219 @@
+// app/api/generate-flux-selfie/route.ts
+import { NextRequest, NextResponse } from 'next/server';
+
+export const maxDuration = 60;
+
+type FluxWorkflowParams = {
+  prompt: string;
+  loraFile: string;
+  loraStrength: number;
+  width: number;
+  height: number;
+  seed: number;
+  steps: number;
+  guidance: number;
+};
+
+function buildFluxWorkflow({
+  prompt,
+  loraFile,
+  loraStrength,
+  width,
+  height,
+  seed,
+  steps,
+  guidance,
+}: FluxWorkflowParams) {
+  return {
+    '1': {
+      class_type: 'UNETLoader',
+      inputs: {
+        unet_name: 'flux1-dev-fp8.safetensors',
+        weight_dtype: 'fp8_e4m3fn',
+      },
+    },
+    '2': {
+      class_type: 'DualCLIPLoader',
+      inputs: {
+        clip_name1: 't5xxl_fp8_e4m3fn.safetensors',
+        clip_name2: 'clip_l.safetensors',
+        type: 'flux',
+      },
+    },
+    '3': {
+      class_type: 'VAELoader',
+      inputs: { vae_name: 'ae.safetensors' },
+    },
+    '4': {
+      class_type: 'LoraLoaderModelOnly',
+      inputs: {
+        model: ['1', 0],
+        lora_name: loraFile,
+        strength_model: loraStrength,
+      },
+    },
+    '5': {
+      class_type: 'CLIPTextEncode',
+      inputs: { text: prompt, clip: ['2', 0] },
+    },
+    '6': {
+      class_type: 'FluxGuidance',
+      inputs: { conditioning: ['5', 0], guidance },
+    },
+    '7': {
+      class_type: 'EmptySD3LatentImage',
+      inputs: { width, height, batch_size: 1 },
+    },
+    '8': {
+      class_type: 'BasicGuider',
+      inputs: { model: ['4', 0], conditioning: ['6', 0] },
+    },
+    '9': {
+      class_type: 'BasicScheduler',
+      inputs: { model: ['4', 0], scheduler: 'simple', steps, denoise: 1.0 },
+    },
+    '10': {
+      class_type: 'KSamplerSelect',
+      inputs: { sampler_name: 'euler' },
+    },
+    '11': {
+      class_type: 'RandomNoise',
+      inputs: { noise_seed: seed },
+    },
+    '12': {
+      class_type: 'SamplerCustomAdvanced',
+      inputs: {
+        noise: ['11', 0],
+        guider: ['8', 0],
+        sampler: ['10', 0],
+        sigmas: ['9', 0],
+        latent_image: ['7', 0],
+      },
+    },
+    '13': {
+      class_type: 'VAEDecode',
+      inputs: { samples: ['12', 0], vae: ['3', 0] },
+    },
+    '14': {
+      class_type: 'SaveImage',
+      inputs: { filename_prefix: 'flux_selfie', images: ['13', 0] },
+    },
+  };
+}
+
+function styleToDimensions(style: 'portrait' | 'fullbody') {
+  if (style === 'fullbody') {
+    return { width: 832, height: 1216 };
+  }
+  return { width: 1024, height: 1024 };
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const {
+      prompt,
+      lora_file,
+      trigger_word,
+      style = 'portrait',
+      seed,
+      lora_strength = 0.85,
+      steps = 20,
+      guidance = 3.5,
+    } = await req.json();
+
+    if (!prompt || !lora_file || !trigger_word) {
+      return NextResponse.json(
+        { error: 'Missing required fields: prompt, lora_file, trigger_word' },
+        { status: 400 }
+      );
+    }
+
+    const endpointId = process.env.RUNPOD_COMFYUI_ENDPOINT_ID;
+    if (!endpointId) {
+      return NextResponse.json(
+        { error: 'Missing RUNPOD_COMFYUI_ENDPOINT_ID' },
+        { status: 500 }
+      );
+    }
+
+    const apiKey = process.env.RUNPOD_API_KEY;
+    if (!apiKey) {
+      return NextResponse.json(
+        { error: 'Missing RUNPOD_API_KEY' },
+        { status: 500 }
+      );
+    }
+
+    // Prepend trigger word if not already at start of prompt
+    const finalPrompt = prompt.trim().startsWith(trigger_word)
+      ? prompt
+      : `${trigger_word}, ${prompt}`;
+
+    const { width, height } = styleToDimensions(style);
+    const resolvedSeed =
+      typeof seed === 'number' && seed >= 0
+        ? seed
+        : Math.floor(Math.random() * 2 ** 31);
+
+    const workflow = buildFluxWorkflow({
+      prompt: finalPrompt,
+      loraFile: lora_file,
+      loraStrength: lora_strength,
+      width,
+      height,
+      seed: resolvedSeed,
+      steps,
+      guidance,
+    });
+
+    console.log('Submitting Flux LoRA selfie:', {
+      endpointId,
+      loraFile: lora_file,
+      triggerWord: trigger_word,
+      style,
+      seed: resolvedSeed,
+      promptPreview: finalPrompt.slice(0, 200),
+    });
+
+    const runpodResponse = await fetch(
+      `https://api.runpod.ai/v2/${endpointId}/run`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({ input: { workflow } }),
+      }
+    );
+
+    if (!runpodResponse.ok) {
+      const error = await runpodResponse.text();
+      console.error('RunPod Flux submit error:', error);
+      return NextResponse.json(
+        { error: 'Flux generation submission failed', detail: error },
+        { status: 500 }
+      );
+    }
+
+    const { id: jobId } = await runpodResponse.json();
+    console.log('Flux selfie job submitted:', { jobId });
+
+    // Return with runpod-comfy: prefix so existing status endpoint handles polling
+    return NextResponse.json(
+      {
+        jobId: `runpod-comfy:${jobId}`,
+        seed: resolvedSeed,
+        prompt_preview: finalPrompt.slice(0, 500),
+      },
+      { status: 202 }
+    );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error('Flux selfie error:', error);
+    return NextResponse.json(
+      { error: 'Flux selfie generation failed', detail: message },
+      { status: 500 }
+    );
+  }
+}

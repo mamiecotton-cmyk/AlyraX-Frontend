@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase-server';
 import { archetypes } from '@/lib/archetypes';
 import { getArchetypeImagePrompt } from '@/lib/archetype-image-prompts';
+import { getArchetypeLora } from '@/lib/archetype-loras';
 
 export const maxDuration = 300;
 
@@ -80,6 +81,42 @@ export async function POST(req: NextRequest) {
         .maybeSingle();
 
       const imageStyle = styleForMediaPrompt(media_prompt);
+      // NEW: Check if archetype has a trained Flux LoRA — if so, route to Flux pipeline
+      const loraConfig = getArchetypeLora(archetype_id);
+      if (loraConfig) {
+        console.log('Routing to Flux LoRA pipeline for', archetype_id, loraConfig.loraFile);
+
+        const fluxRes = await fetch(`${APP_URL}/api/generate-flux-selfie`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            prompt: media_prompt,
+            lora_file: loraConfig.loraFile,
+            trigger_word: loraConfig.triggerWord,
+            style: imageStyle,
+          }),
+        });
+
+        const fluxData = await fluxRes.json();
+        if (!fluxRes.ok) {
+          console.error('Flux selfie failed:', fluxData);
+          await supabase
+            .from('chat_messages')
+            .update({ media_status: 'failed' })
+            .eq('id', message_id);
+          return NextResponse.json(
+            { error: fluxData.error || 'Flux generation failed' },
+            { status: 500 }
+          );
+        }
+
+        return NextResponse.json({
+          jobId: fluxData.jobId,
+          message_id,
+          status: 'generating',
+        });
+      }
+      // END NEW
       const referenceImageUrl = imageData?.image_url || null;
       const promptAdherenceInstruction = [
         'highest priority: follow the user request exactly',
