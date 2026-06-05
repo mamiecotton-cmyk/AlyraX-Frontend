@@ -14,6 +14,8 @@ type FluxWorkflowParams = {
   guidance: number;
 };
 
+type ImageStyle = 'portrait' | 'fullbody';
+
 function buildFluxWorkflow({
   prompt,
   loraFile,
@@ -101,7 +103,42 @@ function buildFluxWorkflow({
   };
 }
 
-function styleToDimensions(style: 'portrait' | 'fullbody') {
+function normalizeStyle(style: unknown): ImageStyle {
+  return style === 'fullbody' ? 'fullbody' : 'portrait';
+}
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function removeLeadingTriggerWord(prompt: string, triggerWord: string) {
+  return prompt
+    .replace(new RegExp(`^\\s*${escapeRegExp(triggerWord)}\\s*,?\\s*`, 'i'), '')
+    .trim();
+}
+
+function buildFinalPrompt(prompt: string, triggerWord: string, style: ImageStyle) {
+  const promptWithoutTrigger = removeLeadingTriggerWord(prompt.trim(), triggerWord);
+  const composition =
+    style === 'fullbody'
+      ? [
+          'full body shot',
+          'head to toe visible',
+          'entire body fully in frame',
+          'legs visible',
+          'feet visible',
+          'standing far enough from camera',
+          'feet near bottom of frame',
+          'natural full-body photo composition',
+          'not a close-up portrait',
+          'not cropped',
+        ].join(', ')
+      : 'portrait selfie composition';
+
+  return [triggerWord, composition, promptWithoutTrigger].filter(Boolean).join(', ');
+}
+
+function styleToDimensions(style: ImageStyle) {
   if (style === 'fullbody') {
     return { width: 832, height: 1216 };
   }
@@ -144,12 +181,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Prepend trigger word if not already at start of prompt
-    const finalPrompt = prompt.trim().startsWith(trigger_word)
-      ? prompt
-      : `${trigger_word}, ${prompt}`;
+    const imageStyle = normalizeStyle(style);
+    const finalPrompt = buildFinalPrompt(prompt, trigger_word, imageStyle);
 
-    const { width, height } = styleToDimensions(style);
+    const { width, height } = styleToDimensions(imageStyle);
     const resolvedSeed =
       typeof seed === 'number' && seed >= 0
         ? seed
@@ -170,7 +205,7 @@ export async function POST(req: NextRequest) {
       endpointId,
       loraFile: lora_file,
       triggerWord: trigger_word,
-      style,
+      style: imageStyle,
       seed: resolvedSeed,
       promptPreview: finalPrompt.slice(0, 200),
     });
