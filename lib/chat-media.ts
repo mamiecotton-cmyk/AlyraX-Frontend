@@ -1,5 +1,6 @@
 import { type Archetype } from '@/lib/archetypes';
 import { getArchetypeImagePrompt } from '@/lib/archetype-image-prompts';
+import { getArchetypeLora } from '@/lib/archetype-loras';
 
 // Detect if user is requesting an image/photo.
 export function isSelfieRequest(message: string): boolean {
@@ -34,6 +35,12 @@ function isMirrorSelfieRequest(message: string): boolean {
 
 // Build image prompt from user message + archetype.
 export function buildSelfiePrompt(message: string, archetype: Archetype): string {
+  // For archetypes with a trained Flux LoRA, return a clean minimal prompt.
+  // The LoRA handles identity — we only need scene/intent description.
+  if (getArchetypeLora(archetype.id)) {
+    return buildFluxSelfiePrompt(message);
+  }
+
   const profile = getArchetypeImagePrompt(archetype);
   const adultSelfie = isAdultSelfieRequest(message);
   const explicitSelfie = isExplicitSelfieRequest(message);
@@ -68,5 +75,23 @@ export function buildSelfiePrompt(message: string, archetype: Archetype): string
     'do not use any default outfit or wardrobe; only use clothing if the user requested it',
     perspective,
     'photorealistic DSLR, natural skin texture, soft cinematic light',
+  ].filter(Boolean).join(', ');
+}
+
+function buildFluxSelfiePrompt(message: string): string {
+  const userRequest = message.trim();
+  const mirrorSelfie = isMirrorSelfieRequest(message);
+  const explicitSelfie = isExplicitSelfieRequest(message);
+
+  const perspective = mirrorSelfie
+    ? 'mirror selfie perspective, phone visible in mirror'
+    : explicitSelfie
+      ? 'phone selfie perspective, casual handheld photo'
+      : 'natural candid photo';
+
+  return [
+    userRequest,
+    perspective,
+    'photorealistic DSLR photo, sharp focus, natural skin texture, proper anatomical proportions',
   ].filter(Boolean).join(', ');
 }
