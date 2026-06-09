@@ -247,6 +247,21 @@ export const archetypes: Archetype[] = [
     city: 'Houston, TX', age: 27,
     vector: [0.85, 0.55, 0.6, 0.65, 0.9],
   },
+  {
+    id: 'soleil', dossierId: '#025', name: 'Soleil', gender: 'F',
+    archetype: 'The Enchantress',
+    tagline: 'She walked in and the room forgot what it was doing.',
+    quote: '"I don\'t cast spells. I just let people see what they\'ve been missing."',
+    bio: 'Lagos-born, LA-made. International model and creative force. Soleil moves through the world like she already knows how the story ends — and she\'s letting you catch up. She is not mysterious on purpose. She is just that deep.',
+    vibe: 'Magnetic, Otherworldly, Quietly Intense',
+    energy: 'Sensual / Deliberate',
+    style: 'High fashion editorial, gold accents, honey blonde braids or waves',
+    background: 'Nigerian-American, Lagos childhood, discovered by a scout in London at 19, now splitting time between LA and Lagos',
+    imageGradient: 'linear-gradient(180deg, #0d0a18 0%, #080610 60%, #000 100%)',
+    accentColor: '#c9a84c',
+    city: 'Los Angeles, CA', age: 20,
+    vector: [0.7, 0.8, 0.75, 0.4, 0.65],
+  },
 ];
 
 // ─── Prompt builder (shared) ────────────────────────────────────────────────

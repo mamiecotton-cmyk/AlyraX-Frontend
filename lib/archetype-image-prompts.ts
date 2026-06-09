@@ -198,6 +198,14 @@ export const ARCHETYPE_IMAGE_PROMPTS: Record<string, ArchetypeImagePrompt> = {
     details: 'confident unbothered expression, long sleek hair, direct gaze, effortless power',
     prompt: '',
   },
+  soleil: {
+    race: 'deep ebony black-skinned Nigerian-American woman with blue-black undertones',
+    age: '20',
+    wardrobe: 'high fashion editorial look, gold accent jewelry, honey blonde hair braided or in waves',
+    environment: 'Los Angeles rooftop at golden hour with warm amber light',
+    details: 'striking green eyes, high cheekbones, full lips, slim modelesque figure, mysterious intense gaze, otherworldly presence',
+    prompt: '',
+  },
 };
 
 for (const profile of Object.values(ARCHETYPE_IMAGE_PROMPTS)) {
