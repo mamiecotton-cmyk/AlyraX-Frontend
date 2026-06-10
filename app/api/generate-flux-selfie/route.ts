@@ -28,7 +28,22 @@ const PHOTOREALISM_PROMPT = [
   'not anime',
   'not illustration',
   'not 3d render',
+  'correct hands five fingers per hand',
+  'correct feet five toes per foot',
+  'anatomically correct hands and feet',
+  'no extra fingers no missing fingers',
+  'no jumbled feet no fused toes',
 ].join(', ');
+
+// Identity anchors injected at prompt position 1 — survive NSFW LoRA influence
+const CHARACTER_ANCHORS: Record<string, string> = {
+  soleil: 'honey golden blonde hair, vivid green eyes, deep ebony black skin blue-black undertones',
+  zara: 'long sleek honey blonde hair, heavy freckles on cheeks and nose, light honey caramel skin',
+  jerome: 'honey-tipped dreadlocks, thin mustache and soul patch, tribal sleeve tattoo on right arm only clean left arm',
+  jaxon: 'shaved head low fade, light beard with goatee, heavy gold cuban chain, clean smooth skin no tattoos',
+  roman: 'bright vivid blue eyes, heavy freckles across cheeks and nose, short tight waves low fade',
+  nia: 'long dark wavy locs past shoulders, rich brown skin, warm brown eyes',
+};
 
 function buildFluxWorkflow({
   prompt,
@@ -143,8 +158,9 @@ function removeLeadingTriggerWord(prompt: string, triggerWord: string) {
     .trim();
 }
 
-function buildFinalPrompt(prompt: string, triggerWord: string, style: ImageStyle) {
+function buildFinalPrompt(prompt: string, triggerWord: string, style: ImageStyle, characterId?: string) {
   const promptWithoutTrigger = removeLeadingTriggerWord(prompt.trim(), triggerWord);
+  const characterAnchor = characterId ? (CHARACTER_ANCHORS[characterId] ?? '') : '';
   const composition =
     style === 'fullbody' || style === 'fullscreen'
       ? [
@@ -161,7 +177,7 @@ function buildFinalPrompt(prompt: string, triggerWord: string, style: ImageStyle
         ].join(', ')
       : 'portrait selfie composition';
 
-  return [triggerWord, PHOTOREALISM_PROMPT, composition, promptWithoutTrigger]
+  return [triggerWord, characterAnchor, PHOTOREALISM_PROMPT, composition, promptWithoutTrigger]
     .filter(Boolean)
     .join(', ');
 }
@@ -187,6 +203,7 @@ export async function POST(req: NextRequest) {
       lora_strength = 0.85,
       steps = 20,
       guidance = 3.5,
+      character_id,
     } = await req.json();
 
     if (!prompt || !lora_file || !trigger_word) {
@@ -213,7 +230,7 @@ export async function POST(req: NextRequest) {
     }
 
     const imageStyle = normalizeStyle(style);
-    const finalPrompt = buildFinalPrompt(prompt, trigger_word, imageStyle);
+    const finalPrompt = buildFinalPrompt(prompt, trigger_word, imageStyle, character_id);
 
     const { width, height } = styleToDimensions(imageStyle);
     const resolvedSeed =

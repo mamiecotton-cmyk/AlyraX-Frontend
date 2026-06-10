@@ -94,6 +94,7 @@ export async function POST(req: NextRequest) {
             lora_file: loraConfig.loraFile,
             trigger_word: loraConfig.triggerWord,
             style: imageStyle,
+            character_id: archetype_id,
           }),
         });
 

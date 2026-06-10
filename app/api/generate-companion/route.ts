@@ -488,6 +488,7 @@ export async function POST(req: NextRequest) {
           trigger_word: loraConfig.triggerWord,
           style: normalizeFluxImageStyle(style),
           seed,
+          character_id: archetype_id,
         }),
       });
 
