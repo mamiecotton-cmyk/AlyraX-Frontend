@@ -60,6 +60,9 @@ type FluxImageStyle = 'portrait' | 'fullbody' | 'fullscreen';
 
 const WAN_480P_SHORT_EDGE = 480;
 const WAN_480P_MAX_LONG_EDGE = 832;
+const WAN_VIDEO_LENGTH = 81;
+const WAN_SAMPLER_STEPS = 8;
+const WAN_CFG = 4.5;
 
 // ─── Video Provider ────────────────────────────────────────────────────────
 
@@ -135,7 +138,7 @@ function buildWan21Workflow(
         start_image: ['52', 0],
         width: dimensions.width,
         height: dimensions.height,
-        length: 81,
+        length: WAN_VIDEO_LENGTH,
         batch_size: 1,
       },
       class_type: 'WanImageToVideo',
@@ -150,8 +153,8 @@ function buildWan21Workflow(
     '3': {
       inputs: {
         seed: Math.floor(Math.random() * 2 ** 32),
-        steps: 8,
-        cfg: 6,
+        steps: WAN_SAMPLER_STEPS,
+        cfg: WAN_CFG,
         sampler_name: 'uni_pc',
         scheduler: 'simple',
         denoise: 1,
@@ -520,12 +523,19 @@ function buildVideoNegativePrompt(gender: CharacterGender) {
     'ugly',
     'bad anatomy',
     'warped body',
+    'stretched body',
+    'rubber body',
+    'liquified body',
     'distorted face',
     'melting face',
+    'wobbly face',
+    'face smear',
     'face morphing',
     'identity drift',
+    'temporal inconsistency',
     'inconsistent face',
     'jitter',
+    'camera shake',
     'warped hands',
     'extra fingers',
     'missing fingers',
@@ -536,6 +546,8 @@ function buildVideoNegativePrompt(gender: CharacterGender) {
     'fused toes',
     'extra limbs',
     'missing limbs',
+    'rubber limbs',
+    'twisted limbs',
     'mutated hands',
     'body transformation',
     'identity change',
@@ -552,6 +564,21 @@ function buildVideoNegativePrompt(gender: CharacterGender) {
   }
 
   return base.join(', ');
+}
+
+function buildWanPositivePrompt(scenePrompt: string) {
+  return [
+    'stable image-to-video animation',
+    'preserve the exact face and identity from the source image',
+    'preserve source image body proportions and anatomy',
+    'preserve source image aspect ratio and framing',
+    'subtle realistic motion',
+    'stable camera',
+    'natural human movement',
+    'no body stretching',
+    'no face morphing',
+    scenePrompt,
+  ].join(', ');
 }
 
 function normalizeWardrobeState(value: unknown): WardrobeState {
@@ -896,7 +923,7 @@ export async function POST(req: NextRequest) {
     });
 
     // Build a single combined prompt for Wan2.1 (join scene prompts)
-    const wan21Prompt = scenePlan.prompts.join(', ');
+    const wan21Prompt = buildWanPositivePrompt(scenePlan.prompts.join(', '));
     const negativePrompt = buildVideoNegativePrompt(characterGender);
 
     // ── Try RunPod Wan2.1 first ──
