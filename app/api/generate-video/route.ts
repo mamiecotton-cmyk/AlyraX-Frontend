@@ -284,11 +284,13 @@ async function generateFluxSourceFrame({
   requestId,
   prompt,
   loraConfig,
+  characterId,
 }: {
   origin: string;
   requestId: string;
   prompt: string;
   loraConfig: ArchetypeLoraConfig;
+  characterId?: string;
 }) {
   const fluxRes = await fetch(`${origin}/api/generate-flux-selfie`, {
     method: 'POST',
@@ -298,6 +300,7 @@ async function generateFluxSourceFrame({
       lora_file: loraConfig.loraFile,
       trigger_word: loraConfig.triggerWord,
       style: styleForVideoSourcePrompt(prompt),
+      character_id: characterId,
     }),
   });
 
@@ -494,6 +497,18 @@ function buildVideoNegativePrompt(gender: CharacterGender) {
     'warped body',
     'distorted face',
     'melting face',
+    'face morphing',
+    'identity drift',
+    'inconsistent face',
+    'jitter',
+    'warped hands',
+    'extra fingers',
+    'missing fingers',
+    'fused fingers',
+    'warped feet',
+    'extra toes',
+    'missing toes',
+    'fused toes',
     'extra limbs',
     'missing limbs',
     'mutated hands',
@@ -636,6 +651,7 @@ ${retryReason ? `Regenerate because the previous draft failed validation: ${retr
 
 You are a JSON scene planner, not the companion. Do not answer as dialogue. Do not write a sentence to the user.
 Movement license: ${terms.subject} can shift, turn, walk, change framing, move closer or farther, and adjust the camera relationship naturally.
+Prefer subtle realistic motion, stable camera movement, small expression changes, and gentle body movement unless the user explicitly asks for large movement. Avoid fast motion, extreme turns, complex hand motion, and body twisting.
 Preserve the anchor image identity, face, race, gender presentation, body type, proportions, and source-frame aspect. Do not stretch the body, feminize, masculinize, change anatomy, change race, or turn ${terms.object} into a different person.
 Do not use identity boilerplate. Do not write "same adult woman in source image". Do not lock the pose or require exact pose matching.
 Prompts should be visual motion beats only, 3-6 strings, max 24 words each, no location changes. Let the video model infer visible details from the anchor image.
@@ -792,40 +808,48 @@ export async function POST(req: NextRequest) {
 
     const { data: companion, error } = await companionQuery.limit(1).maybeSingle();
 
-    if (error || !companion?.image_url) {
-      return NextResponse.json({ error: 'Companion image not found' }, { status: 404 });
-    }
-
-    let imageUrl = frameUrl || companion.image_url;
     const requestedArchetype = typeof requestedArchetypeId === 'string'
       ? archetypes.find((archetype) => archetype.id === requestedArchetypeId)
       : undefined;
     const companionArchetype = requestedArchetype
-      ?? archetypes.find((archetype) => archetype.id === companion.archetype_id);
+      ?? archetypes.find((archetype) => archetype.id === companion?.archetype_id);
     const loraArchetypeId = typeof requestedArchetypeId === 'string'
       ? requestedArchetypeId
-      : companion.archetype_id;
+      : companion?.archetype_id;
     const loraConfig = typeof loraArchetypeId === 'string' ? getArchetypeLora(loraArchetypeId) : null;
-    if (loraConfig) {
+
+    if (error || (!frameUrl && !companion?.image_url && !loraConfig)) {
+      return NextResponse.json({ error: 'Companion image not found' }, { status: 404 });
+    }
+
+    let imageUrl = frameUrl || companion?.image_url || '';
+    if (loraConfig && !imageUrl) {
       trace.push('flux-lora-source-frame');
       imageUrl = await generateFluxSourceFrame({
         origin: new URL(req.url).origin,
         requestId,
         prompt: userMessage,
         loraConfig,
+        characterId: loraArchetypeId,
       });
       console.log(`[${requestId}] using Flux LoRA source frame for video`, {
         archetypeId: loraArchetypeId,
         imageUrl,
       });
+    } else if (loraConfig) {
+      trace.push('preserve-existing-lora-frame');
+      console.log(`[${requestId}] preserving selected source frame for LoRA video`, {
+        archetypeId: loraArchetypeId,
+        source: frameUrl ? 'request-frame' : 'companion-image',
+      });
     }
     if (characterGender === 'unknown') {
       characterGender = normalizeCharacterGender(companionArchetype?.gender);
     }
-    const persona = Array.isArray(companion.personas)
+    const persona = Array.isArray(companion?.personas)
       ? companion.personas[0]
-      : (companion.personas as CompanionPersona | null);
-    const effectiveCharacterName = characterName || companion.name || companionArchetype?.name || null;
+      : (companion?.personas as CompanionPersona | null | undefined);
+    const effectiveCharacterName = characterName || companion?.name || companionArchetype?.name || null;
 
     // Generate scene plan (same for both providers)
     const scenePlan = await generateVideoScenePlan(
