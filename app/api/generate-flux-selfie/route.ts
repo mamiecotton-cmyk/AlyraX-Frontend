@@ -14,7 +14,7 @@ type FluxWorkflowParams = {
   guidance: number;
 };
 
-type ImageStyle = 'portrait' | 'fullbody';
+type ImageStyle = 'portrait' | 'fullbody' | 'fullscreen';
 
 const PHOTOREALISM_PROMPT = [
   'RAW candid DSLR photo',
@@ -118,6 +118,7 @@ function buildFluxWorkflow({
 }
 
 function normalizeStyle(style: unknown): ImageStyle {
+  if (style === 'fullscreen') return 'fullscreen';
   return style === 'fullbody' ? 'fullbody' : 'portrait';
 }
 
@@ -134,7 +135,7 @@ function removeLeadingTriggerWord(prompt: string, triggerWord: string) {
 function buildFinalPrompt(prompt: string, triggerWord: string, style: ImageStyle) {
   const promptWithoutTrigger = removeLeadingTriggerWord(prompt.trim(), triggerWord);
   const composition =
-    style === 'fullbody'
+    style === 'fullbody' || style === 'fullscreen'
       ? [
           'full body shot',
           'head to toe visible',
@@ -157,6 +158,9 @@ function buildFinalPrompt(prompt: string, triggerWord: string, style: ImageStyle
 function styleToDimensions(style: ImageStyle) {
   if (style === 'fullbody') {
     return { width: 832, height: 1216 };
+  }
+  if (style === 'fullscreen') {
+    return { width: 768, height: 1344 };
   }
   return { width: 1024, height: 1024 };
 }

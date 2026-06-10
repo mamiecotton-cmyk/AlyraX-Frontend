@@ -192,6 +192,7 @@ export async function POST(req: NextRequest) {
           userId: user.id,
           userMessage: media_prompt,
           frameUrl,
+          archetypeId: archetype_id,
           wardrobeState: 'clothed',
           conversationHistory: [{ role: 'user', content: media_prompt }],
         }),

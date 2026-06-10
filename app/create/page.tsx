@@ -12,6 +12,7 @@ type Companion = {
   id: string;
   name: string;
   image_url: string;
+  archetype_id?: string | null;
   prompt_used?: string | null;
 };
 
@@ -157,7 +158,7 @@ export default function CreatePage() {
       setUserId(user.id);
       const { data } = await supabase
         .from('companions')
-        .select('id, name, image_url, prompt_used')
+        .select('id, name, image_url, archetype_id, prompt_used')
         .eq('user_id', user.id);
 
       if (!active) return;
@@ -265,6 +266,7 @@ export default function CreatePage() {
         guidance_scale: Math.max(4.0, Math.min(9.0, guidance)),
         seed: imageSeed,
         companionId: selectedCompanion?.id,
+        archetype_id: selectedCompanion?.archetype_id,
         reference_image_url: referenceImageUrl,
         reference_strength: selectedCompanion ? 0.23 : 0.25,
         denoise_strength: selectedCompanion && style !== 'portrait' ? 0.68 : 0.42,
@@ -358,6 +360,7 @@ export default function CreatePage() {
           companionId: selectedCompanion.id,
           userMessage: scenePrompt,
           frameUrl: selectedImage.image_url,
+          archetypeId: selectedCompanion.archetype_id,
           wardrobeState: 'clothed',
           conversationHistory: [
             { role: 'user', content: selectedImage.prompt },

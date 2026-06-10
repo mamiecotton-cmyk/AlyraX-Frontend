@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getArchetypeLora } from '@/lib/archetype-loras';
 
 export const maxDuration = 300;
 
@@ -10,6 +11,8 @@ type StructuredPrompt = {
   environment?: string;
   details?: string;
 };
+
+type FluxImageStyle = 'portrait' | 'fullbody' | 'fullscreen';
 
 type ComfyOutput = [string, number] | string;
 type ComfyWorkflowNode = {
@@ -60,6 +63,11 @@ function getImageSettings(style: string) {
     composition: 'tight head-and-shoulders portrait, face fills upper frame, background close behind subject, no empty headroom',
     negative: `${baseNegative}, side profile, back view, turned away, full body, extreme close-up, cropped head, cropped face, cropped shoulders, cropped torso, cropped arms, out of frame, empty background, excessive headroom, tiny head, distant subject, blank wall`,
   };
+}
+
+function normalizeFluxImageStyle(style: unknown): FluxImageStyle {
+  if (style === 'fullbody' || style === 'fullscreen') return style;
+  return 'portrait';
 }
 
 function getShortComposition(style: string) {
@@ -466,7 +474,37 @@ export async function POST(req: NextRequest) {
       denoise_strength,
       reference_mode = 'identity',
       structured_prompt,
+      archetype_id,
     } = await req.json();
+
+    const loraConfig = typeof archetype_id === 'string' ? getArchetypeLora(archetype_id) : null;
+    if (loraConfig) {
+      const fluxRes = await fetch(new URL('/api/generate-flux-selfie', req.url), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: cleanPromptPart(description),
+          lora_file: loraConfig.loraFile,
+          trigger_word: loraConfig.triggerWord,
+          style: normalizeFluxImageStyle(style),
+          seed,
+        }),
+      });
+
+      const fluxData = await fluxRes.json().catch(() => ({}));
+      if (!fluxRes.ok) {
+        return NextResponse.json(
+          { error: fluxData.error || 'Flux LoRA generation failed', detail: fluxData.detail },
+          { status: fluxRes.status },
+        );
+      }
+
+      return NextResponse.json({
+        ...fluxData,
+        prompt_preview: fluxData.prompt_preview ?? cleanPromptPart(description).slice(0, 500),
+        message: 'Flux LoRA job submitted; poll /api/generate-companion/status/[jobId] for updates',
+      }, { status: fluxRes.status });
+    }
 
     const { width: defaultWidth, height: defaultHeight, composition, negative: styleNegative } = getImageSettings(style);
     const width = widthOverride ?? defaultWidth;

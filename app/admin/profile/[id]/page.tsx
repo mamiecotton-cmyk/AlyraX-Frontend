@@ -409,7 +409,7 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
           if (imageStyle === 'fullscreen') { widthOverride = 768; heightOverride = 1344; }
         }
 
-        const res = await fetch('/api/generate-companion', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ description: finalPrompt, structured_prompt: promptFieldsForGeneration, negative_prompt: NEGATIVE_PROMPT, style: imageStyle, num_inference_steps: 35, guidance_scale: 7.5, seed: generationSeed, width: widthOverride, height: heightOverride, gender: effectiveGender, reference_image_url: referenceImageUrl, reference_mode: referenceImageUrl ? 'identity' : undefined, reference_strength: referenceImageUrl ? referenceBehaviorSetting.strength : undefined, denoise_strength: referenceImageUrl ? referenceBehaviorSetting.denoise : undefined }) });
+        const res = await fetch('/api/generate-companion', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ archetype_id: id, description: finalPrompt, structured_prompt: promptFieldsForGeneration, negative_prompt: NEGATIVE_PROMPT, style: imageStyle, num_inference_steps: 35, guidance_scale: 7.5, seed: generationSeed, width: widthOverride, height: heightOverride, gender: effectiveGender, reference_image_url: referenceImageUrl, reference_mode: referenceImageUrl ? 'identity' : undefined, reference_strength: referenceImageUrl ? referenceBehaviorSetting.strength : undefined, denoise_strength: referenceImageUrl ? referenceBehaviorSetting.denoise : undefined }) });
         const data = await res.json();
         const generatedPrompt = typeof data.prompt_preview === 'string' ? data.prompt_preview : finalPromptPreview;
 
@@ -634,6 +634,7 @@ export default function AdminProfilePage({ params }: { params: Promise<{ id: str
           userId: user.id,
           userMessage: videoPrompt,
           frameUrl: sourceUrl,
+          archetypeId: id,
           wardrobeState: 'clothed',
           characterGender: archetype?.gender,
           characterName: archetype?.name,

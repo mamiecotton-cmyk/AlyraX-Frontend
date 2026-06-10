@@ -263,6 +263,7 @@ export default function AdminArchetypesPage() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        archetype_id: card.isCustom ? undefined : card.archetype.id,
         description: prompt,
         structured_prompt: structuredPromptForCard(card),
         gender: card.archetype.gender,

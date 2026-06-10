@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase-server';
 import { archetypes } from '@/lib/archetypes';
+import { getArchetypeLora, type ArchetypeLoraConfig } from '@/lib/archetype-loras';
 
 export const maxDuration = 300;
 
@@ -54,6 +55,8 @@ type ImageDimensions = {
   width: number;
   height: number;
 };
+
+type FluxImageStyle = 'portrait' | 'fullbody' | 'fullscreen';
 
 // ─── Video Provider ────────────────────────────────────────────────────────
 
@@ -250,6 +253,65 @@ function getVideoDimensions(source: ImageDimensions | null): ImageDimensions {
   const height = Math.min(896, Math.max(512, roundToMultiple(width / aspect, 16)));
 
   return { width, height };
+}
+
+function styleForVideoSourcePrompt(prompt: string): FluxImageStyle {
+  return /\b(full body|full-body|fullbody|full length|full-length|head to toe|head-to-toe|entire body|whole body|body shot|outfit|fit check|legs?|standing|walking|dancing|dance)\b/i.test(prompt)
+    ? 'fullbody'
+    : 'portrait';
+}
+
+async function waitForGeneratedImage(origin: string, jobId: string, requestId: string) {
+  for (let attempt = 0; attempt < 75; attempt++) {
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+    const statusRes = await fetch(`${origin}/api/generate-companion/status/${jobId}`);
+    const statusData = await statusRes.json().catch(() => ({}));
+
+    if (!statusRes.ok) {
+      throw new Error(statusData.error || 'Flux source frame generation failed');
+    }
+
+    if (typeof statusData.image_url === 'string') {
+      return statusData.image_url;
+    }
+  }
+
+  throw new Error(`[${requestId}] Flux source frame generation timed out`);
+}
+
+async function generateFluxSourceFrame({
+  origin,
+  requestId,
+  prompt,
+  loraConfig,
+}: {
+  origin: string;
+  requestId: string;
+  prompt: string;
+  loraConfig: ArchetypeLoraConfig;
+}) {
+  const fluxRes = await fetch(`${origin}/api/generate-flux-selfie`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      prompt,
+      lora_file: loraConfig.loraFile,
+      trigger_word: loraConfig.triggerWord,
+      style: styleForVideoSourcePrompt(prompt),
+    }),
+  });
+
+  const fluxData = await fluxRes.json().catch(() => ({}));
+  if (!fluxRes.ok || typeof fluxData.jobId !== 'string') {
+    throw new Error(fluxData.error || 'Flux source frame submission failed');
+  }
+
+  console.log(`[${requestId}] Flux LoRA source frame submitted`, {
+    loraFile: loraConfig.loraFile,
+    jobId: fluxData.jobId,
+  });
+
+  return waitForGeneratedImage(origin, fluxData.jobId, requestId);
 }
 
 async function submitRunPodVideo(
@@ -690,6 +752,7 @@ export async function POST(req: NextRequest) {
       userMessage,
       conversationHistory,
       frameUrl,
+      archetypeId: requestedArchetypeId,
       wardrobeState: requestedWardrobeState,
       characterGender: requestedCharacterGender,
       characterName: requestedCharacterName,
@@ -733,8 +796,29 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Companion image not found' }, { status: 404 });
     }
 
-    const imageUrl = frameUrl || companion.image_url;
-    const companionArchetype = archetypes.find((archetype) => archetype.id === companion.archetype_id);
+    let imageUrl = frameUrl || companion.image_url;
+    const requestedArchetype = typeof requestedArchetypeId === 'string'
+      ? archetypes.find((archetype) => archetype.id === requestedArchetypeId)
+      : undefined;
+    const companionArchetype = requestedArchetype
+      ?? archetypes.find((archetype) => archetype.id === companion.archetype_id);
+    const loraArchetypeId = typeof requestedArchetypeId === 'string'
+      ? requestedArchetypeId
+      : companion.archetype_id;
+    const loraConfig = typeof loraArchetypeId === 'string' ? getArchetypeLora(loraArchetypeId) : null;
+    if (loraConfig) {
+      trace.push('flux-lora-source-frame');
+      imageUrl = await generateFluxSourceFrame({
+        origin: new URL(req.url).origin,
+        requestId,
+        prompt: userMessage,
+        loraConfig,
+      });
+      console.log(`[${requestId}] using Flux LoRA source frame for video`, {
+        archetypeId: loraArchetypeId,
+        imageUrl,
+      });
+    }
     if (characterGender === 'unknown') {
       characterGender = normalizeCharacterGender(companionArchetype?.gender);
     }
