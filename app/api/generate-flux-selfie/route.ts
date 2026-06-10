@@ -60,12 +60,22 @@ function buildFluxWorkflow({
       class_type: 'VAELoader',
       inputs: { vae_name: 'ae.safetensors' },
     },
+    // Character LoRA — loads identity on base model
     '4': {
       class_type: 'LoraLoaderModelOnly',
       inputs: {
         model: ['1', 0],
         lora_name: loraFile,
         strength_model: loraStrength,
+      },
+    },
+    // NSFW LoRA — chains on top of character LoRA output
+    '4b': {
+      class_type: 'LoraLoaderModelOnly',
+      inputs: {
+        model: ['4', 0],
+        lora_name: 'nsfw_flux.safetensors',
+        strength_model: 0.7,
       },
     },
     '5': {
@@ -80,13 +90,14 @@ function buildFluxWorkflow({
       class_type: 'EmptySD3LatentImage',
       inputs: { width, height, batch_size: 1 },
     },
+    // BasicGuider now uses 4b (NSFW LoRA output) instead of 4
     '8': {
       class_type: 'BasicGuider',
-      inputs: { model: ['4', 0], conditioning: ['6', 0] },
+      inputs: { model: ['4b', 0], conditioning: ['6', 0] },
     },
     '9': {
       class_type: 'BasicScheduler',
-      inputs: { model: ['4', 0], scheduler: 'simple', steps, denoise: 1.0 },
+      inputs: { model: ['4b', 0], scheduler: 'simple', steps, denoise: 1.0 },
     },
     '10': {
       class_type: 'KSamplerSelect',
