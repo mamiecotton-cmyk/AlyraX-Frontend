@@ -24,10 +24,10 @@ function portraitPrompt(profile: Omit<ArchetypeImagePrompt, 'prompt'>) {
 export const ARCHETYPE_IMAGE_PROMPTS: Record<string, ArchetypeImagePrompt> = {
   jaxon: {
     race: 'deep brown-skinned Black American man',
-    age: '31',
-    wardrobe: 'black leather jacket, plain white tee, gold chain',
-    environment: 'Brooklyn street at night under warm storefront light',
-    details: 'guarded intense gaze, close-cropped hair, trimmed beard, protective presence',
+    age: '28',
+    wardrobe: 'fitted streetwear, heavy gold cuban link chain on neck',
+    environment: 'urban Los Angeles street at night under warm light',
+    details: 'shaved head with low fade haircut, light short beard with goatee, sharp jawline and cheekbones, intense piercing eyes, clean smooth skin with no tattoos no ink anywhere on body, gold cuban chain always visible, lean muscular athletic build, tall proportional figure',
     prompt: '',
   },
   malik: {
@@ -71,19 +71,19 @@ export const ARCHETYPE_IMAGE_PROMPTS: Record<string, ArchetypeImagePrompt> = {
     prompt: '',
   },
   roman: {
-    race: 'golden brown-skinned Black American man',
+    race: 'golden brown biracial Black American man',
     age: '27',
     wardrobe: 'paint-streaked denim jacket, black tee, silver rings',
     environment: 'artist studio with canvases and textured walls',
-    details: 'creative intense eyes, loose curls, expressive face, sensitive energy',
+    details: 'bright vivid blue eyes, heavy freckles across cheeks and nose, short tight waves with low fade and clean lineup, light scruffy stubble, diamond stud earrings, silver figaro chain, creative intense expression, sensitive energy',
     prompt: '',
   },
   jerome: {
     race: 'medium brown-skinned Black American man',
-    age: '41',
-    wardrobe: 'tailored charcoal suit with no tie',
+    age: '25',
+    wardrobe: 'tailored charcoal suit with open collar, no tie',
     environment: 'Detroit office lounge with city window light',
-    details: 'ambitious reflective expression, close-cropped hair, shaped beard, mature confidence',
+    details: 'honey-tipped dreadlocks sometimes pulled back, thin mustache and light soul patch, gold hoop earrings, tribal blackwork sleeve tattoo on right arm only, ambitious reflective expression, mature confidence',
     prompt: '',
   },
   khalil: {
@@ -145,9 +145,9 @@ export const ARCHETYPE_IMAGE_PROMPTS: Record<string, ArchetypeImagePrompt> = {
   nia: {
     race: 'rich brown-skinned Black American woman',
     age: '33',
-    wardrobe: 'earth-toned linen dress, minimal jewelry',
+    wardrobe: 'earth-toned linen dress, minimal gold jewelry',
     environment: 'herbal medicine room with plants and warm shelves',
-    details: 'nurturing grounded expression, long locs, serene steady presence',
+    details: 'long dark wavy locs past shoulders, warm brown eyes, hoop earrings, nurturing grounded expression, serene steady presence, holistic wellness aesthetic',
     prompt: '',
   },
   aaliyah: {
@@ -191,19 +191,19 @@ export const ARCHETYPE_IMAGE_PROMPTS: Record<string, ArchetypeImagePrompt> = {
     prompt: '',
   },
   zara: {
-    race: 'deep brown-skinned Black American woman',
+    race: 'light honey caramel-skinned Black American woman',
     age: '27',
-    wardrobe: 'cream fitted outfit, gold jewelry, flawless natural makeup',
+    wardrobe: 'cream fitted outfit, gold jewelry',
     environment: 'luxury Houston apartment with floor to ceiling windows, golden afternoon light',
-    details: 'confident unbothered expression, long sleek hair, direct gaze, effortless power',
+    details: 'long sleek straight honey blonde hair past shoulders, heavy freckles across cheeks and nose, warm brown eyes, bright wide smile, diamond cross pendant on chain, curvy snatched hourglass figure, confident unbothered expression, effortless power',
     prompt: '',
   },
   soleil: {
-    race: 'deep ebony black-skinned Nigerian-American woman with blue-black undertones',
-    age: '20',
-    wardrobe: 'high fashion editorial look, gold accent jewelry, honey blonde hair braided or in waves',
+    race: 'deep ebony black-skinned Nigerian-American woman with rich blue-black undertones luminous natural sheen',
+    age: '25',
+    wardrobe: 'high fashion editorial look, delicate gold hoop earrings',
     environment: 'Los Angeles rooftop at golden hour with warm amber light',
-    details: 'striking green eyes, high cheekbones, full lips, slim modelesque figure, mysterious intense gaze, otherworldly presence',
+    details: 'honey golden blonde hair braided or in loose waves, striking green eyes, high prominent cheekbones, full lips, slim modelesque figure 5 foot 10, mysterious intense gaze, otherworldly presence, elegant long neck',
     prompt: '',
   },
 };
