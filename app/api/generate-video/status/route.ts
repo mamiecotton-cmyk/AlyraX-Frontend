@@ -28,6 +28,73 @@ function getAtlasOutputUrl(response: AtlasPredictionResponse): string | null {
   return output?.url || null;
 }
 
+type VideoPayload = {
+  base64?: string;
+  url?: string;
+};
+
+function isLikelyBase64Video(value: string) {
+  const normalized = value.includes(',') ? value.split(',').pop() ?? '' : value;
+  return normalized.length > 1000 && /^[A-Za-z0-9+/=\s]+$/.test(normalized);
+}
+
+function extractVideoPayload(value: unknown, depth = 0): VideoPayload {
+  if (!value || depth > 6) return {};
+
+  if (typeof value === 'string') {
+    if (/^https?:\/\//i.test(value)) return { url: value };
+    if (/^data:(image\/webp|video\/[a-z0-9.+-]+);base64,/i.test(value) || isLikelyBase64Video(value)) {
+      return { base64: value };
+    }
+    return {};
+  }
+
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const payload = extractVideoPayload(item, depth + 1);
+      if (payload.base64 || payload.url) return payload;
+    }
+    return {};
+  }
+
+  if (typeof value !== 'object') return {};
+
+  const obj = value as Record<string, unknown>;
+  const directCandidates = [
+    obj.video_url,
+    obj.url,
+    obj.s3_url,
+    obj.output_url,
+    obj.data,
+    obj.base64,
+    obj.video,
+    obj.image,
+    obj.message,
+  ];
+
+  for (const candidate of directCandidates) {
+    const payload = extractVideoPayload(candidate, depth + 1);
+    if (payload.base64 || payload.url) return payload;
+  }
+
+  const nestedCandidates = [
+    obj.images,
+    obj.gifs,
+    obj.videos,
+    obj.outputs,
+    obj.output,
+    obj.result,
+    obj.results,
+  ];
+
+  for (const candidate of nestedCandidates) {
+    const payload = extractVideoPayload(candidate, depth + 1);
+    if (payload.base64 || payload.url) return payload;
+  }
+
+  return {};
+}
+
 // ─── RunPod polling ───────────────────────────────────────────────────────
 
 async function uploadVideoToR2(
@@ -97,43 +164,21 @@ async function checkRunPodVideoStatus(jobId: string): Promise<{
   }
 
   if (data.status === 'COMPLETED') {
-    // Output is base64 WEBP from SaveAnimatedWEBP node
-    const output = data.output;
+    const payload = extractVideoPayload(data.output);
 
-    // Handle array of outputs (ComfyUI wizard format)
-    let base64Data: string | null = null;
-
-    if (Array.isArray(output)) {
-      // Find the image/webp output
-      const imageOutput = output.find(
-        (item: { type?: string; data?: string }) =>
-          item?.type === 'image/webp' || item?.type === 'base64' || item?.data,
-      );
-      base64Data = imageOutput?.data || null;
-    } else if (typeof output === 'object' && output !== null) {
-      // Single object output
-      const outputObj = output as Record<string, unknown>;
-      // Handle ComfyUI wizard format: output.images[0].data
-      const images = Array.isArray(outputObj.images) ? outputObj.images : [];
-      const firstImage = images[0] as { data?: string; type?: string } | undefined;
-      base64Data =
-        (typeof firstImage?.data === 'string' ? firstImage.data : null) ||
-        (typeof outputObj.data === 'string' ? outputObj.data : null) ||
-        (typeof outputObj.image === 'string' ? outputObj.image : null) ||
-        null;
-    } else if (typeof output === 'string') {
-      base64Data = output;
+    if (payload.url) {
+      return { status: 'succeeded', video_url: payload.url };
     }
 
-    if (!base64Data) {
-      console.error('RunPod video completed but no base64 data found:', JSON.stringify(data).slice(0, 500));
+    if (!payload.base64) {
+      console.error('RunPod video completed but no video payload found:', JSON.stringify(data).slice(0, 1000));
       return { status: 'failed', error: 'No video data in RunPod output' };
     }
 
     // Strip data URL prefix if present
-    const rawBase64 = base64Data.includes(',')
-      ? base64Data.split(',').pop() ?? base64Data
-      : base64Data;
+    const rawBase64 = payload.base64.includes(',')
+      ? payload.base64.split(',').pop() ?? payload.base64
+      : payload.base64;
 
     try {
       const videoBuffer = Buffer.from(rawBase64, 'base64');
