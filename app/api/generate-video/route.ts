@@ -58,6 +58,9 @@ type ImageDimensions = {
 
 type FluxImageStyle = 'portrait' | 'fullbody' | 'fullscreen';
 
+const WAN_480P_SHORT_EDGE = 480;
+const WAN_480P_MAX_LONG_EDGE = 832;
+
 // ─── Video Provider ────────────────────────────────────────────────────────
 
 type VideoProvider = 'runpod' | 'atlas';
@@ -246,11 +249,26 @@ function getImageDimensions(buffer: Buffer): ImageDimensions | null {
 }
 
 function getVideoDimensions(source: ImageDimensions | null): ImageDimensions {
-  if (!source?.width || !source?.height) return { width: 480, height: 832 };
+  if (!source?.width || !source?.height) {
+    return { width: WAN_480P_SHORT_EDGE, height: WAN_480P_MAX_LONG_EDGE };
+  }
 
   const aspect = source.width / source.height;
-  const width = 480;
-  const height = Math.min(896, Math.max(512, roundToMultiple(width / aspect, 16)));
+
+  if (aspect >= 1) {
+    const uncappedWidth = roundToMultiple(WAN_480P_SHORT_EDGE * aspect, 16);
+    const width = Math.min(WAN_480P_MAX_LONG_EDGE, Math.max(WAN_480P_SHORT_EDGE, uncappedWidth));
+    const height = width === uncappedWidth
+      ? WAN_480P_SHORT_EDGE
+      : Math.max(WAN_480P_SHORT_EDGE, roundToMultiple(width / aspect, 16));
+    return { width, height };
+  }
+
+  const uncappedHeight = roundToMultiple(WAN_480P_SHORT_EDGE / aspect, 16);
+  const height = Math.min(WAN_480P_MAX_LONG_EDGE, Math.max(WAN_480P_SHORT_EDGE, uncappedHeight));
+  const width = height === uncappedHeight
+    ? WAN_480P_SHORT_EDGE
+    : Math.max(16, roundToMultiple(height * aspect, 16));
 
   return { width, height };
 }
@@ -334,17 +352,24 @@ async function submitRunPodVideo(
   // and saves them to /comfyui/input/ before running the workflow
   let imageBase64: string;
   let videoDimensions: ImageDimensions;
+  let sourceDimensions: ImageDimensions | null = null;
   try {
     const imageRes = await fetch(imageUrl);
     if (!imageRes.ok) throw new Error(`Image fetch failed: ${imageRes.status}`);
     const imageBuffer = await imageRes.arrayBuffer();
     const buffer = Buffer.from(imageBuffer);
     imageBase64 = buffer.toString('base64');
-    videoDimensions = getVideoDimensions(getImageDimensions(buffer));
+    sourceDimensions = getImageDimensions(buffer);
+    videoDimensions = getVideoDimensions(sourceDimensions);
   } catch (err) {
     console.error(`[${requestId}] Failed to fetch companion image:`, err);
     return null;
   }
+
+  console.log(`[${requestId}] RunPod video resolution`, {
+    sourceDimensions,
+    videoDimensions,
+  });
 
   const imageFilename = 'companion_input.png';
   const workflow = buildWan21Workflow(imageFilename, positivePrompt, negativePrompt, videoDimensions);
