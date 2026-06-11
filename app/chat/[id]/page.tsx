@@ -472,25 +472,43 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
         }),
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({})) as Record<string, unknown>;
 
-      if (data.status === 'ready' && data.image_url) {
+      if (!res.ok) {
+        throw new Error(typeof data.error === 'string' ? data.error : 'Media generation failed');
+      }
+
+      if (data.status === 'ready' && typeof data.image_url === 'string') {
+        const imageUrl = data.image_url;
         setMessages(prev => prev.map(m =>
-          m.id === msg.id ? { ...m, media_status: 'ready', media_url: data.image_url } : m
+          m.id === msg.id ? { ...m, media_status: 'ready', media_url: imageUrl } : m
         ));
         return;
       }
 
-      if (data.jobId) {
-        if (data.source_frame_url) {
+      if (typeof data.jobId === 'string') {
+        if (typeof data.source_frame_url === 'string') {
+          const sourceFrameUrl = data.source_frame_url;
           setMessages(prev => prev.map(m =>
             m.id === msg.id
-              ? { ...m, source_frame_url: data.source_frame_url as string, poll_attempt: 0 }
+              ? { ...m, source_frame_url: sourceFrameUrl, poll_attempt: 0 }
               : m
           ));
         }
-        pollMediaJob(msg.id, data.jobId, msg.media_type, data.provider);
+        pollMediaJob(msg.id, data.jobId, msg.media_type, typeof data.provider === 'string' ? data.provider : undefined);
+        return;
       }
+      throw new Error('No media job returned');
+    } catch (error) {
+      console.error('Media generation failed:', error);
+      await fetch('/api/chat/media/complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message_id: msg.id, status: 'failed' }),
+      }).catch(() => {});
+      setMessages(prev => prev.map(m =>
+        m.id === msg.id ? { ...m, media_status: 'failed' } : m
+      ));
     } finally {
       mediaGenerationRequestsRef.current.delete(msg.id);
     }

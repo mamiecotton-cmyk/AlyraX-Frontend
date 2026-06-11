@@ -40,7 +40,7 @@ function contentTypeForKind(kind: UploadKind, file: File) {
 }
 
 function validateFileKind(kind: UploadKind, contentType: string) {
-  if (kind === 'archetype-video') return contentType.startsWith('video/');
+  if (kind === 'archetype-video') return contentType.startsWith('video/') || contentType === 'image/webp';
   return contentType.startsWith('image/');
 }
 
