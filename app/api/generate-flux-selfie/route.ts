@@ -12,6 +12,7 @@ type FluxWorkflowParams = {
   seed: number;
   steps: number;
   guidance: number;
+  useNsfwLora: boolean;
 };
 
 type ImageStyle = 'portrait' | 'fullbody' | 'fullscreen';
@@ -54,7 +55,42 @@ function buildFluxWorkflow({
   seed,
   steps,
   guidance,
+  useNsfwLora,
 }: FluxWorkflowParams) {
+  const loraNodes = useNsfwLora
+    ? {
+        // NSFW LoRA — applied first on base model
+        '4': {
+          class_type: 'LoraLoaderModelOnly',
+          inputs: {
+            model: ['1', 0],
+            lora_name: 'nsfw_flux.safetensors',
+            strength_model: 0.65,
+          },
+        },
+        // Character LoRA — applied last, identity wins
+        '4b': {
+          class_type: 'LoraLoaderModelOnly',
+          inputs: {
+            model: ['4', 0],
+            lora_name: loraFile,
+            strength_model: loraStrength,
+          },
+        },
+      }
+    : {
+        // Character LoRA only for non-explicit prompts
+        '4': {
+          class_type: 'LoraLoaderModelOnly',
+          inputs: {
+            model: ['1', 0],
+            lora_name: loraFile,
+            strength_model: loraStrength,
+          },
+        },
+      };
+  const modelOutput = useNsfwLora ? ['4b', 0] : ['4', 0];
+
   return {
     '1': {
       class_type: 'UNETLoader',
@@ -75,24 +111,7 @@ function buildFluxWorkflow({
       class_type: 'VAELoader',
       inputs: { vae_name: 'ae.safetensors' },
     },
-    // Character LoRA — loads identity on base model
-    '4': {
-      class_type: 'LoraLoaderModelOnly',
-      inputs: {
-        model: ['1', 0],
-        lora_name: loraFile,
-        strength_model: loraStrength,
-      },
-    },
-    // NSFW LoRA — chains on top of character LoRA output
-    '4b': {
-      class_type: 'LoraLoaderModelOnly',
-      inputs: {
-        model: ['4', 0],
-        lora_name: 'nsfw_flux.safetensors',
-        strength_model: 0.65,
-      },
-    },
+    ...loraNodes,
     '5': {
       class_type: 'CLIPTextEncode',
       inputs: { text: prompt, clip: ['2', 0] },
@@ -105,14 +124,13 @@ function buildFluxWorkflow({
       class_type: 'EmptySD3LatentImage',
       inputs: { width, height, batch_size: 1 },
     },
-    // BasicGuider now uses 4b (NSFW LoRA output) instead of 4
     '8': {
       class_type: 'BasicGuider',
-      inputs: { model: ['4b', 0], conditioning: ['6', 0] },
+      inputs: { model: modelOutput, conditioning: ['6', 0] },
     },
     '9': {
       class_type: 'BasicScheduler',
-      inputs: { model: ['4b', 0], scheduler: 'simple', steps, denoise: 1.0 },
+      inputs: { model: modelOutput, scheduler: 'simple', steps, denoise: 1.0 },
     },
     '10': {
       class_type: 'KSamplerSelect',
@@ -156,6 +174,10 @@ function removeLeadingTriggerWord(prompt: string, triggerWord: string) {
   return prompt
     .replace(new RegExp(`^\\s*${escapeRegExp(triggerWord)}\\s*,?\\s*`, 'i'), '')
     .trim();
+}
+
+function isExplicitContentPrompt(prompt: string) {
+  return /\b(nude|naked|unclothed|not clothed|no clothes|no clothing|without clothes|clothes off|uncensored|nsfw|explicit|topless|shirtless|bare|intimate)\b/i.test(prompt);
 }
 
 function buildFinalPrompt(prompt: string, triggerWord: string, style: ImageStyle, characterId?: string) {
@@ -231,6 +253,7 @@ export async function POST(req: NextRequest) {
 
     const imageStyle = normalizeStyle(style);
     const finalPrompt = buildFinalPrompt(prompt, trigger_word, imageStyle, character_id);
+    const useNsfwLora = isExplicitContentPrompt(prompt);
 
     const { width, height } = styleToDimensions(imageStyle);
     const resolvedSeed =
@@ -247,6 +270,7 @@ export async function POST(req: NextRequest) {
       seed: resolvedSeed,
       steps,
       guidance,
+      useNsfwLora,
     });
 
     console.log('Submitting Flux LoRA selfie:', {
@@ -255,6 +279,7 @@ export async function POST(req: NextRequest) {
       triggerWord: trigger_word,
       style: imageStyle,
       seed: resolvedSeed,
+      useNsfwLora,
       promptPreview: finalPrompt.slice(0, 200),
     });
 
