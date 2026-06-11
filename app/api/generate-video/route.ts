@@ -61,7 +61,7 @@ type FluxImageStyle = 'portrait' | 'fullbody' | 'fullscreen';
 const WAN_480P_SHORT_EDGE = 480;
 const WAN_480P_MAX_LONG_EDGE = 832;
 const WAN_VIDEO_LENGTH = 81;
-const WAN_SAMPLER_STEPS = 25;
+const WAN_SAMPLER_STEPS = 16;
 const WAN_CFG = 4.5;
 
 // ─── Video Provider ────────────────────────────────────────────────────────
@@ -568,16 +568,13 @@ function buildVideoNegativePrompt(gender: CharacterGender) {
 
 function buildWanPositivePrompt(scenePrompt: string) {
   return [
+    scenePrompt,
     'stable image-to-video animation',
     'preserve the exact face and identity from the source image',
     'preserve source image body proportions and anatomy',
-    'preserve source image aspect ratio and framing',
     'subtle realistic motion',
     'stable camera',
     'natural human movement',
-    'no body stretching',
-    'no face morphing',
-    scenePrompt,
   ].join(', ');
 }
 
