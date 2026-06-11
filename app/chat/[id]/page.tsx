@@ -21,6 +21,8 @@ type Message = {
   media_url: string | null;
   media_status: 'generating' | 'ready' | 'failed' | null;
   media_prompt: string | null;
+  poll_attempt?: number;
+  source_frame_url?: string;
   created_at: string;
 };
 
@@ -98,21 +100,32 @@ function MediaMessage({
   return (
     <div style={{ maxWidth: '260px' }}>
       {isGenerating && (
-        <div style={{
-          width: '220px',
-          height: '280px',
-          background: archetype.imageGradient,
-          borderRadius: '16px',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: '12px',
-          border: '1px solid rgba(255,255,255,0.08)',
-        }}>
-          <div style={{ fontSize: '24px', animation: 'spin 2s linear infinite', display: 'inline-block' }}>◈</div>
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '0.2em', color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase' }}>
-            {message.media_type === 'video' ? 'Recording...' : 'Taking photo...'}
+        <div style={{ position: 'relative', width: '220px', height: '280px', borderRadius: '16px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)', background: '#111' }}>
+          {message.source_frame_url && message.media_type === 'video' ? (
+            <img
+              src={message.source_frame_url}
+              alt=""
+              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', filter: 'brightness(0.85)' }}
+            />
+          ) : (
+            <div style={{ width: '100%', height: '100%', background: archetype.imageGradient }} />
+          )}
+          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, transparent 40%, rgba(0,0,0,0.75) 100%)' }} />
+          <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '12px 12px 14px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+              <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--gold, #c9a84c)', animation: 'spin 1.2s ease-in-out infinite' }} />
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.6)' }}>
+                {(() => {
+                  const pct = ((message.poll_attempt ?? 0) / 120) * 100;
+                  if (pct < 34) return 'Setting the scene...';
+                  if (pct < 67) return 'Almost there...';
+                  return 'Finishing up...';
+                })()}
+              </span>
+            </div>
+            <div style={{ width: '100%', height: '3px', background: 'rgba(255,255,255,0.15)', borderRadius: '2px', overflow: 'hidden' }}>
+              <div style={{ height: '100%', background: 'var(--gold, #c9a84c)', borderRadius: '2px', width: `${Math.min(99, ((message.poll_attempt ?? 0) / 120) * 100)}%`, transition: 'width 0.4s ease' }} />
+            </div>
           </div>
         </div>
       )}
@@ -335,6 +348,9 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
       }
 
       await new Promise(r => setTimeout(r, 4000));
+      setMessages(prev => prev.map(m =>
+        m.id === messageId ? { ...m, poll_attempt: (m.poll_attempt ?? 0) + 1 } : m
+      ));
 
       try {
         let res: Response;
@@ -426,6 +442,13 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
       }
 
       if (data.jobId) {
+        if (data.source_frame_url) {
+          setMessages(prev => prev.map(m =>
+            m.id === msg.id
+              ? { ...m, source_frame_url: data.source_frame_url as string, poll_attempt: 0 }
+              : m
+          ));
+        }
         pollMediaJob(msg.id, data.jobId, msg.media_type, data.provider);
       }
     } finally {
