@@ -320,7 +320,7 @@ async function generateFluxSourceFrame({
       prompt,
       lora_file: loraConfig.loraFile,
       trigger_word: loraConfig.triggerWord,
-      style: styleForVideoSourcePrompt(prompt),
+      style: styleForVideoSourcePrompt(prompt) === 'fullbody' ? 'fullbody' : 'fullscreen',
       character_id: characterId,
     }),
   });
