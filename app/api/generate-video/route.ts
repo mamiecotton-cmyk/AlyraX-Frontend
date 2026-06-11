@@ -61,7 +61,7 @@ type FluxImageStyle = 'portrait' | 'fullbody' | 'fullscreen';
 const WAN_480P_SHORT_EDGE = 480;
 const WAN_480P_MAX_LONG_EDGE = 832;
 const WAN_VIDEO_LENGTH = 81;
-const WAN_SAMPLER_STEPS = 8;
+const WAN_SAMPLER_STEPS = 25;
 const WAN_CFG = 4.5;
 
 // ─── Video Provider ────────────────────────────────────────────────────────
@@ -146,7 +146,7 @@ function buildWan21Workflow(
     '54': {
       inputs: {
         model: ['37', 0],
-        shift: 8,
+        shift: 5,
       },
       class_type: 'ModelSamplingSD3',
     },
