@@ -313,7 +313,7 @@ export default function AdminTrainingPage() {
     const style = category === 'portrait' ? 'portrait' : 'fullbody';
 
     setGenerating(true);
-    setImages([]);
+    setImages(prev => prev.filter(img => img.selected));
     abortRef.current = false;
 
     const newImages: GeneratedImage[] = [];
