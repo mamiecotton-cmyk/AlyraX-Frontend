@@ -294,6 +294,24 @@ export default function AdminTrainingPage() {
 
   async function generate() {
     if (!activePrompt) return;
+    const character = LORA_CHARACTERS.find(c => c.id === selectedCharacter);
+    if (!character) return;
+
+    // Look up LoRA config — must match lib/archetype-loras.ts
+    const loraMap: Record<string, { loraFile: string; triggerWord: string }> = {
+      soleil: { loraFile: 'soleil_v1.safetensors', triggerWord: 'solx' },
+      zara:   { loraFile: 'zara_v1.safetensors',   triggerWord: 'zrabd' },
+      nia:    { loraFile: 'nia_v1.safetensors',     triggerWord: 'niavx' },
+      jerome: { loraFile: 'jerome_v1_flux.safetensors', triggerWord: 'jrmwr' },
+      jaxon:  { loraFile: 'jaxon_v1.safetensors',  triggerWord: 'jxnst' },
+      roman:  { loraFile: 'roman_v1.safetensors',  triggerWord: 'r0man' },
+    };
+    const lora = loraMap[selectedCharacter];
+    if (!lora) return;
+
+    // Pick style based on category
+    const style = category === 'portrait' ? 'portrait' : 'fullbody';
+
     setGenerating(true);
     setImages([]);
     abortRef.current = false;
@@ -305,21 +323,46 @@ export default function AdminTrainingPage() {
       setProgress(`Generating ${i + 1} of ${quantity}...`);
 
       try {
-        const res = await fetch('/api/generate-selfie', {
+        // Step 1 — submit to Flux LoRA pipeline
+        const submitRes = await fetch('/api/generate-flux-selfie', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             prompt: activePrompt,
-            negative_prompt: 'cartoon, anime, illustration, painting, 3d render, CGI, watermark, text, ugly, deformed, blurry, low quality, extra limbs, missing limbs, extra fingers, missing fingers, fused fingers, warped hands, warped feet',
-            reference_image_url: anchorImageUrl ?? undefined,
+            lora_file: lora.loraFile,
+            trigger_word: lora.triggerWord,
+            style,
+            character_id: selectedCharacter,
             seed: -1,
           }),
         });
 
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Generation failed');
+        const submitData = await submitRes.json();
+        if (!submitRes.ok) throw new Error(submitData.error || 'Submission failed');
 
-        const imageUrl = data.image_url;
+        const jobId = submitData.jobId;
+        if (!jobId) throw new Error('No jobId returned');
+
+        // Step 2 — poll status
+        setProgress(`Waiting on image ${i + 1} of ${quantity}...`);
+        let imageUrl: string | null = null;
+
+        for (let attempt = 0; attempt < 120; attempt++) {
+          if (abortRef.current) break;
+          await new Promise(r => setTimeout(r, 3000));
+
+          const statusRes = await fetch(`/api/generate-companion/status/${jobId}`);
+          const statusData = await statusRes.json();
+
+          if (statusData.image_url) {
+            imageUrl = statusData.image_url;
+            break;
+          }
+          if (!statusRes.ok || statusData.error) {
+            throw new Error(statusData.error || 'Generation failed');
+          }
+        }
+
         if (imageUrl) {
           newImages.push({
             id: `${Date.now()}-${i}`,
