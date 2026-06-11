@@ -563,6 +563,13 @@ function buildVideoNegativePrompt(gender: CharacterGender) {
     base.push('man', 'male', 'masculine face', 'beard', 'mustache', 'broad male shoulders', 'gender swap');
   }
 
+  // Anatomy repetition — Wan2.1 responds to weighted repetition for body parts
+  base.push(
+    'warped hands', 'warped hands', 'extra fingers', 'extra fingers', 'missing fingers', 'missing fingers', 'fused fingers', 'fused fingers',
+    'warped feet', 'warped feet', 'extra toes', 'extra toes', 'missing toes', 'fused toes',
+    'warped limbs', 'rubber limbs', 'twisted limbs', 'melting body', 'liquified limbs',
+  );
+
   return base.join(', ');
 }
 
