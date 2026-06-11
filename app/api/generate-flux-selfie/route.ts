@@ -90,7 +90,7 @@ function buildFluxWorkflow({
       inputs: {
         model: ['4', 0],
         lora_name: 'nsfw_flux.safetensors',
-        strength_model: 0.55,
+        strength_model: 0.65,
       },
     },
     '5': {
