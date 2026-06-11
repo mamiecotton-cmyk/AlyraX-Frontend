@@ -958,6 +958,7 @@ export async function POST(req: NextRequest) {
       success: true,
       prediction_id: predictionId,
       provider,
+      source_frame_url: imageUrl || null,
       endWardrobeState: scenePlan.endWardrobeState,
       onWait1: scenePlan.onWait1,
       onWait2: scenePlan.onWait2,

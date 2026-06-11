@@ -215,7 +215,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({
         jobId: videoData.prediction_id,
         provider: videoData.provider,
-        source_frame_url: frameUrl,
+        source_frame_url: videoData.source_frame_url ?? null,
         message_id,
         status: 'generating',
       });
