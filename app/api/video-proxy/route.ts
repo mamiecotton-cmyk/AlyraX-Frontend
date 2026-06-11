@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(req: NextRequest) {
   const url = req.nextUrl.searchParams.get('url');
+  const download = req.nextUrl.searchParams.get('download');
   if (!url) {
     return NextResponse.json({ error: 'Missing url' }, { status: 400 });
   }
@@ -43,6 +44,10 @@ export async function GET(req: NextRequest) {
   }
 
   headers.set('cache-control', 'private, max-age=300');
+  if (download) {
+    const filename = download.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 120);
+    headers.set('content-disposition', `attachment; filename="${filename}"`);
+  }
 
   return new NextResponse(upstream.body, {
     status: upstream.status,

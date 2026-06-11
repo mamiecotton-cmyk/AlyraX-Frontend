@@ -78,6 +78,17 @@ function getMediaDownloadName(message: Message) {
   return `alyrax-${type}-${message.id}.${safeExtension}`;
 }
 
+function getDownloadUrl(url: string, filename: string) {
+  return `/api/video-proxy?url=${encodeURIComponent(url)}&download=${encodeURIComponent(filename)}`;
+}
+
+function getViewerDownloadName(viewer: ViewerState) {
+  if (!viewer) return 'alyrax-media';
+  const extension = viewer.url.split('?')[0].split('.').pop();
+  const safeExtension = extension && extension.length <= 5 ? extension : viewer.type === 'video' ? 'mp4' : 'jpg';
+  return `alyrax-${viewer.type}.${safeExtension}`;
+}
+
 function isVoiceMediaRequest(message: string) {
   const lower = message.toLowerCase();
   return (
@@ -194,7 +205,7 @@ function MediaMessage({
             />
           )}
           <a
-            href={message.media_url}
+            href={getDownloadUrl(message.media_url, getMediaDownloadName(message))}
             download={getMediaDownloadName(message)}
             onClick={(event) => event.stopPropagation()}
             style={{
@@ -1077,8 +1088,8 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
               ✕
             </button>
             <a
-              href={viewer.url}
-              download
+              href={getDownloadUrl(viewer.url, getViewerDownloadName(viewer))}
+              download={getViewerDownloadName(viewer)}
               style={{ position: 'absolute', bottom: '12px', right: '12px', padding: '6px 14px', background: 'rgba(0,0,0,0.7)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '20px', color: '#ffffff', fontSize: '11px', textDecoration: 'none', fontFamily: 'var(--font-mono)' }}
             >
               ↓ Save

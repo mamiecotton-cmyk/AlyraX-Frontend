@@ -177,7 +177,7 @@ function buildFinalPrompt(prompt: string, triggerWord: string, style: ImageStyle
         ].join(', ')
       : 'portrait selfie composition';
 
-  return [triggerWord, characterAnchor, PHOTOREALISM_PROMPT, composition, promptWithoutTrigger]
+  return [promptWithoutTrigger, triggerWord, characterAnchor, PHOTOREALISM_PROMPT, composition]
     .filter(Boolean)
     .join(', ');
 }
