@@ -71,6 +71,13 @@ function timeSince(iso: string) {
   return `${months} months`;
 }
 
+function getMediaDownloadName(message: Message) {
+  const type = message.media_type === 'video' ? 'video' : 'image';
+  const extension = message.media_url?.split('?')[0].split('.').pop();
+  const safeExtension = extension && extension.length <= 5 ? extension : type === 'video' ? 'mp4' : 'jpg';
+  return `alyrax-${type}-${message.id}.${safeExtension}`;
+}
+
 function isVoiceMediaRequest(message: string) {
   const lower = message.toLowerCase();
   return (
@@ -186,6 +193,28 @@ function MediaMessage({
               }}
             />
           )}
+          <a
+            href={message.media_url}
+            download={getMediaDownloadName(message)}
+            onClick={(event) => event.stopPropagation()}
+            style={{
+              position: 'absolute',
+              bottom: '8px',
+              left: '8px',
+              background: 'rgba(0,0,0,0.7)',
+              border: '1px solid rgba(255,255,255,0.2)',
+              borderRadius: '20px',
+              padding: '4px 10px',
+              color: '#ffffff',
+              fontSize: '10px',
+              cursor: 'pointer',
+              fontFamily: 'var(--font-mono)',
+              letterSpacing: '0.1em',
+              textDecoration: 'none',
+            }}
+          >
+            ↓ Save
+          </a>
           <button
             onClick={() => onRegenerate(message)}
             style={{

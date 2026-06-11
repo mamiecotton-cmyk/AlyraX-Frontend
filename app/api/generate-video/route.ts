@@ -583,6 +583,22 @@ function normalizeWardrobeState(value: unknown): WardrobeState {
   return 'clothed';
 }
 
+function inferWardrobeStateFromPrompt(prompt: unknown, fallback: WardrobeState): WardrobeState {
+  if (typeof prompt !== 'string') return fallback;
+
+  const normalized = prompt.toLowerCase();
+
+  if (/\b(nude|naked|unclothed|not clothed|no clothes|no clothing|without clothes|clothes off|fully bare)\b/.test(normalized)) {
+    return 'nude';
+  }
+
+  if (/\b(undress|undressing|taking off|take off|removing clothes|partially clothed|partially dressed|shirtless|topless|lingerie|underwear)\b/.test(normalized)) {
+    return 'partial';
+  }
+
+  return fallback;
+}
+
 function clampEndWardrobeState(value: unknown, fallback: WardrobeState): WardrobeState {
   if (value === 'clothed' || value === 'partial' || value === 'nude') return value;
   if (value === 'start') return 'clothed';
@@ -662,9 +678,9 @@ async function askEuryaleForScenePlan(
   const recentHistory = conversationHistory.slice(-12);
   const continuityInstruction =
     wardrobeState === 'nude'
-      ? 'Internal continuity state: complete. Let the anchor image define the visible starting point and preserve visual continuity.'
+      ? 'Internal continuity state: complete. The latest request explicitly asks for no clothing; do not add new wardrobe. Let the anchor image define the visible starting point and preserve visual continuity.'
       : wardrobeState === 'partial'
-        ? 'Internal continuity state: middle. Let the anchor image define the visible starting point and continue the narrated action naturally.'
+        ? 'Internal continuity state: middle. The latest request implies a partially dressed or changing wardrobe state; do not reset to fully clothed unless the user asks. Let the anchor image define the visible starting point and continue the narrated action naturally.'
         : 'Internal continuity state: start. Let the anchor image define the visible starting point and begin the narrated action naturally.';
 
   const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
@@ -823,7 +839,7 @@ export async function POST(req: NextRequest) {
       characterName: requestedCharacterName,
     } = await req.json();
 
-    const wardrobeState = normalizeWardrobeState(requestedWardrobeState);
+    const wardrobeState = inferWardrobeStateFromPrompt(userMessage, normalizeWardrobeState(requestedWardrobeState));
     let characterGender = normalizeCharacterGender(requestedCharacterGender);
     const characterName = typeof requestedCharacterName === 'string' ? requestedCharacterName : null;
 
@@ -872,7 +888,8 @@ export async function POST(req: NextRequest) {
     }
 
     let imageUrl = frameUrl || companion?.image_url || '';
-    if (loraConfig && !imageUrl) {
+    const shouldGenerateWardrobeSourceFrame = Boolean(loraConfig && wardrobeState !== 'clothed');
+    if (loraConfig && (!imageUrl || shouldGenerateWardrobeSourceFrame)) {
       trace.push('flux-lora-source-frame');
       imageUrl = await generateFluxSourceFrame({
         origin: new URL(req.url).origin,
@@ -883,6 +900,7 @@ export async function POST(req: NextRequest) {
       });
       console.log(`[${requestId}] using Flux LoRA source frame for video`, {
         archetypeId: loraArchetypeId,
+        reason: shouldGenerateWardrobeSourceFrame ? 'prompt-wardrobe' : 'missing-source-frame',
         imageUrl,
       });
     } else if (loraConfig) {
