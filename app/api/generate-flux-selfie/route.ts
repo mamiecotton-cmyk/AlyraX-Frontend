@@ -13,6 +13,7 @@ type FluxWorkflowParams = {
   steps: number;
   guidance: number;
   useNsfwLora: boolean;
+  nsfwLoraStrength: number;
 };
 
 type ImageStyle = 'portrait' | 'fullbody' | 'fullscreen';
@@ -56,6 +57,7 @@ function buildFluxWorkflow({
   steps,
   guidance,
   useNsfwLora,
+  nsfwLoraStrength,
 }: FluxWorkflowParams) {
   const loraNodes = useNsfwLora
     ? {
@@ -65,7 +67,7 @@ function buildFluxWorkflow({
           inputs: {
             model: ['1', 0],
             lora_name: 'nsfw_flux.safetensors',
-            strength_model: 0.65,
+            strength_model: nsfwLoraStrength,
           },
         },
         // Character LoRA — applied last, identity wins
@@ -223,6 +225,7 @@ export async function POST(req: NextRequest) {
       style = 'portrait',
       seed,
       lora_strength = 0.85,
+      nsfw_lora_strength = 0.65,
       steps = 20,
       guidance = 3.5,
       character_id,
@@ -271,6 +274,7 @@ export async function POST(req: NextRequest) {
       steps,
       guidance,
       useNsfwLora,
+      nsfwLoraStrength: nsfw_lora_strength,
     });
 
     console.log('Submitting Flux LoRA selfie:', {

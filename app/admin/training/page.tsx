@@ -334,6 +334,7 @@ export default function AdminTrainingPage() {
             style,
             character_id: selectedCharacter,
             seed: -1,
+            nsfw_lora_strength: 0.5,
           }),
         });
 
