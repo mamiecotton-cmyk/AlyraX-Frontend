@@ -413,11 +413,12 @@ export default function AdminTrainingPage() {
       // Fetch and add each image
       await Promise.all(selected.map(async (img, idx) => {
         try {
-          const res = await fetch(img.url);
+          const res = await fetch(`/api/admin/training/proxy-image?url=${encodeURIComponent(img.url)}`);
+          if (!res.ok) throw new Error(`Proxy failed: ${res.status}`);
           const blob = await res.blob();
           folder.file(`${String(idx + 1).padStart(3, '0')}.jpg`, blob);
-        } catch {
-          // skip failed fetches
+        } catch (err) {
+          console.error(`Image ${idx + 1} download failed:`, err);
         }
       }));
 
