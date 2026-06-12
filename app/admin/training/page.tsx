@@ -316,7 +316,7 @@ export default function AdminTrainingPage() {
     setImages(prev => prev.filter(img => img.selected));
     abortRef.current = false;
 
-    const newImages: GeneratedImage[] = [];
+    const newImages: GeneratedImage[] = images.filter(img => img.selected);
 
     for (let i = 0; i < quantity; i++) {
       if (abortRef.current) break;
