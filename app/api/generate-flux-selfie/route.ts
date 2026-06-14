@@ -45,6 +45,7 @@ const CHARACTER_ANCHORS: Record<string, string> = {
   jaxon: 'shaved head low fade, light beard with goatee, heavy gold cuban chain, clean smooth skin no tattoos',
   roman: 'bright vivid blue eyes, heavy freckles across cheeks and nose, short tight waves low fade',
   nia: 'long dark wavy locs past shoulders, rich brown skin, warm brown eyes',
+  victoria: 'wavy silver-streaked dark hair past shoulders, warm caramel-brown skin, warm brown eyes, soft smile lines',
 };
 
 function buildFluxWorkflow({

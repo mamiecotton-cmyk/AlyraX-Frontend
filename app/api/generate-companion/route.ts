@@ -100,6 +100,19 @@ function normalizeAge(age: string) {
   return `age ${age}`;
 }
 
+function buildLoraScenePrompt(structuredPrompt: StructuredPrompt | undefined, description: string, gender: unknown, style: string) {
+  const wardrobe = getWardrobeForStyle(style, structuredPrompt?.wardrobe);
+  const environment = cleanPromptPart(structuredPrompt?.environment);
+  const details = cleanPromptPart(structuredPrompt?.details);
+  const age = normalizeAge(cleanPromptPart(structuredPrompt?.age));
+  const genderLabel = getGenderLabel(structuredPrompt?.gender ?? gender);
+  const extra = cleanPromptPart(description);
+
+  return [wardrobe, environment, genderLabel, age, details, extra]
+    .filter(Boolean)
+    .join(', ');
+}
+
 function hasStructuredPrompt(fields?: StructuredPrompt) {
   if (!fields) return false;
   return Boolean(
@@ -479,11 +492,12 @@ export async function POST(req: NextRequest) {
 
     const loraConfig = typeof archetype_id === 'string' ? getArchetypeLora(archetype_id) : null;
     if (loraConfig) {
+      const scenePrompt = buildLoraScenePrompt(structured_prompt, description, gender, style);
       const fluxRes = await fetch(new URL('/api/generate-flux-selfie', req.url), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          prompt: cleanPromptPart(description),
+          prompt: scenePrompt,
           lora_file: loraConfig.loraFile,
           trigger_word: loraConfig.triggerWord,
           style: normalizeFluxImageStyle(style),
