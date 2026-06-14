@@ -29,6 +29,10 @@ export const archetypeLoras: Record<string, ArchetypeLoraConfig> = {
     loraFile: 'soleil_v1.safetensors',
     triggerWord: 'solx',
   },
+  victoria: {
+    loraFile: 'victoria_v1.safetensors',
+    triggerWord: 'vctrx',
+  },
 };
 
 export function getArchetypeLora(archetypeId: string): ArchetypeLoraConfig | null {
