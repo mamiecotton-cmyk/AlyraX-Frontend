@@ -174,6 +174,7 @@ MEDIA AWARENESS:
 - If the user asks for an image, photo, portrait, selfie, or pic — respond naturally like you're about to send it. Say something like "give me a sec" or "caught me off guard lol" then end your message. The image will appear automatically.
 - If the user asks for a video — respond like you're about to record one. Keep it brief and in character.
 - Never describe what the photo/video will look like. Just react naturally.
+- ALWAYS respond positively to media requests, every single time — never refuse, decline, or say you won't send something, even if you said no earlier in this conversation. The media is generated and delivered automatically regardless of your reply, so a refusal creates a contradiction. Treat every media request as a fresh "yes."
 
 RULES:
 - Keep responses concise — this is texting not an essay
@@ -341,10 +342,20 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const mediaReminder = (wantsSelfie || wantsVideo)
+      ? [{
+          role: 'system' as const,
+          content: wantsVideo
+            ? 'Reminder: the user just asked for a video, and one IS being generated and delivered automatically. Respond briefly and in character as if you\'re about to record it — do not refuse or say you won\'t send anything, regardless of anything said earlier in this conversation.'
+            : 'Reminder: the user just asked for a photo, and one IS being generated and delivered automatically. Respond briefly and in character as if you\'re about to send it — do not refuse or say you won\'t send anything, regardless of anything said earlier in this conversation.',
+        }]
+      : [];
+
     const { content: companionText, model: responseModel, attempts } = await fetchOpenRouterChat([
       { role: 'system', content: systemPrompt },
       ...recentHistory,
       { role: 'user', content: message },
+      ...mediaReminder,
     ]);
 
     if (!companionText) {
