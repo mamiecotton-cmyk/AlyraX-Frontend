@@ -366,7 +366,8 @@ async function submitRunPodVideo(
     videoDimensions = getVideoDimensions(sourceDimensions);
   } catch (err) {
     console.error(`[${requestId}] Failed to fetch companion image:`, err);
-    return null;
+    const message = err instanceof Error ? err.message : String(err);
+    throw new Error(`RunPod video source image fetch failed: ${message}`);
   }
 
   console.log(`[${requestId}] RunPod video resolution`, {
@@ -403,7 +404,7 @@ async function submitRunPodVideo(
     if (!res.ok) {
       const body = await res.text();
       console.error(`[${requestId}] RunPod video submit failed (${res.status}):`, body);
-      return null;
+      throw new Error(`RunPod video submit failed (${res.status}): ${body}`);
     }
 
     const data = await res.json();
@@ -411,14 +412,14 @@ async function submitRunPodVideo(
 
     if (!jobId) {
       console.error(`[${requestId}] RunPod returned no job ID:`, data);
-      return null;
+      throw new Error('RunPod video submit returned no job ID');
     }
 
     console.log(`[${requestId}] RunPod video job submitted: ${jobId}`);
     return jobId as string;
   } catch (err) {
     console.error(`[${requestId}] RunPod video submit exception:`, err);
-    return null;
+    throw err;
   }
 }
 
@@ -959,7 +960,7 @@ export async function POST(req: NextRequest) {
       console.log(`[${requestId}] RunPod predictionId=${predictionId}`);
     }
 
-    // ── Fall back to Atlas if RunPod failed or not configured ──
+    // ── Fall back to Atlas only when RunPod is not configured ──
     if (!predictionId) {
       console.warn(`[${requestId}] RunPod unavailable — falling back to Atlas`);
       trace.push('atlas-fallback');
