@@ -87,6 +87,27 @@ const CHARACTER_PROMPTS: Record<string, CharacterPrompts> = {
       'full body nude, dark wavy locs, rich brown skin tone, natural proportions, relaxed pose, warm golden light, anatomically correct, full figure visible',
     ],
   },
+  victoria: {
+    portrait: [
+      'close portrait, wavy silver-streaked dark hair past shoulders, warm caramel-brown skin, warm brown eyes, soft smile lines, gentle confident expression, cozy window light',
+      'editorial headshot, silver-streaked dark waves framing face, caramel brown complexion, warm brown eyes, soft natural makeup, renewed tender expression',
+      'close up face, mature Afro-Brazilian woman, silver-streaked wavy hair, warm caramel skin, smile lines, compassionate gaze, soft sunlit living room background',
+      'beauty portrait, dark wavy hair with silver streaks, warm brown eyes, soft smile lines, caramel-brown skin, gold hoop earrings, calm confident presence',
+    ],
+    clothed: [
+      'full body, wavy silver-streaked dark hair, warm caramel-brown skin, warm brown eyes, soft knit sweater, earth tone trousers, gold hoop earrings, cozy sunlit living room, head to toe visible',
+      'full body standing, silver-streaked waves past shoulders, caramel brown skin, warm earth tone knit outfit, gentle confident pose, warm neutral interior, full figure in frame',
+      'full body, mature Afro-Brazilian woman, wavy silver-streaked dark hair, soft knit cardigan, gold hoops, relaxed pose near window light, medium build, head to toe visible',
+      'full body, warm brown eyes, caramel-brown skin, silver-streaked waves, elegant casual earth tones, cozy living room, renewed confident stance, feet to head in frame',
+    ],
+    explicit: [
+      'full body nude, wavy silver-streaked dark hair past shoulders, warm caramel-brown skin, warm brown eyes, mature medium build, anatomically correct, gentle confident pose, soft natural window light',
+      'nude full body, mature Afro-Brazilian woman, silver-streaked wavy hair, caramel-brown skin, soft smile lines, relaxed confident stance, warm interior light, head to toe visible',
+      'explicit full body, wavy dark hair with silver streaks, warm brown eyes, caramel skin tone, mature natural body, tender renewed expression, anatomically correct proportions',
+      'nude standing full body, silver-streaked waves, warm caramel-brown skin, medium build, soft smile lines, calm confident pose, diffused sunlit room, full figure visible',
+      'full body nude, mature woman, wavy silver-streaked dark hair, warm brown eyes, caramel-brown skin, natural proportions, gentle confident stance, anatomically correct head to toe',
+    ],
+  },
   jerome: {
     portrait: [
       'close portrait, honey-tipped dreadlocks sometimes pulled back, thin mustache light soul patch, medium brown skin, gold hoop earrings, confident reflective expression',
@@ -200,12 +221,13 @@ const INPUT: React.CSSProperties = {
   marginBottom: '10px',
 };
 
-// ─── Lora characters (only ones with trained LoRAs) ─────────────────────────
+// ─── Training characters ───────────────────────────────────────────────────
 
 const LORA_CHARACTERS = [
   { id: 'soleil', name: 'Soleil', gender: 'F' },
   { id: 'zara', name: 'Zara', gender: 'F' },
   { id: 'nia', name: 'Nia', gender: 'F' },
+  { id: 'victoria', name: 'Victoria', gender: 'F' },
   { id: 'jerome', name: 'Jerome', gender: 'M' },
   { id: 'jaxon', name: 'Jaxon', gender: 'M' },
   { id: 'roman', name: 'Roman', gender: 'M' },
@@ -234,6 +256,7 @@ function buildCaption(characterId: string, prompt: string): string {
     soleil: 'Soleil, honey golden blonde braided hair, vivid green eyes, deep ebony black skin',
     zara: 'Zara, long sleek honey blonde hair, heavy freckles, light caramel skin',
     nia: 'Nia, long dark wavy locs, rich warm brown skin, warm brown eyes',
+    victoria: 'Victoria, wavy silver-streaked dark hair, warm caramel-brown skin, warm brown eyes, soft smile lines',
     jerome: 'Jerome, honey-tipped dreadlocs, thin mustache and soul patch, medium brown skin, tribal sleeve tattoo right arm',
     jaxon: 'Jaxon, shaved head low fade, light beard goatee, heavy gold cuban chain, clean skin',
     roman: 'Roman, bright vivid blue eyes, heavy freckles, golden brown biracial skin, short tight waves low fade',
@@ -333,7 +356,23 @@ export default function AdminTrainingPage() {
       roman:  { loraFile: 'roman_v1.safetensors',  triggerWord: 'r0man' },
     };
     const lora = loraMap[selectedCharacter];
-    if (!lora) return;
+    const structuredPromptMap: Record<string, {
+      race: string;
+      gender: string;
+      age: string;
+      wardrobe: string;
+      environment: string;
+      details: string;
+    }> = {
+      victoria: {
+        race: 'biracial Afro-Brazilian American woman',
+        gender: 'F',
+        age: '60',
+        wardrobe: 'soft knit sweater in warm earth tones, gold hoop earrings',
+        environment: 'cozy sunlit living room, soft natural window light, warm neutral interior',
+        details: 'wavy silver-streaked dark hair past shoulders, warm caramel-brown skin, warm brown eyes, soft smile lines, gentle confident expression, medium build',
+      },
+    };
 
     // Pick style based on category
     const style = category === 'portrait' ? 'portrait' : 'fullbody';
@@ -349,20 +388,33 @@ export default function AdminTrainingPage() {
       setProgress(`Generating ${i + 1} of ${quantity}...`);
 
       try {
-        // Step 1 — submit to Flux LoRA pipeline
-        const submitRes = await fetch('/api/generate-flux-selfie', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            prompt: activePrompt,
-            lora_file: lora.loraFile,
-            trigger_word: lora.triggerWord,
-            style,
-            character_id: selectedCharacter,
-            seed: -1,
-            nsfw_lora_strength: 0.5,
-          }),
-        });
+        // Step 1 — submit to Flux LoRA pipeline, or base generator before a LoRA exists
+        const submitRes = lora
+          ? await fetch('/api/generate-flux-selfie', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                prompt: activePrompt,
+                lora_file: lora.loraFile,
+                trigger_word: lora.triggerWord,
+                style,
+                character_id: selectedCharacter,
+                seed: -1,
+                nsfw_lora_strength: 0.5,
+              }),
+            })
+          : await fetch('/api/generate-companion', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                description: activePrompt,
+                style,
+                gender: character.gender,
+                archetype_id: selectedCharacter,
+                seed: -1,
+                structured_prompt: structuredPromptMap[selectedCharacter],
+              }),
+            });
 
         const submitData = await submitRes.json();
         if (!submitRes.ok) throw new Error(submitData.error || 'Submission failed');
