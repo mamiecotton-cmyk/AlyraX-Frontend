@@ -44,12 +44,12 @@ export async function GET(req: NextRequest) {
       finalConversation = newConv;
     }
 
-    // Fetch last 50 messages
+    // Fetch newest 50 messages, then restore chronological display order.
     const { data: messages, error: messagesError } = await supabase
       .from('chat_messages')
       .select('*')
       .eq('conversation_id', finalConversation.id)
-      .order('created_at', { ascending: true })
+      .order('created_at', { ascending: false })
       .limit(50);
 
     if (messagesError) {
@@ -67,8 +67,10 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       conversation: finalConversation,
-      messages: messages ?? [],
+      messages: [...(messages ?? [])].reverse(),
       relationship: relationship ?? null,
+    }, {
+      headers: { 'Cache-Control': 'no-store' },
     });
   } catch (error) {
     console.error('Chat conversation unexpected error:', error instanceof Error ? error.message : String(error));

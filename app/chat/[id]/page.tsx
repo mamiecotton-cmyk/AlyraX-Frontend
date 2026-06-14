@@ -301,7 +301,7 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
       setUserName(name);
 
       // Load conversation
-      const res = await fetch(`/api/chat/conversation?archetype_id=${id}`);
+      const res = await fetch(`/api/chat/conversation?archetype_id=${id}`, { cache: 'no-store' });
       const data = await res.json();
       setConversationId(data.conversation?.id ?? null);
       setMessages(data.messages ?? []);
