@@ -1,5 +1,6 @@
 // app/api/generate-flux-selfie/route.ts
 import { NextRequest, NextResponse } from 'next/server';
+import { getArchetypeLora } from '@/lib/archetype-loras';
 
 export const maxDuration = 60;
 
@@ -7,6 +8,8 @@ type FluxWorkflowParams = {
   prompt: string;
   loraFile: string;
   loraStrength: number;
+  refinementLoraFile?: string;
+  refinementStrength?: number;
   width: number;
   height: number;
   seed: number;
@@ -48,12 +51,12 @@ const CHARACTER_ANCHORS: Record<string, string> = {
   victoria: 'wavy silver-streaked dark hair past shoulders, warm caramel-brown skin, warm brown eyes, soft smile lines',
 };
 
-const NSFW_LORA_OPT_OUT = new Set(['soleil']);
-
 function buildFluxWorkflow({
   prompt,
   loraFile,
   loraStrength,
+  refinementLoraFile,
+  refinementStrength,
   width,
   height,
   seed,
@@ -62,39 +65,25 @@ function buildFluxWorkflow({
   useNsfwLora,
   nsfwLoraStrength,
 }: FluxWorkflowParams) {
-  const loraNodes = useNsfwLora
-    ? {
-        // NSFW LoRA — applied first on base model
-        '4': {
-          class_type: 'LoraLoaderModelOnly',
-          inputs: {
-            model: ['1', 0],
-            lora_name: 'nsfw_flux.safetensors',
-            strength_model: nsfwLoraStrength,
-          },
-        },
-        // Character LoRA — applied last, identity wins
-        '4b': {
-          class_type: 'LoraLoaderModelOnly',
-          inputs: {
-            model: ['4', 0],
-            lora_name: loraFile,
-            strength_model: loraStrength,
-          },
-        },
-      }
-    : {
-        // Character LoRA only for non-explicit prompts
-        '4': {
-          class_type: 'LoraLoaderModelOnly',
-          inputs: {
-            model: ['1', 0],
-            lora_name: loraFile,
-            strength_model: loraStrength,
-          },
-        },
-      };
-  const modelOutput = useNsfwLora ? ['4b', 0] : ['4', 0];
+  const loraNodes: Record<string, { class_type: string; inputs: Record<string, unknown> }> = {};
+  let currentModel: [string, number] = ['1', 0];
+  let loraIndex = 0;
+
+  const addLora = (loraName: string, strength: number) => {
+    loraIndex += 1;
+    const id = `L${loraIndex}`;
+    loraNodes[id] = {
+      class_type: 'LoraLoaderModelOnly',
+      inputs: { model: currentModel, lora_name: loraName, strength_model: strength },
+    };
+    currentModel = [id, 0];
+  };
+
+  if (useNsfwLora) addLora('nsfw_flux.safetensors', nsfwLoraStrength);
+  addLora(loraFile, loraStrength);
+  if (refinementLoraFile && refinementStrength) addLora(refinementLoraFile, refinementStrength);
+
+  const modelOutput = currentModel;
 
   return {
     '1': {
@@ -260,7 +249,7 @@ export async function POST(req: NextRequest) {
     const imageStyle = normalizeStyle(style);
     const effectiveLoraStrength = lora_strength ?? (imageStyle === 'fullbody' || imageStyle === 'fullscreen' ? 0.5 : 0.85);
     const finalPrompt = buildFinalPrompt(prompt, trigger_word, imageStyle, character_id);
-    const useNsfwLora = isExplicitContentPrompt(prompt) && !NSFW_LORA_OPT_OUT.has(character_id);
+    const useNsfwLora = isExplicitContentPrompt(prompt);
 
     const { width, height } = styleToDimensions(imageStyle);
     const resolvedSeed =
@@ -268,10 +257,13 @@ export async function POST(req: NextRequest) {
         ? seed
         : Math.floor(Math.random() * 2 ** 31);
 
+    const archetypeLoraConfig = typeof character_id === 'string' ? getArchetypeLora(character_id) : null;
     const workflow = buildFluxWorkflow({
       prompt: finalPrompt,
       loraFile: lora_file,
       loraStrength: effectiveLoraStrength,
+      refinementLoraFile: archetypeLoraConfig?.refinementLoraFile,
+      refinementStrength: archetypeLoraConfig?.refinementStrength,
       width,
       height,
       seed: resolvedSeed,

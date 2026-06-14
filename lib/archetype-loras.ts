@@ -2,6 +2,8 @@
 export type ArchetypeLoraConfig = {
   loraFile: string;
   triggerWord: string;
+  refinementLoraFile?: string;
+  refinementStrength?: number;
 };
 
 export const archetypeLoras: Record<string, ArchetypeLoraConfig> = {
@@ -26,8 +28,10 @@ export const archetypeLoras: Record<string, ArchetypeLoraConfig> = {
     triggerWord: 'niavx',
   },
   soleil: {
-    loraFile: 'soleil_v2.safetensors',
+    loraFile: 'soleil_v1.safetensors',
     triggerWord: 'solx',
+    refinementLoraFile: 'soleil_v2.safetensors',
+    refinementStrength: 0.2,
   },
   victoria: {
     loraFile: 'victoria_v1.safetensors',
