@@ -68,6 +68,16 @@ const WAN_CFG = 4.5;
 
 type VideoProvider = 'runpod' | 'atlas';
 
+function resolveRequestUrl(value: string, req: NextRequest) {
+  if (!value || value.startsWith('data:')) return value;
+
+  try {
+    return new URL(value).toString();
+  } catch {
+    return new URL(value, req.url).toString();
+  }
+}
+
 // ─── RunPod Wan2.1 I2V ────────────────────────────────────────────────────
 
 function buildWan21Workflow(
@@ -895,7 +905,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Companion image not found' }, { status: 404 });
     }
 
-    let imageUrl = frameUrl || companion?.image_url || '';
+    let imageUrl = resolveRequestUrl(frameUrl || companion?.image_url || '', req);
     const shouldGenerateWardrobeSourceFrame = Boolean(loraConfig && wardrobeState !== 'clothed');
     if (loraConfig && (!imageUrl || shouldGenerateWardrobeSourceFrame)) {
       trace.push('flux-lora-source-frame');
