@@ -185,6 +185,9 @@ export async function POST(req: NextRequest) {
           .eq('id', message_id);
         return NextResponse.json({ error: 'No source image for video' }, { status: 400 });
       }
+      const videoFrameUrl = frameUrl.startsWith('data:image/')
+        ? `${APP_URL}/api/archetypes/images/${encodeURIComponent(archetype_id)}/data`
+        : frameUrl;
 
       const videoRes = await fetch(`${APP_URL}/api/generate-video`, {
         method: 'POST',
@@ -192,7 +195,7 @@ export async function POST(req: NextRequest) {
         body: JSON.stringify({
           userId: user.id,
           userMessage: media_prompt,
-          frameUrl,
+          frameUrl: videoFrameUrl,
           archetypeId: archetype_id,
           wardrobeState: 'clothed',
           conversationHistory: [{ role: 'user', content: media_prompt }],

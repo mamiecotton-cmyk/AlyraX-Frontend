@@ -990,11 +990,12 @@ export async function POST(req: NextRequest) {
       onMid: scenePlan.onMid,
     });
   } catch (error) {
+    const message = error instanceof Error ? error.message : 'Video generation failed';
     console.error(`[${requestId}] === VIDEO REQUEST FAILED ===`, {
       error: error instanceof Error ? { message: error.message, stack: error.stack } : error,
       trace: trace.join(' → '),
       elapsedMs: Date.now() - t0,
     });
-    return NextResponse.json({ error: 'Video generation failed' }, { status: 500 });
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
