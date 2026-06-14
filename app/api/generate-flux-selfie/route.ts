@@ -48,6 +48,8 @@ const CHARACTER_ANCHORS: Record<string, string> = {
   victoria: 'wavy silver-streaked dark hair past shoulders, warm caramel-brown skin, warm brown eyes, soft smile lines',
 };
 
+const NSFW_LORA_OPT_OUT = new Set(['soleil']);
+
 function buildFluxWorkflow({
   prompt,
   loraFile,
@@ -257,7 +259,7 @@ export async function POST(req: NextRequest) {
 
     const imageStyle = normalizeStyle(style);
     const finalPrompt = buildFinalPrompt(prompt, trigger_word, imageStyle, character_id);
-    const useNsfwLora = isExplicitContentPrompt(prompt);
+    const useNsfwLora = isExplicitContentPrompt(prompt) && !NSFW_LORA_OPT_OUT.has(character_id);
 
     const { width, height } = styleToDimensions(imageStyle);
     const resolvedSeed =
