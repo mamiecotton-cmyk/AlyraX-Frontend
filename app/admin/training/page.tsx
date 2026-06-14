@@ -223,6 +223,10 @@ const CATEGORY_DESC: Record<PromptCategory, string> = {
   explicit: 'Nude full body — teaches NSFW anatomy for this character',
 };
 
+function storageKey(characterId: string, category: PromptCategory) {
+  return `alyrax_training_${characterId}_${category}`;
+}
+
 // ─── Caption builder ────────────────────────────────────────────────────────
 
 function buildCaption(characterId: string, prompt: string): string {
@@ -255,6 +259,7 @@ export default function AdminTrainingPage() {
   const [images, setImages] = useState<GeneratedImage[]>([]);
   const [downloading, setDownloading] = useState(false);
   const abortRef = useRef(false);
+  const skipNextPersistRef = useRef(false);
 
   // Auth check
   useEffect(() => {
@@ -288,6 +293,33 @@ export default function AdminTrainingPage() {
     setSelectedPreset(null);
     setCustomPrompt('');
   }, [category, selectedCharacter]);
+
+  // Load persisted images when character or category changes
+  useEffect(() => {
+    if (checking) return;
+    try {
+      const stored = localStorage.getItem(storageKey(selectedCharacter, category));
+      skipNextPersistRef.current = true;
+      setImages(stored ? JSON.parse(stored) : []);
+    } catch {
+      skipNextPersistRef.current = true;
+      setImages([]);
+    }
+  }, [selectedCharacter, category, checking]);
+
+  // Persist images whenever they change
+  useEffect(() => {
+    if (checking) return;
+    if (skipNextPersistRef.current) {
+      skipNextPersistRef.current = false;
+      return;
+    }
+    try {
+      localStorage.setItem(storageKey(selectedCharacter, category), JSON.stringify(images));
+    } catch {
+      // localStorage full or unavailable — ignore
+    }
+  }, [images, selectedCharacter, category, checking]);
 
   const activePrompt = customPrompt.trim()
     || (selectedPreset !== null ? CHARACTER_PROMPTS[selectedCharacter]?.[category]?.[selectedPreset] ?? '' : '');
