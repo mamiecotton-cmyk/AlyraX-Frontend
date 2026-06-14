@@ -258,6 +258,7 @@ export default function AdminTrainingPage() {
   const [progress, setProgress] = useState('');
   const [images, setImages] = useState<GeneratedImage[]>([]);
   const [downloading, setDownloading] = useState(false);
+  const [viewerImage, setViewerImage] = useState<GeneratedImage | null>(null);
   const abortRef = useRef(false);
 
   // Auth check
@@ -736,6 +737,27 @@ export default function AdminTrainingPage() {
                           <span style={{ fontSize: '10px', color: 'var(--onyx)', lineHeight: 1 }}>✓</span>
                         </div>
                       )}
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setViewerImage(img); }}
+                        style={{
+                          position: 'absolute',
+                          top: '6px',
+                          left: '6px',
+                          width: '22px',
+                          height: '22px',
+                          borderRadius: '3px',
+                          background: 'rgba(0,0,0,0.55)',
+                          border: '1px solid rgba(255,255,255,0.2)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          cursor: 'pointer',
+                          padding: 0,
+                        }}
+                        aria-label="Enlarge image"
+                      >
+                        <span style={{ fontSize: '11px', color: 'var(--ivory)', lineHeight: 1 }}>⤢</span>
+                      </button>
                     </div>
                   ))}
                 </div>
@@ -753,6 +775,57 @@ export default function AdminTrainingPage() {
 
           </div>
         </div>
+
+        {/* Image viewer modal */}
+        {viewerImage && (
+          <div
+            onClick={() => setViewerImage(null)}
+            style={{
+              position: 'fixed',
+              inset: 0,
+              background: 'rgba(0,0,0,0.85)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 1000,
+              padding: '32px',
+              cursor: 'pointer',
+            }}
+          >
+            <img
+              src={viewerImage.url}
+              alt=""
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                maxWidth: '90vw',
+                maxHeight: '90vh',
+                objectFit: 'contain',
+                borderRadius: '4px',
+                border: '1px solid var(--border-mid)',
+                cursor: 'default',
+              }}
+            />
+            <button
+              onClick={() => setViewerImage(null)}
+              style={{
+                position: 'absolute',
+                top: '24px',
+                right: '24px',
+                width: '36px',
+                height: '36px',
+                borderRadius: '3px',
+                background: 'rgba(0,0,0,0.6)',
+                border: '1px solid rgba(255,255,255,0.2)',
+                color: 'var(--ivory)',
+                fontSize: '18px',
+                cursor: 'pointer',
+              }}
+              aria-label="Close"
+            >
+              ✕
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
