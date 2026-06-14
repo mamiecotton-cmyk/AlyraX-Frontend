@@ -1,4 +1,3 @@
-// app/api/admin/training/proxy-image/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 
 export const maxDuration = 30;

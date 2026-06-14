@@ -259,7 +259,6 @@ export default function AdminTrainingPage() {
   const [images, setImages] = useState<GeneratedImage[]>([]);
   const [downloading, setDownloading] = useState(false);
   const abortRef = useRef(false);
-  const skipNextPersistRef = useRef(false);
 
   // Auth check
   useEffect(() => {
@@ -299,10 +298,8 @@ export default function AdminTrainingPage() {
     if (checking) return;
     try {
       const stored = localStorage.getItem(storageKey(selectedCharacter, category));
-      skipNextPersistRef.current = true;
       setImages(stored ? JSON.parse(stored) : []);
     } catch {
-      skipNextPersistRef.current = true;
       setImages([]);
     }
   }, [selectedCharacter, category, checking]);
@@ -310,10 +307,6 @@ export default function AdminTrainingPage() {
   // Persist images whenever they change
   useEffect(() => {
     if (checking) return;
-    if (skipNextPersistRef.current) {
-      skipNextPersistRef.current = false;
-      return;
-    }
     try {
       localStorage.setItem(storageKey(selectedCharacter, category), JSON.stringify(images));
     } catch {
