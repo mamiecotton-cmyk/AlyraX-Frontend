@@ -277,11 +277,14 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
   const [chatCompanion, setChatCompanion] = useState<ChatCompanion | null>(null);
   const [personaVoice, setPersonaVoice] = useState<PersonaVoice | null>(null);
   const [factsMemory, setFactsMemory] = useState<{ summary: string } | null>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const pollingRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
   const mediaGenerationRequestsRef = useRef<Set<string>>(new Set());
   const voiceMediaRequestsRef = useRef<Map<string, number>>(new Map());
+  const shouldStickToBottomRef = useRef(true);
+  const previousMessageCountRef = useRef(0);
 
   // ── Load ──────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -354,10 +357,24 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
     return () => { vapi?.removeAllListeners(); };
   }, []);
 
-  // Scroll to bottom
+  const isNearMessageBottom = useCallback(() => {
+    const container = messagesContainerRef.current;
+    if (!container) return true;
+    return container.scrollHeight - container.scrollTop - container.clientHeight < 120;
+  }, []);
+
+  const scrollToMessageBottom = useCallback((behavior: ScrollBehavior = 'smooth') => {
+    messagesEndRef.current?.scrollIntoView({ behavior });
+  }, []);
+
+  // Stay pinned only while the user is already near the bottom.
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+    const isInitialLoad = previousMessageCountRef.current === 0 && messages.length > 0;
+    if (isInitialLoad || shouldStickToBottomRef.current) {
+      scrollToMessageBottom(isInitialLoad ? 'auto' : 'smooth');
+    }
+    previousMessageCountRef.current = messages.length;
+  }, [messages, scrollToMessageBottom]);
 
   // Cleanup polling on unmount
   useEffect(() => {
@@ -571,6 +588,7 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
   async function sendMessage() {
     if (!input.trim() || !conversationId || sending) return;
     const text = input.trim();
+    shouldStickToBottomRef.current = true;
     setInput('');
     setSendError(null);
     setSending(true);
@@ -843,7 +861,14 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
           </div>
 
           {/* Messages */}
-          <div className="chat-messages" style={{ flex: 1, overflowY: 'auto', padding: '24px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          <div
+            ref={messagesContainerRef}
+            className="chat-messages"
+            onScroll={() => {
+              shouldStickToBottomRef.current = isNearMessageBottom();
+            }}
+            style={{ flex: 1, overflowY: 'auto', padding: '24px', display: 'flex', flexDirection: 'column', gap: '4px' }}
+          >
             {loading && (
               <div style={{ textAlign: 'center', padding: '40px', color: 'rgba(255,255,255,0.3)', fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.2em' }}>
                 LOADING...
