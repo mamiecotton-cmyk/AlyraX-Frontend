@@ -150,6 +150,14 @@ export const ARCHETYPE_IMAGE_PROMPTS: Record<string, ArchetypeImagePrompt> = {
     details: 'long dark wavy locs past shoulders, warm brown eyes, hoop earrings, nurturing grounded expression, serene steady presence, holistic wellness aesthetic',
     prompt: '',
   },
+  victoria: {
+    race: 'biracial Afro-Brazilian American woman',
+    age: '60',
+    wardrobe: 'soft knit sweater in warm earth tones, gold hoop earrings',
+    environment: 'cozy sunlit living room, soft natural window light, warm neutral interior',
+    details: 'wavy silver-streaked dark hair past shoulders, warm caramel-brown skin, warm brown eyes, soft smile lines, gentle confident expression, medium build',
+    prompt: '',
+  },
   aaliyah: {
     race: 'honey brown-skinned Black American woman',
     age: '29',

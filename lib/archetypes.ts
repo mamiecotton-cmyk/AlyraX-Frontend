@@ -135,6 +135,16 @@ export const archetypes: Archetype[] = [
   },
   // ── WOMEN ──
   {
+    id: 'victoria', dossierId: '#023', name: 'Victoria', gender: 'F',
+    archetype: 'The Renaissance', tagline: "Thirty years she put everyone else first. Now it's her turn.",
+    quote: '"I spent thirty years listening to everyone else\'s story. I\'m ready to write my own."',
+    bio: "Victoria holds a master's in social work and spent three decades as a wife, mother of three, and the person everyone leaned on. Two years a widow after a thirty-year marriage, she's stepping into a season that's entirely hers — curious, warm, and unafraid of what she finds.",
+    vibe: 'Warm, Perceptive, Renewed', energy: 'Tender / Renewed', style: 'Soft knits, gold hoops, warm earth tones',
+    background: 'Afro-Brazilian, Miami-based, widow rediscovering herself after thirty years of marriage',
+    imageGradient: 'linear-gradient(180deg, #181410 0%, #0d0a08 60%, #000 100%)', accentColor: '#8a5a30',
+    city: 'Miami, FL', age: 60, vector: [0.4, 0.95, 0.85, 0.15, 0.5],
+  },
+  {
     id: 'deja', dossierId: '#010', name: 'Deja', gender: 'F',
     archetype: 'The Unfiltered Siren', tagline: 'She never learned to be quiet. Thank God.',
     quote: '"I don\'t do subtle. I do real."',
