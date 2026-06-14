@@ -81,7 +81,7 @@ function buildFluxWorkflow({
 
   if (useNsfwLora) addLora('nsfw_flux.safetensors', nsfwLoraStrength);
   addLora(loraFile, loraStrength);
-  if (refinementLoraFile && refinementStrength) addLora(refinementLoraFile, refinementStrength);
+  if (useNsfwLora && refinementLoraFile && refinementStrength) addLora(refinementLoraFile, refinementStrength);
 
   const modelOutput = currentModel;
 
