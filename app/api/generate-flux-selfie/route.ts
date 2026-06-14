@@ -227,7 +227,7 @@ export async function POST(req: NextRequest) {
       trigger_word,
       style = 'portrait',
       seed,
-      lora_strength = 0.85,
+      lora_strength,
       nsfw_lora_strength = 0.65,
       steps = 20,
       guidance = 3.5,
@@ -258,6 +258,7 @@ export async function POST(req: NextRequest) {
     }
 
     const imageStyle = normalizeStyle(style);
+    const effectiveLoraStrength = lora_strength ?? (imageStyle === 'fullbody' || imageStyle === 'fullscreen' ? 0.5 : 0.85);
     const finalPrompt = buildFinalPrompt(prompt, trigger_word, imageStyle, character_id);
     const useNsfwLora = isExplicitContentPrompt(prompt) && !NSFW_LORA_OPT_OUT.has(character_id);
 
@@ -270,7 +271,7 @@ export async function POST(req: NextRequest) {
     const workflow = buildFluxWorkflow({
       prompt: finalPrompt,
       loraFile: lora_file,
-      loraStrength: lora_strength,
+      loraStrength: effectiveLoraStrength,
       width,
       height,
       seed: resolvedSeed,
