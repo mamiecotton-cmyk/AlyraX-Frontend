@@ -26,7 +26,7 @@ export const archetypeLoras: Record<string, ArchetypeLoraConfig> = {
     triggerWord: 'niavx',
   },
   soleil: {
-    loraFile: 'soleil_v1.safetensors',
+    loraFile: 'soleil_v2.safetensors',
     triggerWord: 'solx',
   },
   victoria: {
