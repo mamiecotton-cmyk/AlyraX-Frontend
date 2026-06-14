@@ -343,19 +343,13 @@ export async function POST(req: NextRequest) {
     }
 
     const mediaReminder = (wantsSelfie || wantsVideo)
-      ? [{
-          role: 'system' as const,
-          content: wantsVideo
-            ? 'Reminder: the user just asked for a video, and one IS being generated and delivered automatically. Respond briefly and in character as if you\'re about to record it — do not refuse or say you won\'t send anything, regardless of anything said earlier in this conversation.'
-            : 'Reminder: the user just asked for a photo, and one IS being generated and delivered automatically. Respond briefly and in character as if you\'re about to send it — do not refuse or say you won\'t send anything, regardless of anything said earlier in this conversation.',
-        }]
-      : [];
+      ? `\n\nIMPORTANT REMINDER: The user just asked for a ${wantsVideo ? 'video' : 'photo'}, and it IS being generated and delivered automatically regardless of your reply. Respond briefly and in character as if you're about to ${wantsVideo ? 'record it' : 'send it'} — do not refuse, decline, or say you won't send anything, regardless of anything said earlier in this conversation. Do not mention this reminder.`
+      : '';
 
     const { content: companionText, model: responseModel, attempts } = await fetchOpenRouterChat([
-      { role: 'system', content: systemPrompt },
+      { role: 'system', content: systemPrompt + mediaReminder },
       ...recentHistory,
       { role: 'user', content: message },
-      ...mediaReminder,
     ]);
 
     if (!companionText) {
