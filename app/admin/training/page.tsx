@@ -304,11 +304,11 @@ export default function AdminTrainingPage() {
     }
   }, [selectedCharacter, category, checking]);
 
-  // Persist images whenever they change
+  // Persist images whenever they change — only keep selected ones
   useEffect(() => {
     if (checking) return;
     try {
-      localStorage.setItem(storageKey(selectedCharacter, category), JSON.stringify(images));
+      localStorage.setItem(storageKey(selectedCharacter, category), JSON.stringify(images.filter(img => img.selected)));
     } catch {
       // localStorage full or unavailable — ignore
     }
