@@ -300,6 +300,7 @@ export default function AdminTrainingPage() {
   const [downloading, setDownloading] = useState(false);
   const [viewerImage, setViewerImage] = useState<GeneratedImage | null>(null);
   const abortRef = useRef(false);
+  const restoredTrainingSelectionRef = useRef(false);
 
   // Auth check
   useEffect(() => {
@@ -331,6 +332,26 @@ export default function AdminTrainingPage() {
     return () => { cancelled = true; };
   }, [selectedCharacter, checking]);
 
+  // Restore last-selected character/category on load
+  useEffect(() => {
+    if (checking) return;
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (cancelled) return;
+      try {
+        const savedChar = localStorage.getItem('alyrax_training_selected_character');
+        const savedCat = localStorage.getItem('alyrax_training_selected_category');
+        if (savedChar && LORA_CHARACTERS.some(c => c.id === savedChar)) setSelectedCharacter(savedChar);
+        if (savedCat === 'portrait' || savedCat === 'clothed' || savedCat === 'explicit') setCategory(savedCat as PromptCategory);
+      } catch {
+        // ignore
+      } finally {
+        restoredTrainingSelectionRef.current = true;
+      }
+    });
+    return () => { cancelled = true; };
+  }, [checking]);
+
   // Load persisted images when character or category changes
   useEffect(() => {
     if (checking) return;
@@ -356,6 +377,17 @@ export default function AdminTrainingPage() {
       // localStorage full or unavailable — ignore
     }
   }, [images, selectedCharacter, category, checking]);
+
+  // Persist selected character/category
+  useEffect(() => {
+    if (checking || !restoredTrainingSelectionRef.current) return;
+    try {
+      localStorage.setItem('alyrax_training_selected_character', selectedCharacter);
+      localStorage.setItem('alyrax_training_selected_category', category);
+    } catch {
+      // ignore
+    }
+  }, [selectedCharacter, category, checking]);
 
   const activePrompt = customPrompt.trim()
     || (selectedPreset !== null ? CHARACTER_PROMPTS[selectedCharacter]?.[category]?.[selectedPreset] ?? '' : '');
