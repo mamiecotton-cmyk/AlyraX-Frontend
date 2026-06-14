@@ -89,23 +89,40 @@ const CHARACTER_PROMPTS: Record<string, CharacterPrompts> = {
   },
   victoria: {
     portrait: [
-      'close portrait, wavy silver-streaked dark hair past shoulders, warm caramel-brown skin, warm brown eyes, soft smile lines, gentle confident expression, cozy window light',
-      'editorial headshot, silver-streaked dark waves framing face, caramel brown complexion, warm brown eyes, soft natural makeup, renewed tender expression',
-      'close up face, mature Afro-Brazilian woman, silver-streaked wavy hair, warm caramel skin, smile lines, compassionate gaze, soft sunlit living room background',
-      'beauty portrait, dark wavy hair with silver streaks, warm brown eyes, soft smile lines, caramel-brown skin, gold hoop earrings, calm confident presence',
+      'close portrait, wavy silver-streaked hair, warm caramel-brown skin, warm brown eyes, soft smile lines, gold hoop earrings, gentle confident expression, soft window light',
+      'beauty headshot, silver-streaked waves framing face, warm brown eyes, caramel skin, soft natural makeup, serene expression, golden hour light',
+      'close up face, wavy hair with silver streaks, warm brown eyes, smile lines, caramel-brown complexion, warm engaging smile, soft diffused light',
+      'portrait, silver and wavy hair pulled back, warm brown eyes, caramel skin, gold hoops, thoughtful expression, neutral background',
+      'headshot, wavy silver-streaked hair past shoulders, warm brown eyes, caramel-brown skin, laugh lines, joyful expression, natural light',
+      'close portrait, hair with silver streaks framing face, warm brown eyes, caramel skin tone, calm wise expression, soft side light',
+      'beauty shot, silver-streaked wavy hair, warm brown eyes, smile lines, caramel complexion, gold hoop earrings, confident gaze, warm tones',
+      'close up, wavy hair with silver streaks, warm brown eyes, caramel-brown skin, gentle smile, soft cinematic light',
+      'portrait, silver-streaked waves, warm brown eyes, caramel skin, soft smile lines, relaxed elegant presence, golden light',
+      'headshot, wavy silver-streaked hair, warm brown eyes, caramel-brown complexion, warm reflective expression, natural window light',
     ],
     clothed: [
-      'full body, wavy silver-streaked dark hair, warm caramel-brown skin, warm brown eyes, soft knit sweater, earth tone trousers, gold hoop earrings, cozy sunlit living room, head to toe visible',
-      'full body standing, silver-streaked waves past shoulders, caramel brown skin, warm earth tone knit outfit, gentle confident pose, warm neutral interior, full figure in frame',
-      'full body, mature Afro-Brazilian woman, wavy silver-streaked dark hair, soft knit cardigan, gold hoops, relaxed pose near window light, medium build, head to toe visible',
-      'full body, warm brown eyes, caramel-brown skin, silver-streaked waves, elegant casual earth tones, cozy living room, renewed confident stance, feet to head in frame',
+      'full body, wavy silver-streaked hair, warm caramel-brown skin, warm brown eyes, soft knit sweater warm earth tones, gold hoop earrings, standing in cozy sunlit living room, full figure head to toe, natural 60-year-old woman\'s body, soft mature curves, age-appropriate skin texture with natural softness and fine lines',
+      'full body standing, silver-streaked wavy hair, caramel skin, warm brown eyes, flowing linen dress, relaxed elegant pose, natural light, full figure visible, natural 60-year-old woman\'s body, soft mature curves, age-appropriate skin texture with natural softness and fine lines',
+      'full body, wavy hair with silver streaks, warm brown eyes, caramel-brown skin, fitted blouse and trousers, confident stance, neutral background, head to toe, natural 60-year-old woman\'s body, soft mature curves, age-appropriate skin texture with natural softness and fine lines',
+      'full body, silver-streaked waves, caramel skin, warm brown eyes, soft cardigan and jeans, sitting on sofa, cozy interior, full figure, natural 60-year-old woman\'s body, soft mature curves, age-appropriate skin texture with natural softness and fine lines',
+      'full body standing, wavy silver-streaked hair, warm brown eyes, caramel complexion, elegant wrap dress, gold jewelry, soft natural light, feet to head visible, natural 60-year-old woman\'s body, soft mature curves, age-appropriate skin texture with natural softness and fine lines',
+      'full body, wavy hair with silver, caramel-brown skin, warm brown eyes, casual chic outfit, walking outdoors, warm afternoon light, full figure, natural 60-year-old woman\'s body, soft mature curves, age-appropriate skin texture with natural softness and fine lines',
+      'full body, silver-streaked hair past shoulders, warm brown eyes, caramel skin, fitted sweater dress, relaxed confident pose, natural window light, head to toe, natural 60-year-old woman\'s body, soft mature curves, age-appropriate skin texture with natural softness and fine lines',
+      'full body standing, wavy hair with silver, warm brown eyes, caramel-brown complexion, summer dress, garden setting, soft light, full body visible, natural 60-year-old woman\'s body, soft mature curves, age-appropriate skin texture with natural softness and fine lines',
+      'full body, silver-streaked waves, caramel skin, warm brown eyes, smart casual outfit, standing in kitchen, warm domestic light, full figure, natural 60-year-old woman\'s body, soft mature curves, age-appropriate skin texture with natural softness and fine lines',
+      'full body, wavy silver-streaked hair, warm brown eyes, caramel-brown skin, elegant evening outfit, soft lighting, confident relaxed stance, head to toe, natural 60-year-old woman\'s body, soft mature curves, age-appropriate skin texture with natural softness and fine lines',
     ],
     explicit: [
-      'full body nude, wavy silver-streaked dark hair past shoulders, warm caramel-brown skin, warm brown eyes, mature medium build, anatomically correct, gentle confident pose, soft natural window light',
-      'nude full body, mature Afro-Brazilian woman, silver-streaked wavy hair, caramel-brown skin, soft smile lines, relaxed confident stance, warm interior light, head to toe visible',
-      'explicit full body, wavy dark hair with silver streaks, warm brown eyes, caramel skin tone, mature natural body, tender renewed expression, anatomically correct proportions',
-      'nude standing full body, silver-streaked waves, warm caramel-brown skin, medium build, soft smile lines, calm confident pose, diffused sunlit room, full figure visible',
-      'full body nude, mature woman, wavy silver-streaked dark hair, warm brown eyes, caramel-brown skin, natural proportions, gentle confident stance, anatomically correct head to toe',
+      'full body nude, wavy silver-streaked hair, warm caramel-brown skin, warm brown eyes, soft smile lines, anatomically correct, standing soft window light, natural 60-year-old woman\'s body, soft mature curves, age-appropriate skin texture with natural softness and fine lines',
+      'nude full body, silver-streaked wavy hair, warm brown eyes, caramel-brown skin, relaxed confident pose, warm diffused light, head to toe visible, natural 60-year-old woman\'s body, soft mature curves, age-appropriate skin texture with natural softness and fine lines',
+      'explicit full body, wavy silver-streaked hair, warm brown eyes, caramel skin, sensual relaxed stance, soft golden light, anatomically correct, natural 60-year-old woman\'s body, soft mature curves, age-appropriate skin texture with natural softness and fine lines',
+      'nude standing, wavy silver-streaked hair, warm brown eyes, caramel-brown complexion, confident gentle pose, warm light, full body in frame, natural 60-year-old woman\'s body, soft mature curves, age-appropriate skin texture with natural softness and fine lines',
+      'full body nude, silver-streaked hair, caramel skin, warm brown eyes, soft smile lines, seated relaxed pose, warm studio light, anatomically correct, natural 60-year-old woman\'s body, soft mature curves, age-appropriate skin texture with natural softness and fine lines',
+      'nude full body, wavy hair with silver, warm brown eyes, caramel-brown skin, standing confident, soft window light, head to toe, natural 60-year-old woman\'s body, soft mature curves, age-appropriate skin texture with natural softness and fine lines',
+      'explicit full body, silver-streaked wavy hair past shoulders, warm brown eyes, caramel skin, relaxed sensual pose, diffused warm light, anatomically correct, natural 60-year-old woman\'s body, soft mature curves, age-appropriate skin texture with natural softness and fine lines',
+      'full body nude, wavy hair with silver streaks, warm brown eyes, caramel-brown complexion, confident stance, soft golden hour light, full body visible, natural 60-year-old woman\'s body, soft mature curves, age-appropriate skin texture with natural softness and fine lines',
+      'nude standing full body, silver-streaked hair, warm brown eyes, caramel skin, soft smile lines, gentle pose, warm light, anatomically correct, natural 60-year-old woman\'s body, soft mature curves, age-appropriate skin texture with natural softness and fine lines',
+      'full body nude, wavy silver-streaked hair, caramel-brown skin, warm brown eyes, relaxed confident pose, soft diffused light, head to toe in frame, natural 60-year-old woman\'s body, soft mature curves, age-appropriate skin texture with natural softness and fine lines',
     ],
   },
   jerome: {
@@ -227,10 +244,10 @@ const LORA_CHARACTERS = [
   { id: 'soleil', name: 'Soleil', gender: 'F' },
   { id: 'zara', name: 'Zara', gender: 'F' },
   { id: 'nia', name: 'Nia', gender: 'F' },
-  { id: 'victoria', name: 'Victoria', gender: 'F' },
   { id: 'jerome', name: 'Jerome', gender: 'M' },
   { id: 'jaxon', name: 'Jaxon', gender: 'M' },
   { id: 'roman', name: 'Roman', gender: 'M' },
+  { id: 'victoria', name: 'Victoria', gender: 'F' },
 ];
 
 const CATEGORY_LABELS: Record<PromptCategory, string> = {
@@ -301,31 +318,33 @@ export default function AdminTrainingPage() {
   // Load anchor image when character changes
   useEffect(() => {
     if (checking) return;
-    setAnchorImageUrl(null);
+    let cancelled = false;
     fetch(`/api/archetypes/gallery?archetype_id=${selectedCharacter}`)
       .then(r => r.json())
       .then(({ images: imgs }) => {
         const main = imgs?.find((i: { is_main: boolean; image_url: string }) => i.is_main) ?? imgs?.[0];
-        if (main?.image_url) setAnchorImageUrl(main.image_url);
+        if (!cancelled) setAnchorImageUrl(main?.image_url ?? null);
       })
-      .catch(() => {});
+      .catch(() => {
+        if (!cancelled) setAnchorImageUrl(null);
+      });
+    return () => { cancelled = true; };
   }, [selectedCharacter, checking]);
-
-  // Reset preset when category changes
-  useEffect(() => {
-    setSelectedPreset(null);
-    setCustomPrompt('');
-  }, [category, selectedCharacter]);
 
   // Load persisted images when character or category changes
   useEffect(() => {
     if (checking) return;
-    try {
-      const stored = localStorage.getItem(storageKey(selectedCharacter, category));
-      setImages(stored ? JSON.parse(stored) : []);
-    } catch {
-      setImages([]);
-    }
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (cancelled) return;
+      try {
+        const stored = localStorage.getItem(storageKey(selectedCharacter, category));
+        setImages(stored ? JSON.parse(stored) : []);
+      } catch {
+        setImages([]);
+      }
+    });
+    return () => { cancelled = true; };
   }, [selectedCharacter, category, checking]);
 
   // Persist images whenever they change — only keep selected ones
@@ -348,12 +367,13 @@ export default function AdminTrainingPage() {
 
     // Look up LoRA config — must match lib/archetype-loras.ts
     const loraMap: Record<string, { loraFile: string; triggerWord: string }> = {
-      soleil: { loraFile: 'soleil_v1.safetensors', triggerWord: 'solx' },
+      soleil: { loraFile: 'soleil_v2.safetensors', triggerWord: 'solx' },
       zara:   { loraFile: 'zara_v1.safetensors',   triggerWord: 'zrabd' },
       nia:    { loraFile: 'nia_v1.safetensors',     triggerWord: 'niavx' },
       jerome: { loraFile: 'jerome_v1_flux.safetensors', triggerWord: 'jrmwr' },
       jaxon:  { loraFile: 'jaxon_v1.safetensors',  triggerWord: 'jxnst' },
       roman:  { loraFile: 'roman_v1.safetensors',  triggerWord: 'r0man' },
+      victoria: { loraFile: 'victoria_v1.safetensors', triggerWord: 'vctrx' },
     };
     const lora = loraMap[selectedCharacter];
     const structuredPromptMap: Record<string, {
@@ -562,7 +582,11 @@ export default function AdminTrainingPage() {
                 {LORA_CHARACTERS.map(c => (
                   <button
                     key={c.id}
-                    onClick={() => setSelectedCharacter(c.id)}
+                    onClick={() => {
+                      setSelectedCharacter(c.id);
+                      setSelectedPreset(null);
+                      setCustomPrompt('');
+                    }}
                     style={{
                       ...CHIP(selectedCharacter === c.id),
                       padding: '8px 10px',
@@ -605,7 +629,11 @@ export default function AdminTrainingPage() {
                 {(['portrait', 'clothed', 'explicit'] as PromptCategory[]).map(cat => (
                   <button
                     key={cat}
-                    onClick={() => setCategory(cat)}
+                    onClick={() => {
+                      setCategory(cat);
+                      setSelectedPreset(null);
+                      setCustomPrompt('');
+                    }}
                     style={{
                       ...CHIP(category === cat),
                       textAlign: 'left' as const,
