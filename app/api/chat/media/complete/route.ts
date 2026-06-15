@@ -55,11 +55,16 @@ export async function POST(req: NextRequest) {
 
     const { data: mediaMessage, error: fetchError } = await supabase
       .from('chat_messages')
-      .select('conversation_id, media_prompt, media_type')
+      .select('conversation_id, media_prompt, media_type, media_status')
       .eq('id', message_id)
       .maybeSingle();
 
     if (fetchError) throw fetchError;
+
+    // Idempotency guard: if this message was already completed, this is a duplicate call
+    if (mediaMessage && mediaMessage.media_status !== 'generating') {
+      return NextResponse.json({ success: true, reactionMessage: null, duplicate: true });
+    }
 
     const { error } = await supabase
       .from('chat_messages')
