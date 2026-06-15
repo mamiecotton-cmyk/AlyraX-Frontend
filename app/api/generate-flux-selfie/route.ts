@@ -82,7 +82,7 @@ function buildFluxWorkflow({
   if (useNsfwLora) addLora('nsfw_flux.safetensors', nsfwLoraStrength);
   addLora(loraFile, loraStrength);
   if (useNsfwLora && refinementLoraFile && refinementStrength) addLora(refinementLoraFile, refinementStrength);
-  addLora('feet_fix.safetensors', 0.35);
+  addLora('Show_Feet_-.safetensors', 0.35);
 
   const modelOutput = currentModel;
 
@@ -194,7 +194,7 @@ function buildFinalPrompt(prompt: string, triggerWord: string, style: ImageStyle
         ].join(', ')
       : 'portrait selfie composition';
 
-  return [promptWithoutTrigger, triggerWord, characterAnchor, 'aidmaFeetFix', PHOTOREALISM_PROMPT, composition]
+  return [promptWithoutTrigger, triggerWord, characterAnchor, PHOTOREALISM_PROMPT, composition]
     .filter(Boolean)
     .join(', ');
 }
