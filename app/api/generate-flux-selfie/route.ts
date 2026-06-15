@@ -184,6 +184,9 @@ function isExplicitContentPrompt(prompt: string) {
 function buildFinalPrompt(prompt: string, triggerWord: string, style: ImageStyle, characterId?: string) {
   const promptWithoutTrigger = removeLeadingTriggerWord(prompt.trim(), triggerWord);
   const characterAnchor = characterId ? (CHARACTER_ANCHORS[characterId] ?? '') : '';
+  const posePhrase = style === 'fullbody' || style === 'fullscreen'
+    ? 'full body, full figure head to toe, feet visible in frame'
+    : '';
   const composition =
     style === 'fullbody' || style === 'fullscreen'
       ? [
@@ -200,7 +203,7 @@ function buildFinalPrompt(prompt: string, triggerWord: string, style: ImageStyle
         ].join(', ')
       : 'portrait selfie composition';
 
-  return [promptWithoutTrigger, triggerWord, characterAnchor, PHOTOREALISM_PROMPT, composition]
+  return [posePhrase, promptWithoutTrigger, triggerWord, characterAnchor, 'aidmaFeetFix', PHOTOREALISM_PROMPT, composition]
     .filter(Boolean)
     .join(', ');
 }
