@@ -417,14 +417,18 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
           res = await fetch(`/api/generate-companion/status/${jobId}`);
           data = await res.json();
           if (data.image_url) {
-            await fetch('/api/chat/media/complete', {
+            const completeRes = await fetch('/api/chat/media/complete', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ message_id: messageId, media_url: data.image_url, status: 'ready' }),
             });
-            setMessages(prev => prev.map(m =>
-              m.id === messageId ? { ...m, media_status: 'ready', media_url: data.image_url as string } : m
-            ));
+            const completeData = await completeRes.json().catch(() => ({})) as { reactionMessage?: Message };
+            setMessages(prev => {
+              const updated = prev.map(m =>
+                m.id === messageId ? { ...m, media_status: 'ready' as const, media_url: data.image_url as string } : m
+              );
+              return completeData.reactionMessage ? [...updated, completeData.reactionMessage] : updated;
+            });
             return;
           }
         } else {
@@ -497,9 +501,18 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
 
       if (data.status === 'ready' && typeof data.image_url === 'string') {
         const imageUrl = data.image_url;
-        setMessages(prev => prev.map(m =>
-          m.id === msg.id ? { ...m, media_status: 'ready', media_url: imageUrl } : m
-        ));
+        const completeRes = await fetch('/api/chat/media/complete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message_id: msg.id, media_url: imageUrl, status: 'ready' }),
+        });
+        const completeData = await completeRes.json().catch(() => ({})) as { reactionMessage?: Message };
+        setMessages(prev => {
+          const updated = prev.map(m =>
+            m.id === msg.id ? { ...m, media_status: 'ready' as const, media_url: imageUrl } : m
+          );
+          return completeData.reactionMessage ? [...updated, completeData.reactionMessage] : updated;
+        });
         return;
       }
 
