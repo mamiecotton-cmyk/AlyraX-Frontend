@@ -443,6 +443,7 @@ export default function AdminTrainingPage() {
                 style,
                 character_id: selectedCharacter,
                 seed: -1,
+                lora_strength: selectedCharacter === 'victoria' ? 0.7 : undefined,
                 nsfw_lora_strength: 0.5,
               }),
             })
