@@ -36,8 +36,14 @@ const PHOTOREALISM_PROMPT = [
   'correct hands five fingers per hand',
   'correct feet five toes per foot',
   'anatomically correct hands and feet',
+  'feet right side up',
+  'toes aligned and separated naturally',
+  'toes pointing forward in natural foot orientation',
+  'left and right feet anatomically aligned',
   'no extra fingers no missing fingers',
   'no jumbled feet no fused toes',
+  'no upside down feet no twisted toes',
+  'no overlapping toes no scrambled toes',
 ].join(', ');
 
 // Identity anchors injected at prompt position 1 — survive NSFW LoRA influence
@@ -82,7 +88,7 @@ function buildFluxWorkflow({
   if (useNsfwLora) addLora('nsfw_flux.safetensors', nsfwLoraStrength);
   addLora(loraFile, loraStrength);
   if (useNsfwLora && refinementLoraFile && refinementStrength) addLora(refinementLoraFile, refinementStrength);
-  addLora('Show_Feet_-.safetensors', 0.35);
+  addLora('Show_Feet_-.safetensors', 0.45);
 
   const modelOutput = currentModel;
 
