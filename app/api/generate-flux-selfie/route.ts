@@ -17,6 +17,7 @@ type FluxWorkflowParams = {
   guidance: number;
   useNsfwLora: boolean;
   nsfwLoraStrength: number;
+  characterId?: string;
 };
 
 type ImageStyle = 'portrait' | 'fullbody' | 'fullscreen';
@@ -70,6 +71,7 @@ function buildFluxWorkflow({
   guidance,
   useNsfwLora,
   nsfwLoraStrength,
+  characterId,
 }: FluxWorkflowParams) {
   const loraNodes: Record<string, { class_type: string; inputs: Record<string, unknown> }> = {};
   let currentModel: [string, number] = ['1', 0];
@@ -85,7 +87,16 @@ function buildFluxWorkflow({
     currentModel = [id, 0];
   };
 
-  if (useNsfwLora) addLora('nsfw_flux_v2.safetensors', nsfwLoraStrength);
+  const isMale = ['jerome', 'jaxon', 'roman'].includes(characterId ?? '');
+
+  if (useNsfwLora) {
+    if (isMale) {
+      addLora('male_anatomy_flux.safetensors', nsfwLoraStrength);
+      addLora('male_explicit_v2.safetensors', 0.35);
+    } else {
+      addLora('nsfw_flux_v2.safetensors', nsfwLoraStrength);
+    }
+  }
   addLora(loraFile, loraStrength);
   if (useNsfwLora && refinementLoraFile && refinementStrength) addLora(refinementLoraFile, refinementStrength);
   addLora('Show_Feet_-.safetensors', 0.25);
@@ -281,6 +292,7 @@ export async function POST(req: NextRequest) {
       guidance,
       useNsfwLora,
       nsfwLoraStrength: nsfw_lora_strength,
+      characterId: typeof character_id === 'string' ? character_id : undefined,
     });
 
     console.log('Submitting Flux LoRA selfie:', {
