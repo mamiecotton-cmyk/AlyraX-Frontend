@@ -22,6 +22,8 @@ export const archetypeLoras: Record<string, ArchetypeLoraConfig> = {
   zara: {
     loraFile: 'zara_v1.safetensors',
     triggerWord: 'zrabd',
+    refinementLoraFile: 'zara_v2.safetensors',
+    refinementStrength: 0.35,
   },
   nia: {
     loraFile: 'nia_v1.safetensors',
@@ -36,6 +38,8 @@ export const archetypeLoras: Record<string, ArchetypeLoraConfig> = {
   victoria: {
     loraFile: 'victoria_v1.safetensors',
     triggerWord: 'vctrx',
+    refinementLoraFile: 'victoria_v2.safetensors',
+    refinementStrength: 0.35,
   },
 };
 

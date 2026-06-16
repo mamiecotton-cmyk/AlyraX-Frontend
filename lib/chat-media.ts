@@ -83,7 +83,7 @@ function buildFluxSelfiePrompt(message: string): string {
   const lower = message.toLowerCase();
   const mirrorSelfie = isMirrorSelfieRequest(message);
   const explicitSelfie = isExplicitSelfieRequest(message);
-  const isFullBody = /\b(full body|full-body|head to toe|whole body|laying|lying|on (the )?(bed|floor|couch)|on (all fours|hands and knees)|spreading|legs (spread|open|apart))\b/.test(lower);
+  const isFullBody = /\b(full body|full-body|head to toe|whole body|laying|lying|on (the )?(bed|floor|couch)|on (all fours|hands and knees)|spreading|legs? (spread|open|apart))\b/.test(lower);
   const isReclining = /\b(laying|lying|reclining|laid (down|back)|on (her|his|their) back)\b/.test(lower);
   const isSpread = /\b(legs? (spread|open|apart)|spread (her|his|your|my) legs?|open (her|his|your|my) legs?|thighs? (open|apart|spread))\b/.test(lower);
 
