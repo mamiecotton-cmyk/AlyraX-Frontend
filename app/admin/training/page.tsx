@@ -47,30 +47,30 @@ const CHARACTER_PROMPTS: Record<string, CharacterPrompts> = {
   },
   zara: {
     portrait: [
-      'close portrait, long sleek honey blonde hair straight past shoulders, heavy freckles across cheeks and nose, light honey caramel skin, warm brown eyes, direct gaze',
-      'beauty headshot, sleek straight blonde hair, dense freckles cheeks and nose, caramel skin tone, warm brown eyes, confident expression, soft light',
-      'close up face, long honey blonde straight hair framing face, heavy freckle pattern cheeks nose, light caramel complexion, warm eyes, editorial mood',
-      'portrait, sleek blonde hair pulled back, heavy freckles, honey caramel skin, brown eyes catching light, magnetic unbothered expression',
+      'close portrait, clearly Black American woman with light honey caramel skin, long sleek honey blonde hair straight past shoulders, heavy freckles across cheeks and nose, warm brown eyes, direct gaze',
+      'beauty headshot, clearly African American woman with light honey caramel skin, sleek straight blonde hair, dense freckles cheeks and nose, warm brown eyes, confident expression, soft light',
+      'close up face, light honey caramel-skinned Black American woman, long honey blonde straight hair framing face, heavy freckle pattern cheeks nose, warm eyes, editorial mood',
+      'portrait, clearly Black American woman, sleek blonde hair pulled back, heavy freckles, light honey caramel skin, brown eyes catching light, magnetic unbothered expression',
     ],
     clothed: [
-      'full body, long sleek honey blonde hair, heavy freckles caramel skin, cream fitted outfit, gold jewelry, curvy hourglass figure, Houston apartment golden light, head to toe',
-      'full body standing, straight blonde hair, freckled caramel skin, all-cream look nails done, confident stance, luxury interior, full figure head to toe visible',
-      'full body, honey blonde hair, heavy freckles, caramel skin, fitted monochrome look, gold accessories, relaxed pose, neutral background, feet to head in frame',
-      'full body, sleek blonde hair, freckled face caramel tone, stylish casual outfit, hands on hips, natural light, full figure visible head to toe',
+      'full body, clearly Black American woman with light honey caramel skin, long sleek honey blonde hair, heavy freckles, cream fitted outfit, gold jewelry, curvy hourglass figure, Houston apartment golden light, head to toe',
+      'full body standing, clearly African American woman with light honey caramel skin, straight blonde hair, heavy freckles, all-cream look nails done, confident stance, luxury interior, full figure head to toe visible',
+      'full body, light honey caramel-skinned Black American woman, honey blonde hair, heavy freckles, fitted monochrome look, gold accessories, relaxed pose, neutral background, feet to head in frame',
+      'full body, clearly Black American woman, sleek blonde hair, freckled face, light honey caramel skin, stylish casual outfit, hands on hips, natural light, full figure visible head to toe',
     ],
     explicit: [
-      'full body nude, bi-racial African American woman, long sleek honey blonde hair, light honey caramel skin, heavy freckles on cheeks and nose, anatomically correct, standing soft window light, curvy hourglass figure, D cup breasts, natural flat stomach, natural pubic hair, vine and floral tattoo across waist',
-      'nude full body, long sleek honey blonde hair, heavy freckles, light honey caramel skin, relaxed confident pose, warm diffused light, head to toe visible, curvy hourglass figure, D cup breasts, natural flat stomach, natural pubic hair, vine and floral tattoo across waist',
-      'explicit full body, bi-racial African American woman, long sleek honey blonde hair, heavy freckles, light honey caramel skin, sensual relaxed stance, soft golden light, anatomically correct, curvy hourglass figure, D cup breasts, natural flat stomach, natural pubic hair, vine and floral tattoo across waist',
-      'nude standing, long sleek honey blonde hair, heavy freckles, light honey caramel skin, confident gentle pose, warm light, full body in frame, curvy hourglass figure, D cup breasts, natural flat stomach, natural pubic hair, vine and floral tattoo across waist',
-      'full body nude, long sleek honey blonde hair, heavy freckles, light honey caramel skin, seated relaxed pose, warm studio light, anatomically correct, curvy hourglass figure, D cup breasts, natural flat stomach, natural pubic hair, vine and floral tattoo across waist',
-      'nude full body, bi-racial African American woman, long sleek honey blonde hair, heavy freckles, light honey caramel skin, standing confident, soft window light, head to toe, curvy hourglass figure, D cup breasts, natural flat stomach, natural pubic hair, vine and floral tattoo across waist',
-      'explicit full body, long sleek honey blonde hair, heavy freckles, light honey caramel skin, relaxed sensual pose, diffused warm light, anatomically correct, curvy hourglass figure, D cup breasts, natural flat stomach, natural pubic hair, vine and floral tattoo across waist',
-      'full body nude, long sleek honey blonde hair, heavy freckles, light honey caramel skin, confident stance, soft golden hour light, full body visible, curvy hourglass figure, D cup breasts, natural flat stomach, natural pubic hair, vine and floral tattoo across waist',
-      'nude standing full body, bi-racial African American woman, long sleek honey blonde hair, heavy freckles, light honey caramel skin, gentle pose, warm light, anatomically correct, curvy hourglass figure, D cup breasts, natural flat stomach, natural pubic hair, vine and floral tattoo across waist',
-      'full body nude, long sleek honey blonde hair, heavy freckles, light honey caramel skin, relaxed confident pose, soft diffused light, head to toe in frame, curvy hourglass figure, D cup breasts, natural flat stomach, natural pubic hair, vine and floral tattoo across waist',
-      'nude lying on bed, reclining pose, full body visible, bed and pillows in frame, long sleek honey blonde hair, light honey caramel skin, heavy freckles, vine and floral tattoo across waist, relaxed sensual pose, soft bedroom lighting, anatomically correct, curvy hourglass figure, D cup breasts, natural flat stomach, natural pubic hair',
-      'nude on hands and knees, doggy style position, rear view, back facing camera, full body visible, long sleek honey blonde hair, light honey caramel skin, heavy freckles, anatomically correct, soft bedroom lighting, curvy hourglass figure, D cup breasts, natural flat stomach, natural pubic hair',
+      'full body nude, clearly Black American woman with light honey caramel skin, long sleek honey blonde hair, heavy freckles on cheeks and nose, anatomically correct, standing soft window light, curvy hourglass figure, D cup breasts, natural flat stomach, natural pubic hair, vine and floral tattoo across waist',
+      'nude full body, clearly African American woman with light honey caramel skin, long sleek honey blonde hair, heavy freckles, relaxed confident pose, warm diffused light, head to toe visible, curvy hourglass figure, D cup breasts, natural flat stomach, natural pubic hair, vine and floral tattoo across waist',
+      'explicit full body, light honey caramel-skinned Black American woman, long sleek honey blonde hair, heavy freckles, sensual relaxed stance, soft golden light, anatomically correct, curvy hourglass figure, D cup breasts, natural flat stomach, natural pubic hair, vine and floral tattoo across waist',
+      'nude standing, clearly Black American woman with light honey caramel skin, long sleek honey blonde hair, heavy freckles, confident gentle pose, warm light, full body in frame, curvy hourglass figure, D cup breasts, natural flat stomach, natural pubic hair, vine and floral tattoo across waist',
+      'full body nude, clearly African American woman with light honey caramel skin, long sleek honey blonde hair, heavy freckles, seated relaxed pose, warm studio light, anatomically correct, curvy hourglass figure, D cup breasts, natural flat stomach, natural pubic hair, vine and floral tattoo across waist',
+      'nude full body, light honey caramel-skinned Black American woman, long sleek honey blonde hair, heavy freckles, standing confident, soft window light, head to toe, curvy hourglass figure, D cup breasts, natural flat stomach, natural pubic hair, vine and floral tattoo across waist',
+      'explicit full body, clearly Black American woman with light honey caramel skin, long sleek honey blonde hair, heavy freckles, relaxed sensual pose, diffused warm light, anatomically correct, curvy hourglass figure, D cup breasts, natural flat stomach, natural pubic hair, vine and floral tattoo across waist',
+      'full body nude, clearly African American woman with light honey caramel skin, long sleek honey blonde hair, heavy freckles, confident stance, soft golden hour light, full body visible, curvy hourglass figure, D cup breasts, natural flat stomach, natural pubic hair, vine and floral tattoo across waist',
+      'nude standing full body, light honey caramel-skinned Black American woman, long sleek honey blonde hair, heavy freckles, gentle pose, warm light, anatomically correct, curvy hourglass figure, D cup breasts, natural flat stomach, natural pubic hair, vine and floral tattoo across waist',
+      'full body nude, clearly Black American woman with light honey caramel skin, long sleek honey blonde hair, heavy freckles, relaxed confident pose, soft diffused light, head to toe in frame, curvy hourglass figure, D cup breasts, natural flat stomach, natural pubic hair, vine and floral tattoo across waist',
+      'nude lying on bed, clearly African American woman with light honey caramel skin, reclining pose, full body visible, bed and pillows in frame, long sleek honey blonde hair, heavy freckles, vine and floral tattoo across waist, relaxed sensual pose, soft bedroom lighting, anatomically correct, curvy hourglass figure, D cup breasts, natural flat stomach, natural pubic hair',
+      'nude on hands and knees, clearly Black American woman with light honey caramel skin, doggy style position, rear view, back facing camera, full body visible, long sleek honey blonde hair, heavy freckles, anatomically correct, soft bedroom lighting, curvy hourglass figure, D cup breasts, natural flat stomach, natural pubic hair',
     ],
   },
   nia: {
@@ -289,7 +289,7 @@ function loadStoredTrainingImages(characterId: string, category: PromptCategory)
 function buildCaption(characterId: string, prompt: string): string {
   const anchors: Record<string, string> = {
     soleil: 'Soleil, honey golden blonde braided hair, vivid green eyes, deep ebony black skin',
-    zara: 'Zara, long sleek honey blonde hair, heavy freckles, light caramel skin',
+    zara: 'Zara, clearly Black American woman with light honey caramel skin, long sleek honey blonde hair, heavy freckles',
     nia: 'Nia, long dark wavy locs, rich warm brown skin, warm brown eyes',
     victoria: 'Victoria, wavy silver-streaked dark hair, warm caramel-brown skin, warm brown eyes, soft smile lines',
     jerome: 'Jerome, honey-tipped dreadlocs, thin mustache and soul patch, medium brown skin, tribal sleeve tattoo right arm',
@@ -413,6 +413,14 @@ export default function AdminTrainingPage() {
       environment: string;
       details: string;
     }> = {
+      zara: {
+        race: 'light honey caramel-skinned Black American woman',
+        gender: 'F',
+        age: '27',
+        wardrobe: 'cream fitted outfit, gold jewelry',
+        environment: 'luxury Houston apartment with floor to ceiling windows, golden afternoon light',
+        details: 'long sleek straight honey blonde hair past shoulders, heavy freckles across cheeks and nose, warm brown eyes, diamond cross pendant on chain, curvy snatched hourglass figure, confident unbothered expression, vine and floral tattoo across waist',
+      },
       victoria: {
         race: 'biracial Afro-Brazilian American woman',
         gender: 'F',
@@ -425,6 +433,9 @@ export default function AdminTrainingPage() {
 
     // Pick style based on category
     const style = category === 'portrait' ? 'portrait' : 'fullbody';
+    const referenceImageUrl = anchorImageUrl ? new URL(anchorImageUrl, window.location.origin).toString() : undefined;
+    const referenceStrength = style === 'fullbody' ? 0.50 : 0.55;
+    const denoiseStrength = style === 'fullbody' ? 0.55 : 0.45;
 
     setGenerating(true);
     setImages(prev => prev.filter(img => img.selected));
@@ -463,6 +474,10 @@ export default function AdminTrainingPage() {
                 archetype_id: selectedCharacter,
                 seed: -1,
                 structured_prompt: structuredPromptMap[selectedCharacter],
+                reference_image_url: referenceImageUrl,
+                reference_mode: referenceImageUrl ? 'identity' : undefined,
+                reference_strength: referenceImageUrl ? referenceStrength : undefined,
+                denoise_strength: referenceImageUrl ? denoiseStrength : undefined,
               }),
             });
 
