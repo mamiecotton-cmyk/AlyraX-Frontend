@@ -227,7 +227,7 @@ export async function POST(req: NextRequest) {
       style = 'portrait',
       seed,
       lora_strength,
-      nsfw_lora_strength = 0.65,
+      nsfw_lora_strength = 0.35,
       steps = 20,
       guidance = 3.5,
       character_id,
