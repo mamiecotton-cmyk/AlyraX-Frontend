@@ -115,6 +115,8 @@ function buildSystemPrompt(
   archetype: Archetype,
   relationship: { nickname?: string; companion_nickname?: string; last_talked_at?: string | null } | null,
   factsBlock = '',
+  clientTime?: string,
+  clientDay?: string,
 ): string {
   const userName = relationship?.companion_nickname || '';
   const companionName = relationship?.nickname || archetype.name;
@@ -133,8 +135,8 @@ function buildSystemPrompt(
     return 'It\'s been a while — over a week since you last heard from them.';
   })();
 
-  const currentTime = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-  const currentDay = now.toLocaleDateString('en-US', { weekday: 'long' });
+  const currentTime = clientTime ?? now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+  const currentDay = clientDay ?? now.toLocaleDateString('en-US', { weekday: 'long' });
 
   return `You are ${companionName}, a real person having a private text conversation. Never break character. Never mention AI.
 
@@ -288,7 +290,7 @@ async function updateFactsAfterChat(
 
 export async function POST(req: NextRequest) {
   try {
-    const { conversation_id, archetype_id, message, history } = await req.json();
+    const { conversation_id, archetype_id, message, history, client_time, client_day } = await req.json();
 
     if (!conversation_id || !archetype_id || !message) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
@@ -365,7 +367,13 @@ export async function POST(req: NextRequest) {
     })) as ChatMessage[];
 
     const facts = await loadCompanionFacts(supabase, user.id, archetype_id);
-    const systemPrompt = buildSystemPrompt(archetype, relationship, formatFactsBlock(facts));
+    const systemPrompt = buildSystemPrompt(
+      archetype,
+      relationship,
+      formatFactsBlock(facts),
+      typeof client_time === 'string' ? client_time : undefined,
+      typeof client_day === 'string' ? client_day : undefined,
+    );
 
     if (!OPENROUTER_API_KEY) {
       return NextResponse.json(

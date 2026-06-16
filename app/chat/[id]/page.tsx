@@ -635,6 +635,8 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
           archetype_id: id,
           message: text,
           history,
+          client_time: new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }),
+          client_day: new Date().toLocaleDateString('en-US', { weekday: 'long' }),
         }),
       });
 
