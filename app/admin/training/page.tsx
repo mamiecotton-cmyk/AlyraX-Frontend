@@ -251,7 +251,6 @@ const INPUT: React.CSSProperties = {
 
 const LORA_CHARACTERS = [
   { id: 'soleil', name: 'Soleil', gender: 'F' },
-  { id: 'zara', name: 'Zara', gender: 'F' },
   { id: 'nia', name: 'Nia', gender: 'F' },
   { id: 'jerome', name: 'Jerome', gender: 'M' },
   { id: 'jaxon', name: 'Jaxon', gender: 'M' },
@@ -398,7 +397,6 @@ export default function AdminTrainingPage() {
     // Look up LoRA config — must match lib/archetype-loras.ts
     const loraMap: Record<string, { loraFile: string; triggerWord: string }> = {
       soleil: { loraFile: 'soleil_v2.safetensors', triggerWord: 'solx' },
-      zara:   { loraFile: 'zara_v1.safetensors',   triggerWord: 'zrabd' },
       nia:    { loraFile: 'nia_v1.safetensors',     triggerWord: 'niavx' },
       jerome: { loraFile: 'jerome_v1_flux.safetensors', triggerWord: 'jrmwr' },
       jaxon:  { loraFile: 'jaxon_v1.safetensors',  triggerWord: 'jxnst' },
