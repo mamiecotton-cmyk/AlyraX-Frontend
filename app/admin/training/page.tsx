@@ -45,6 +45,34 @@ const CHARACTER_PROMPTS: Record<string, CharacterPrompts> = {
       'nude standing full body, honey blonde hair, green eyes, ebony skin, lean elegant figure, confident natural stance, diffused light, anatomically correct',
     ],
   },
+  zara: {
+    portrait: [
+      'close portrait, long sleek honey blonde hair straight past shoulders, heavy freckles across cheeks and nose, light honey caramel skin, warm brown eyes, direct gaze',
+      'beauty headshot, sleek straight blonde hair, dense freckles cheeks and nose, caramel skin tone, warm brown eyes, confident expression, soft light',
+      'close up face, long honey blonde straight hair framing face, heavy freckle pattern cheeks nose, light caramel complexion, warm eyes, editorial mood',
+      'portrait, sleek blonde hair pulled back, heavy freckles, honey caramel skin, brown eyes catching light, magnetic unbothered expression',
+    ],
+    clothed: [
+      'full body, long sleek honey blonde hair, heavy freckles caramel skin, cream fitted outfit, gold jewelry, curvy hourglass figure, Houston apartment golden light, head to toe',
+      'full body standing, straight blonde hair, freckled caramel skin, all-cream look nails done, confident stance, luxury interior, full figure head to toe visible',
+      'full body, honey blonde hair, heavy freckles, caramel skin, fitted monochrome look, gold accessories, relaxed pose, neutral background, feet to head in frame',
+      'full body, sleek blonde hair, freckled face caramel tone, stylish casual outfit, hands on hips, natural light, full figure visible head to toe',
+    ],
+    explicit: [
+      'full body nude, bi-racial African American woman, long sleek honey blonde hair, light honey caramel skin, heavy freckles on cheeks and nose, anatomically correct, standing soft window light, curvy hourglass figure, D cup breasts, natural flat stomach, natural pubic hair, vine and floral tattoo across waist',
+      'nude full body, long sleek honey blonde hair, heavy freckles, light honey caramel skin, relaxed confident pose, warm diffused light, head to toe visible, curvy hourglass figure, D cup breasts, natural flat stomach, natural pubic hair, vine and floral tattoo across waist',
+      'explicit full body, bi-racial African American woman, long sleek honey blonde hair, heavy freckles, light honey caramel skin, sensual relaxed stance, soft golden light, anatomically correct, curvy hourglass figure, D cup breasts, natural flat stomach, natural pubic hair, vine and floral tattoo across waist',
+      'nude standing, long sleek honey blonde hair, heavy freckles, light honey caramel skin, confident gentle pose, warm light, full body in frame, curvy hourglass figure, D cup breasts, natural flat stomach, natural pubic hair, vine and floral tattoo across waist',
+      'full body nude, long sleek honey blonde hair, heavy freckles, light honey caramel skin, seated relaxed pose, warm studio light, anatomically correct, curvy hourglass figure, D cup breasts, natural flat stomach, natural pubic hair, vine and floral tattoo across waist',
+      'nude full body, bi-racial African American woman, long sleek honey blonde hair, heavy freckles, light honey caramel skin, standing confident, soft window light, head to toe, curvy hourglass figure, D cup breasts, natural flat stomach, natural pubic hair, vine and floral tattoo across waist',
+      'explicit full body, long sleek honey blonde hair, heavy freckles, light honey caramel skin, relaxed sensual pose, diffused warm light, anatomically correct, curvy hourglass figure, D cup breasts, natural flat stomach, natural pubic hair, vine and floral tattoo across waist',
+      'full body nude, long sleek honey blonde hair, heavy freckles, light honey caramel skin, confident stance, soft golden hour light, full body visible, curvy hourglass figure, D cup breasts, natural flat stomach, natural pubic hair, vine and floral tattoo across waist',
+      'nude standing full body, bi-racial African American woman, long sleek honey blonde hair, heavy freckles, light honey caramel skin, gentle pose, warm light, anatomically correct, curvy hourglass figure, D cup breasts, natural flat stomach, natural pubic hair, vine and floral tattoo across waist',
+      'full body nude, long sleek honey blonde hair, heavy freckles, light honey caramel skin, relaxed confident pose, soft diffused light, head to toe in frame, curvy hourglass figure, D cup breasts, natural flat stomach, natural pubic hair, vine and floral tattoo across waist',
+      'nude lying on bed, reclining pose, full body visible, bed and pillows in frame, long sleek honey blonde hair, light honey caramel skin, heavy freckles, vine and floral tattoo across waist, relaxed sensual pose, soft bedroom lighting, anatomically correct, curvy hourglass figure, D cup breasts, natural flat stomach, natural pubic hair',
+      'nude on hands and knees, doggy style position, rear view, back facing camera, full body visible, long sleek honey blonde hair, light honey caramel skin, heavy freckles, anatomically correct, soft bedroom lighting, curvy hourglass figure, D cup breasts, natural flat stomach, natural pubic hair',
+    ],
+  },
   nia: {
     portrait: [
       'close portrait, long dark wavy locs past shoulders, rich warm brown skin, soft warm brown eyes, natural earthy presence, gentle direct gaze, soft window light',
@@ -223,6 +251,7 @@ const INPUT: React.CSSProperties = {
 
 const LORA_CHARACTERS = [
   { id: 'soleil', name: 'Soleil', gender: 'F' },
+  { id: 'zara', name: 'Zara', gender: 'F' },
   { id: 'nia', name: 'Nia', gender: 'F' },
   { id: 'jerome', name: 'Jerome', gender: 'M' },
   { id: 'jaxon', name: 'Jaxon', gender: 'M' },
@@ -260,6 +289,7 @@ function loadStoredTrainingImages(characterId: string, category: PromptCategory)
 function buildCaption(characterId: string, prompt: string): string {
   const anchors: Record<string, string> = {
     soleil: 'Soleil, honey golden blonde braided hair, vivid green eyes, deep ebony black skin',
+    zara: 'Zara, long sleek honey blonde hair, heavy freckles, light caramel skin',
     nia: 'Nia, long dark wavy locs, rich warm brown skin, warm brown eyes',
     victoria: 'Victoria, wavy silver-streaked dark hair, warm caramel-brown skin, warm brown eyes, soft smile lines',
     jerome: 'Jerome, honey-tipped dreadlocs, thin mustache and soul patch, medium brown skin, tribal sleeve tattoo right arm',
