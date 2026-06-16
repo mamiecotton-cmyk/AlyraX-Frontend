@@ -19,12 +19,6 @@ export const archetypeLoras: Record<string, ArchetypeLoraConfig> = {
     loraFile: 'roman_v1.safetensors',
     triggerWord: 'r0man',
   },
-  zara: {
-    loraFile: 'zara_v1.safetensors',
-    triggerWord: 'zrabd',
-    refinementLoraFile: 'zara_v2.safetensors',
-    refinementStrength: 0.35,
-  },
   nia: {
     loraFile: 'nia_v1.safetensors',
     triggerWord: 'niavx',
