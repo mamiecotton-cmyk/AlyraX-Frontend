@@ -85,10 +85,10 @@ function buildFluxWorkflow({
     currentModel = [id, 0];
   };
 
+  if (useNsfwLora) addLora('nsfw_flux.safetensors', nsfwLoraStrength);
   addLora(loraFile, loraStrength);
-  if (useNsfwLora) addLora('nsfw_flux_v2.safetensors', nsfwLoraStrength);
   if (useNsfwLora && refinementLoraFile && refinementStrength) addLora(refinementLoraFile, refinementStrength);
-  addLora('Show_Feet_-.safetensors', 0.25);
+  addLora('feet_fix.safetensors', 0.35);
 
   const modelOutput = currentModel;
 
@@ -227,7 +227,7 @@ export async function POST(req: NextRequest) {
       style = 'portrait',
       seed,
       lora_strength,
-      nsfw_lora_strength = 0.35,
+      nsfw_lora_strength = 0.65,
       steps = 20,
       guidance = 3.5,
       character_id,
