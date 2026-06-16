@@ -48,7 +48,7 @@ const PHOTOREALISM_PROMPT = [
 
 // Identity anchors injected at prompt position 1 — survive NSFW LoRA influence
 const CHARACTER_ANCHORS: Record<string, string> = {
-  soleil: 'honey golden blonde hair, vivid green eyes, deep ebony black skin blue-black undertones, slim modelesque figure, tall slender build',
+  soleil: 'honey golden blonde hair, vivid green eyes, deep ebony black skin blue-black undertones, slim modelesque figure, tall slender build, D cup breast size, soft confident smile',
   zara: 'long sleek honey blonde hair, heavy freckles on cheeks and nose, light honey caramel skin, curvy hourglass figure',
   jerome: 'honey-tipped dreadlocks, thin mustache and soul patch, tribal sleeve tattoo on right arm only clean left arm, athletic build',
   jaxon: 'shaved head low fade, light beard with goatee, heavy gold cuban chain, clean smooth skin no tattoos, lean muscular athletic build, tall proportional figure',
