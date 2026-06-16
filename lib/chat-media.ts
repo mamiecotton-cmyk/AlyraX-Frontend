@@ -84,14 +84,17 @@ function buildFluxSelfiePrompt(message: string): string {
   const mirrorSelfie = isMirrorSelfieRequest(message);
   const explicitSelfie = isExplicitSelfieRequest(message);
   const isFullBody = /\b(full body|full-body|head to toe|whole body|laying|lying|on (the )?(bed|floor|couch)|on (all fours|hands and knees)|spreading|legs (spread|open|apart))\b/.test(lower);
+  const isReclining = /\b(laying|lying|reclining|laid (down|back)|on (her|his|their) back)\b/.test(lower);
 
   const perspective = mirrorSelfie
     ? 'mirror selfie perspective, phone visible in mirror'
-    : isFullBody
-      ? 'full body in frame, entire body visible head to toe'
-      : explicitSelfie
-        ? 'phone selfie perspective, casual handheld photo'
-        : 'natural candid photo';
+    : isReclining
+      ? 'reclining pose, lying down, body horizontal, full body in frame head to toe'
+      : isFullBody
+        ? 'full body in frame, entire body visible head to toe'
+        : explicitSelfie
+          ? 'phone selfie perspective, casual handheld photo'
+          : 'natural candid photo';
 
   return [
     userRequest,
