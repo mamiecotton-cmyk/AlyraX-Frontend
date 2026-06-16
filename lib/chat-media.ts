@@ -80,14 +80,18 @@ export function buildSelfiePrompt(message: string, archetype: Archetype): string
 
 function buildFluxSelfiePrompt(message: string): string {
   const userRequest = message.trim();
+  const lower = message.toLowerCase();
   const mirrorSelfie = isMirrorSelfieRequest(message);
   const explicitSelfie = isExplicitSelfieRequest(message);
+  const isFullBody = /\b(full body|full-body|head to toe|whole body|laying|lying|on (the )?(bed|floor|couch)|on (all fours|hands and knees)|spreading|legs (spread|open|apart))\b/.test(lower);
 
   const perspective = mirrorSelfie
     ? 'mirror selfie perspective, phone visible in mirror'
-    : explicitSelfie
-      ? 'phone selfie perspective, casual handheld photo'
-      : 'natural candid photo';
+    : isFullBody
+      ? 'full body in frame, entire body visible head to toe'
+      : explicitSelfie
+        ? 'phone selfie perspective, casual handheld photo'
+        : 'natural candid photo';
 
   return [
     userRequest,
