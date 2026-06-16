@@ -85,7 +85,7 @@ function buildFluxWorkflow({
     currentModel = [id, 0];
   };
 
-  if (useNsfwLora) addLora('nsfw_flux.safetensors', nsfwLoraStrength);
+  if (useNsfwLora) addLora('nsfw_flux_v2.safetensors', nsfwLoraStrength);
   addLora(loraFile, loraStrength);
   if (useNsfwLora && refinementLoraFile && refinementStrength) addLora(refinementLoraFile, refinementStrength);
   addLora('Show_Feet_-.safetensors', 0.25);
