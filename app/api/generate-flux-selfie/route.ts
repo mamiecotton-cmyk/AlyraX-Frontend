@@ -30,21 +30,13 @@ const PHOTOREALISM_PROMPT = [
   'visible skin pores',
   'realistic eyes',
   'real camera photo',
-  'not cartoon',
-  'not anime',
-  'not illustration',
-  'not 3d render',
-  'correct hands five fingers per hand',
-  'correct feet five toes per foot',
-  'anatomically correct hands and feet',
-  'feet right side up',
-  'toes aligned and separated naturally',
-  'toes pointing forward in natural foot orientation',
-  'left and right feet anatomically aligned',
-  'no extra fingers no missing fingers',
-  'no jumbled feet no fused toes',
-  'no upside down feet no twisted toes',
-  'no overlapping toes no scrambled toes',
+  'lifelike photographic detail',
+  'five fingers on each hand',
+  'natural finger spacing',
+  'five separate toes on each foot',
+  'toes evenly spaced and cleanly separated',
+  'feet flat and upright, soles down',
+  'anatomically natural hands and feet',
 ].join(', ');
 
 // Identity anchors injected at prompt position 1 — survive NSFW LoRA influence
@@ -214,7 +206,7 @@ function buildFinalPrompt(prompt: string, triggerWord: string, style: ImageStyle
         ].join(', ')
       : 'portrait selfie composition';
 
-  return [posePhrase, promptWithoutTrigger, triggerWord, characterAnchor, 'aidmaFeetFix', PHOTOREALISM_PROMPT, composition]
+  return [posePhrase, promptWithoutTrigger, triggerWord, characterAnchor, 'show feet', PHOTOREALISM_PROMPT, composition]
     .filter(Boolean)
     .join(', ');
 }
