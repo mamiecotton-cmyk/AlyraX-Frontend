@@ -199,6 +199,7 @@ export async function POST(req: NextRequest) {
           archetypeId: archetype_id,
           wardrobeState: 'clothed',
           conversationHistory: [{ role: 'user', content: media_prompt }],
+          forceSourceFrame: true,
         }),
       });
 

@@ -929,6 +929,7 @@ export async function POST(req: NextRequest) {
       wardrobeState: requestedWardrobeState,
       characterGender: requestedCharacterGender,
       characterName: requestedCharacterName,
+      forceSourceFrame,
     } = await req.json();
 
     const wardrobeState = inferWardrobeStateFromPrompt(userMessage, normalizeWardrobeState(requestedWardrobeState));
@@ -940,6 +941,7 @@ export async function POST(req: NextRequest) {
       companionId: companionId || null,
       userMessage,
       hasFrameUrl: Boolean(frameUrl),
+      forceSourceFrame: forceSourceFrame === true,
       wardrobeState,
       historyCount: Array.isArray(conversationHistory) ? conversationHistory.length : 0,
     });
@@ -981,7 +983,7 @@ export async function POST(req: NextRequest) {
 
     let imageUrl = resolveRequestUrl(frameUrl || companion?.image_url || '', req);
     const shouldGenerateWardrobeSourceFrame = Boolean(loraConfig && wardrobeState !== 'clothed');
-    if (loraConfig && (!imageUrl || shouldGenerateWardrobeSourceFrame)) {
+    if (loraConfig && (forceSourceFrame || !imageUrl || shouldGenerateWardrobeSourceFrame)) {
       trace.push('flux-lora-source-frame');
       const framePlan = await buildSourceFramePrompt(
         userMessage || '',
@@ -1003,7 +1005,11 @@ export async function POST(req: NextRequest) {
       console.log(`[${requestId}] structured frame`, { explicit, preview: framePrompt.slice(0, 160) });
       console.log(`[${requestId}] using Flux LoRA source frame for video`, {
         archetypeId: loraArchetypeId,
-        reason: shouldGenerateWardrobeSourceFrame ? 'prompt-wardrobe' : 'missing-source-frame',
+        reason: forceSourceFrame
+          ? 'forced-source-frame'
+          : shouldGenerateWardrobeSourceFrame
+            ? 'prompt-wardrobe'
+            : 'missing-source-frame',
         imageUrl,
       });
     } else if (loraConfig) {
