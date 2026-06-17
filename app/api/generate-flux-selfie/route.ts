@@ -261,7 +261,12 @@ export async function POST(req: NextRequest) {
     }
 
     const imageStyle = normalizeStyle(style);
-    const effectiveLoraStrength = lora_strength ?? (imageStyle === 'fullbody' || imageStyle === 'fullscreen' ? 0.65 : 0.85);
+    const defaultLoraStrength = character_id === 'jaxon'
+      ? 0.85
+      : imageStyle === 'fullbody' || imageStyle === 'fullscreen'
+        ? 0.65
+        : 0.85;
+    const effectiveLoraStrength = lora_strength ?? defaultLoraStrength;
     const finalPrompt = buildFinalPrompt(prompt, trigger_word, imageStyle, character_id);
     const useNsfwLora = typeof explicit === 'boolean' ? explicit : isExplicitContentPrompt(prompt);
 
