@@ -83,15 +83,15 @@ function buildFluxWorkflow({
 
   if (useNsfwLora) {
     if (isMale) {
-      addLora('male_anatomy_flux.safetensors', nsfwLoraStrength);
-      addLora('male_explicit_v2.safetensors', 0.35);
+      addLora('male_anatomy_flux.safetensors', Math.min(nsfwLoraStrength, 0.35));
+      addLora('male_explicit_v2.safetensors', 0.18);
     } else {
       addLora('nsfw_flux_v2.safetensors', nsfwLoraStrength);
     }
   }
   addLora(loraFile, loraStrength);
   if (useNsfwLora && refinementLoraFile && refinementStrength) addLora(refinementLoraFile, refinementStrength);
-  addLora('Show_Feet_-.safetensors', 0.25);
+  if (!(useNsfwLora && isMale)) addLora('Show_Feet_-.safetensors', 0.25);
 
   const modelOutput = currentModel;
 
