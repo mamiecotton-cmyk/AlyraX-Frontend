@@ -262,7 +262,7 @@ export async function POST(req: NextRequest) {
 
     const imageStyle = normalizeStyle(style);
     const defaultLoraStrength = character_id === 'jaxon'
-      ? 0.85
+      ? 1
       : imageStyle === 'fullbody' || imageStyle === 'fullscreen'
         ? 0.65
         : 0.85;
