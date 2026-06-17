@@ -343,6 +343,13 @@ export async function POST(req: NextRequest) {
       stream: true,
     };
 
+    if (!isVideoMode) {
+      requestBody.provider = {
+        only: ['venice', 'novita', 'morph', 'cloudflare'],
+        allow_fallbacks: true,
+      };
+    }
+
     if (model.includes('deepseek-v4') || model.includes('deepseek-v3.2')) {
       requestBody.reasoning = { enabled: false };
     }

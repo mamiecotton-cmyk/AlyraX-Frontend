@@ -958,6 +958,11 @@ export async function POST(req: NextRequest) {
     // Build a single combined prompt for Wan2.1 (join scene prompts)
     const wan21Prompt = buildWanPositivePrompt(scenePlan.prompts.join(', '));
     const negativePrompt = buildVideoNegativePrompt(characterGender);
+    console.log(`[${requestId}] video prompt:`, {
+      positive: wan21Prompt,
+      negative: negativePrompt,
+      scenePrompts: scenePlan.prompts,
+    });
 
     // ── Try RunPod Wan2.1 first ──
     let provider: VideoProvider = 'runpod';
