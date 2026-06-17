@@ -314,12 +314,14 @@ async function generateFluxSourceFrame({
   origin,
   requestId,
   prompt,
+  explicit,
   loraConfig,
   characterId,
 }: {
   origin: string;
   requestId: string;
   prompt: string;
+  explicit?: boolean;
   loraConfig: ArchetypeLoraConfig;
   characterId?: string;
 }) {
@@ -328,6 +330,7 @@ async function generateFluxSourceFrame({
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       prompt,
+      explicit,
       lora_file: loraConfig.loraFile,
       trigger_word: loraConfig.triggerWord,
       style: styleForVideoSourcePrompt(prompt) === 'fullbody' ? 'fullbody' : 'fullscreen',
@@ -643,6 +646,77 @@ function extractJsonObject(content: string): Record<string, unknown> | null {
   }
 }
 
+const SOURCE_FRAME_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['sourceFramePrompt', 'explicit'],
+  properties: {
+    sourceFramePrompt: { type: 'string' },
+    explicit: { type: 'boolean' },
+  },
+} as const;
+
+async function buildSourceFramePrompt(
+  userMessage: string,
+  conversationHistory: ConversationMessage[],
+  characterGender: CharacterGender,
+  characterName?: string | null,
+): Promise<{ sourceFramePrompt: string; explicit: boolean } | null> {
+  if (!OPENROUTER_API_KEY) return null;
+
+  const terms = getCharacterTerms(characterGender);
+  const nameLine = characterName
+    ? `The character is ${characterName}, a consenting ${terms.noun}.`
+    : `The character is a consenting ${terms.noun}.`;
+  const recentHistory = conversationHistory.slice(-6).map((m) => ({
+    role: m.role === 'assistant' ? 'assistant' : 'user',
+    content: m.content,
+  }));
+
+  const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+      'HTTP-Referer': 'https://alyra-x-frontend.vercel.app',
+      'X-Title': 'AlyraX',
+    },
+    body: JSON.stringify({
+      model: OPENROUTER_MODEL,
+      max_tokens: 300,
+      temperature: 0.4,
+      stream: false,
+      response_format: {
+        type: 'json_schema',
+        json_schema: { name: 'source_frame', strict: true, schema: SOURCE_FRAME_SCHEMA },
+      },
+      messages: [
+        {
+          role: 'system',
+          content: `You convert a user's request into a single still-image prompt for the opening frame of a video, for a consenting adult character.
+${nameLine}
+Write ONE descriptive image prompt covering the scene, setting, the character's pose, action, wardrobe, framing, and camera angle implied by the request.
+Use concrete visual language a photographer would understand. Describe what IS present; never use "no" or "not" — phrase everything positively.
+Do not describe the character's face or identity; that is handled separately. Do not write dialogue.
+Set "explicit" to true if the request implies nudity, sexual activity, or intimate/erotic content; otherwise false.
+Keep sourceFramePrompt under 60 words.`,
+        },
+        ...recentHistory,
+        { role: 'user', content: userMessage || 'A natural candid moment.' },
+      ],
+    }),
+  });
+
+  if (!response.ok) return null;
+  const data = await response.json();
+  const content = data.choices?.[0]?.message?.content;
+  if (!content) return null;
+  const parsed = extractJsonObject(content);
+  if (!parsed || typeof parsed.sourceFramePrompt !== 'string') return null;
+
+  return { sourceFramePrompt: parsed.sourceFramePrompt.trim(), explicit: parsed.explicit === true };
+}
+
 function parseScenePlan(
   content: string,
   wardrobeState: WardrobeState,
@@ -909,13 +983,24 @@ export async function POST(req: NextRequest) {
     const shouldGenerateWardrobeSourceFrame = Boolean(loraConfig && wardrobeState !== 'clothed');
     if (loraConfig && (!imageUrl || shouldGenerateWardrobeSourceFrame)) {
       trace.push('flux-lora-source-frame');
+      const framePlan = await buildSourceFramePrompt(
+        userMessage || '',
+        Array.isArray(conversationHistory) ? conversationHistory : [],
+        characterGender,
+        companionArchetype?.name ?? characterName,
+      );
+      const framePrompt = framePlan?.sourceFramePrompt || userMessage || 'A natural candid moment.';
+      const explicit = framePlan?.explicit ?? false;
+
       imageUrl = await generateFluxSourceFrame({
         origin: new URL(req.url).origin,
         requestId,
-        prompt: userMessage,
+        prompt: framePrompt,
+        explicit,
         loraConfig,
         characterId: loraArchetypeId,
       });
+      console.log(`[${requestId}] structured frame`, { explicit, preview: framePrompt.slice(0, 160) });
       console.log(`[${requestId}] using Flux LoRA source frame for video`, {
         archetypeId: loraArchetypeId,
         reason: shouldGenerateWardrobeSourceFrame ? 'prompt-wardrobe' : 'missing-source-frame',

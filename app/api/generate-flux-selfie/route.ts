@@ -201,12 +201,12 @@ function buildFinalPrompt(prompt: string, triggerWord: string, style: ImageStyle
           'standing far enough from camera',
           'feet near bottom of frame',
           'natural full-body photo composition',
-          'not a close-up portrait',
-          'not cropped',
+          'wide full-length framing',
+          'complete figure within the frame edges',
         ].join(', ')
       : 'portrait selfie composition';
 
-  return [posePhrase, promptWithoutTrigger, triggerWord, characterAnchor, 'show feet', PHOTOREALISM_PROMPT, composition]
+  return [posePhrase, promptWithoutTrigger, triggerWord, characterAnchor, PHOTOREALISM_PROMPT, composition]
     .filter(Boolean)
     .join(', ');
 }
@@ -234,6 +234,7 @@ export async function POST(req: NextRequest) {
       steps = 20,
       guidance = 3.5,
       character_id,
+      explicit,
     } = await req.json();
 
     if (!prompt || !lora_file || !trigger_word) {
@@ -262,7 +263,7 @@ export async function POST(req: NextRequest) {
     const imageStyle = normalizeStyle(style);
     const effectiveLoraStrength = lora_strength ?? (imageStyle === 'fullbody' || imageStyle === 'fullscreen' ? 0.65 : 0.85);
     const finalPrompt = buildFinalPrompt(prompt, trigger_word, imageStyle, character_id);
-    const useNsfwLora = isExplicitContentPrompt(prompt);
+    const useNsfwLora = typeof explicit === 'boolean' ? explicit : isExplicitContentPrompt(prompt);
 
     const { width, height } = styleToDimensions(imageStyle);
     const resolvedSeed =
