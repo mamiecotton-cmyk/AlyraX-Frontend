@@ -83,7 +83,7 @@ function buildFluxWorkflow({
 
   if (useNsfwLora) {
     if (isMale) {
-      addLora('male_anatomy_flux.safetensors', Math.min(nsfwLoraStrength, 0.35));
+      addLora('male_anatomy_flux.safetensors', Math.min(nsfwLoraStrength, 0.85));
       addLora('male_explicit_v2.safetensors', 0.6);
     } else {
       addLora('nsfw_flux_v2.safetensors', nsfwLoraStrength);
