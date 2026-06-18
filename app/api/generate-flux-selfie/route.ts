@@ -192,7 +192,7 @@ function buildFinalPrompt(prompt: string, triggerWord: string, style: ImageStyle
   const promptWithoutTrigger = removeLeadingTriggerWord(prompt.trim(), triggerWord);
   const characterAnchor = characterId ? (CHARACTER_ANCHORS[characterId] ?? '') : '';
   const sceneAnchor = isShowerPrompt(promptWithoutTrigger)
-    ? 'active running shower, water visibly falling from showerhead, wet skin, water droplets on body, damp skin shine, bathroom shower stall, steam and mist in the air, wet tile floor'
+    ? 'observational candid camera angle from outside the shower, eye-level three-quarter view, watching him under active running shower water, water visibly falling from showerhead, wet skin, water droplets on body, damp skin shine, bathroom shower stall, steam and mist in the air, wet tile floor'
     : '';
   const posePhrase = style === 'fullbody' || style === 'fullscreen'
     ? 'full body, full figure head to toe, feet visible in frame'
@@ -213,7 +213,11 @@ function buildFinalPrompt(prompt: string, triggerWord: string, style: ImageStyle
         ].join(', ')
       : 'portrait selfie composition';
 
-  return [sceneAnchor, posePhrase, promptWithoutTrigger, triggerWord, characterAnchor, PHOTOREALISM_PROMPT, composition]
+  const promptParts = sceneAnchor
+    ? [triggerWord, characterAnchor, sceneAnchor, posePhrase, promptWithoutTrigger, PHOTOREALISM_PROMPT, composition]
+    : [posePhrase, promptWithoutTrigger, triggerWord, characterAnchor, PHOTOREALISM_PROMPT, composition];
+
+  return promptParts
     .filter(Boolean)
     .join(', ');
 }
