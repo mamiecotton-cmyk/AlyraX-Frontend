@@ -154,11 +154,11 @@ const CHARACTER_PROMPTS: Record<string, CharacterPrompts> = {
       'full body, honey-tipped dreadlocs, mustache soul patch, medium brown skin, right arm tattoo sleeve, relaxed tailored outfit, urban backdrop, full body head to toe',
     ],
     explicit: [
-      'full body nude, honey-tipped dreadlocs, thin mustache soul patch, medium brown skin, tribal blackwork sleeve tattoo right arm only clean left arm, athletic figure, anatomically correct, standing',
-      'nude full body, honey-tipped locs, mustache soul patch, medium brown skin, right arm tribal tattoo, masculine figure, natural confident pose, warm light, head to toe',
-      'explicit full body, honey-tipped dreads, light facial hair, medium brown complexion, tribal tattoo right arm only, natural muscular build, standing confident, soft light',
-      'nude standing, honey-tipped dreadlocs, thin mustache soul patch, medium brown skin, right arm sleeve tattoo, athletic build, relaxed pose, warm studio light, full body',
-      'full body nude, honey-tipped locs, mustache soul patch, medium brown skin, tribal sleeve right arm clean left, masculine proportions, confident stance, diffused light, anatomically correct',
+      'explicit adult male ejaculation, visible semen ejaculating from penis, full body nude, honey-tipped dreadlocs, thin mustache soul patch, medium brown skin, tribal blackwork sleeve tattoo right arm only clean left arm, athletic figure, standing, head to toe visible',
+      'adult male ejaculation scene, visible semen from penis, nude full body, honey-tipped locs, mustache soul patch, medium brown skin, right arm tribal tattoo, masculine figure, natural confident pose, warm light, head to toe',
+      'explicit ejaculation from penis, visible semen, full body adult man, honey-tipped dreads, light facial hair, medium brown complexion, tribal tattoo right arm only, natural muscular build, standing confident, soft light',
+      'male climax with semen visibly ejaculating from penis, nude standing, honey-tipped dreadlocs, thin mustache soul patch, medium brown skin, right arm sleeve tattoo, athletic build, relaxed pose, full body in frame',
+      'visible male ejaculation, semen from penis, full body nude, honey-tipped locs, mustache soul patch, medium brown skin, tribal sleeve right arm clean left, masculine proportions, diffused studio light, anatomically correct',
     ],
   },
   jaxon: {
@@ -175,11 +175,11 @@ const CHARACTER_PROMPTS: Record<string, CharacterPrompts> = {
       'full body, low fade shaved head, neat beard goatee, gold cuban link chain, clean skin, athletic muscular build, stylish casual, full figure head to toe',
     ],
     explicit: [
-      'full body nude, shaved head low fade, light beard goatee, heavy gold cuban chain, clean smooth skin no tattoos, athletic muscular figure, anatomically correct, standing',
-      'nude full body, shaved fade, beard goatee, gold chain, clean skin, masculine athletic build, confident natural pose, warm light, head to toe visible',
-      'explicit full body, shaved head low cut, beard goatee, gold cuban chain, no tattoos clean skin, muscular build, standing confident, soft studio light, anatomically correct',
-      'nude standing, low fade shaved head, light beard goatee, heavy gold chain, clean skin, athletic proportions, relaxed pose, warm light, full body in frame',
-      'full body nude, shaved head, beard goatee, gold cuban chain, clean smooth skin, masculine athletic figure, natural stance, diffused light, anatomically correct head to toe',
+      'explicit adult male ejaculation, visible semen ejaculating from penis, full body nude, shaved head low fade, light beard goatee, heavy gold cuban chain, clean smooth skin no tattoos, athletic muscular figure, standing, head to toe visible',
+      'adult male ejaculation scene, visible semen from penis, nude full body, shaved fade, beard goatee, gold chain, clean skin, masculine athletic build, confident natural pose, warm light, head to toe visible',
+      'explicit ejaculation from penis, visible semen, full body adult man, shaved head low cut, beard goatee, gold cuban chain, no tattoos clean skin, muscular build, standing confident, soft studio light',
+      'male climax with semen visibly ejaculating from penis, nude standing, low fade shaved head, light beard goatee, heavy gold chain, clean skin, athletic proportions, relaxed pose, full body in frame',
+      'visible male ejaculation, semen from penis, full body nude, shaved head, beard goatee, gold cuban chain, clean smooth skin, masculine athletic figure, diffused studio light, anatomically correct head to toe',
     ],
   },
   roman: {
@@ -196,11 +196,11 @@ const CHARACTER_PROMPTS: Record<string, CharacterPrompts> = {
       'full body, vivid blue eyes, freckled golden brown skin, tight waves fade, diamond stud silver chain, relaxed artistic outfit, natural light, full figure',
     ],
     explicit: [
-      'full body nude, bright vivid blue eyes, heavy freckles across cheeks and nose, golden brown biracial skin, short tight waves low fade, lean athletic figure, anatomically correct, standing',
-      'nude full body, blue eyes, dense freckles, golden biracial complexion, tight waves fade, lean build, natural confident pose, warm light, head to toe visible',
-      'explicit full body, striking blue eyes, heavy freckle pattern, golden brown skin, waves low fade, lean muscular figure, standing natural, soft studio light, anatomically correct',
-      'nude standing, vivid blue eyes, heavy freckles, golden brown biracial skin, short waves fade, athletic proportions, relaxed pose, warm light, full body in frame',
-      'full body nude, blue eyes, heavy freckles cheeks and nose, golden brown skin, tight waves low fade, lean figure, confident natural stance, diffused light, anatomically correct',
+      'explicit adult male ejaculation, visible semen ejaculating from penis, full body nude, bright vivid blue eyes, heavy freckles across cheeks and nose, golden brown biracial skin, short tight waves low fade, lean athletic figure, standing, head to toe visible',
+      'adult male ejaculation scene, visible semen from penis, nude full body, blue eyes, dense freckles, golden biracial complexion, tight waves fade, lean build, natural confident pose, warm light, head to toe visible',
+      'explicit ejaculation from penis, visible semen, full body adult man, striking blue eyes, heavy freckle pattern, golden brown skin, waves low fade, lean muscular figure, standing natural, soft studio light',
+      'male climax with semen visibly ejaculating from penis, nude standing, vivid blue eyes, heavy freckles, golden brown biracial skin, short waves fade, athletic proportions, relaxed pose, full body in frame',
+      'visible male ejaculation, semen from penis, full body nude, blue eyes, heavy freckles cheeks and nose, golden brown skin, tight waves low fade, lean figure, diffused studio light, anatomically correct',
     ],
   },
 };
@@ -469,6 +469,7 @@ export default function AdminTrainingPage() {
                 seed: -1,
                 lora_strength: selectedCharacter === 'victoria' ? 0.7 : undefined,
                 nsfw_lora_strength: 0.5,
+                explicit: category === 'explicit',
               }),
             })
           : await fetch('/api/generate-companion', {

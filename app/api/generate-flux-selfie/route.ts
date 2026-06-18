@@ -181,7 +181,7 @@ function removeLeadingTriggerWord(prompt: string, triggerWord: string) {
 }
 
 function isExplicitContentPrompt(prompt: string) {
-  return /\b(nude|naked|unclothed|not clothed|no clothes|no clothing|without clothes|clothes off|uncensored|nsfw|explicit|topless|shirtless|bare|intimate)\b/i.test(prompt);
+  return /\b(nude|naked|unclothed|not clothed|no clothes|no clothing|without clothes|clothes off|uncensored|nsfw|explicit|topless|shirtless|bare|intimate|ejaculat(?:e|es|ing|ion)?|semen|penis|climax)\b/i.test(prompt);
 }
 
 function buildFinalPrompt(prompt: string, triggerWord: string, style: ImageStyle, characterId?: string) {
