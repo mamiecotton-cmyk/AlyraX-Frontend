@@ -181,12 +181,23 @@ function removeLeadingTriggerWord(prompt: string, triggerWord: string) {
 }
 
 function isExplicitContentPrompt(prompt: string) {
-  return /\b(nude|naked|unclothed|not clothed|no clothes|no clothing|without clothes|clothes off|uncensored|nsfw|explicit|topless|shirtless|bare|intimate|ejaculat(?:e|es|ing|ion)?|semen|penis|climax)\b/i.test(prompt);
+  return /\b(nude|naked|unclothed|not clothed|no clothes|no clothing|without clothes|clothes off|uncensored|nsfw|explicit|topless|shirtless|bare|intimate|ejaculat(?:e|es|ing|ion)?|semen|penis|climax|cum|cumming|cumshot|orgasm)\b/i.test(prompt);
+}
+
+function isMaleCharacter(characterId?: string) {
+  return ['jerome', 'jaxon', 'roman'].includes(characterId ?? '');
+}
+
+function isMaleEjaculationPrompt(prompt: string) {
+  return /\b(ejaculat(?:e|es|ing|ion)?|semen|cum|cumming|cumshot|climax|orgasm)\b/i.test(prompt);
 }
 
 function buildFinalPrompt(prompt: string, triggerWord: string, style: ImageStyle, characterId?: string) {
   const promptWithoutTrigger = removeLeadingTriggerWord(prompt.trim(), triggerWord);
   const characterAnchor = characterId ? (CHARACTER_ANCHORS[characterId] ?? '') : '';
+  const actionAnchor = isMaleCharacter(characterId) && isMaleEjaculationPrompt(promptWithoutTrigger)
+    ? 'cumshot, visible white semen, semen spray from penis, ejaculation visibly present, penis visible'
+    : '';
   const posePhrase = style === 'fullbody' || style === 'fullscreen'
     ? 'full body, full figure head to toe, feet visible in frame'
     : '';
@@ -206,7 +217,7 @@ function buildFinalPrompt(prompt: string, triggerWord: string, style: ImageStyle
         ].join(', ')
       : 'portrait selfie composition';
 
-  return [posePhrase, promptWithoutTrigger, triggerWord, characterAnchor, PHOTOREALISM_PROMPT, composition]
+  return [actionAnchor, posePhrase, promptWithoutTrigger, triggerWord, characterAnchor, PHOTOREALISM_PROMPT, composition]
     .filter(Boolean)
     .join(', ');
 }
