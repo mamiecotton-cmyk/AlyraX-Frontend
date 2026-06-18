@@ -184,9 +184,16 @@ function isExplicitContentPrompt(prompt: string) {
   return /\b(nude|naked|unclothed|not clothed|no clothes|no clothing|without clothes|clothes off|uncensored|nsfw|explicit|topless|shirtless|bare|intimate|penis)\b/i.test(prompt);
 }
 
+function isShowerPrompt(prompt: string) {
+  return /\b(shower|showering|running water|wet skin|water droplets|bathroom stall|steam)\b/i.test(prompt);
+}
+
 function buildFinalPrompt(prompt: string, triggerWord: string, style: ImageStyle, characterId?: string) {
   const promptWithoutTrigger = removeLeadingTriggerWord(prompt.trim(), triggerWord);
   const characterAnchor = characterId ? (CHARACTER_ANCHORS[characterId] ?? '') : '';
+  const sceneAnchor = isShowerPrompt(promptWithoutTrigger)
+    ? 'active running shower, water visibly falling from showerhead, wet skin, water droplets on body, damp skin shine, bathroom shower stall, steam and mist in the air, wet tile floor'
+    : '';
   const posePhrase = style === 'fullbody' || style === 'fullscreen'
     ? 'full body, full figure head to toe, feet visible in frame'
     : '';
@@ -206,7 +213,7 @@ function buildFinalPrompt(prompt: string, triggerWord: string, style: ImageStyle
         ].join(', ')
       : 'portrait selfie composition';
 
-  return [posePhrase, promptWithoutTrigger, triggerWord, characterAnchor, PHOTOREALISM_PROMPT, composition]
+  return [sceneAnchor, posePhrase, promptWithoutTrigger, triggerWord, characterAnchor, PHOTOREALISM_PROMPT, composition]
     .filter(Boolean)
     .join(', ');
 }
