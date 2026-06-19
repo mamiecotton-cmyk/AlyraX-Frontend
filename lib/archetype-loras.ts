@@ -12,7 +12,7 @@ export const archetypeLoras: Record<string, ArchetypeLoraConfig> = {
     triggerWord: 'jrmwr',
   },
   jaxon: {
-    loraFile: 'jaxon_v1.safetensors',
+    loraFile: 'jaxon_v2.safetensors',
     triggerWord: 'jxnst',
   },
   roman: {

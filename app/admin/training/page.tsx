@@ -421,7 +421,7 @@ export default function AdminTrainingPage() {
       zara:   { loraFile: 'zara_v1.safetensors',   triggerWord: 'zrabd' },
       nia:    { loraFile: 'nia_v1.safetensors',     triggerWord: 'niavx' },
       jerome: { loraFile: 'jerome_v1_flux.safetensors', triggerWord: 'jrmwr' },
-      jaxon:  { loraFile: 'jaxon_v1.safetensors',  triggerWord: 'jxnst' },
+      jaxon:  { loraFile: 'jaxon_v2.safetensors',  triggerWord: 'jxnst' },
       roman:  { loraFile: 'roman_v1.safetensors',  triggerWord: 'r0man' },
       victoria: { loraFile: 'victoria_v1.safetensors', triggerWord: 'vctrx' },
     };
