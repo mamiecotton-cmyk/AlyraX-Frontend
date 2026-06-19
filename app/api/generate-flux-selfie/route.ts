@@ -44,7 +44,7 @@ const CHARACTER_ANCHORS: Record<string, string> = {
   soleil: 'honey golden blonde hair, vivid green eyes, deep ebony black skin blue-black undertones, slim modelesque figure, tall slender build, D cup breast size, soft confident smile',
   zara: 'long sleek honey blonde hair, heavy freckles on cheeks and nose, light honey caramel skin, curvy hourglass figure',
   jerome: 'honey-tipped dreadlocks, thin mustache and soul patch, tribal sleeve tattoo on right arm only clean left arm, athletic build',
-  jaxon: 'shaved head low fade, light beard with goatee, heavy gold cuban chain, clean smooth skin no tattoos, lean muscular athletic build, tall proportional figure',
+  jaxon: 'medium-dark brown skin, shaved head low fade, light beard with goatee, strong jawline, sharp cheekbones, intense eyes, clean smooth skin no tattoos, lean muscular athletic build, tall proportional figure',
   roman: 'bright vivid blue eyes, heavy freckles across cheeks and nose, short tight waves low fade, lean athletic figure',
   nia: 'long dark wavy locs past shoulders, rich brown skin, warm brown eyes, natural curves, medium build',
   victoria: 'wavy silver-streaked hair past shoulders, warm caramel-brown skin, warm brown eyes, soft smile lines, natural 60-year-old woman\'s body, medium build, D cup breasts, natural flat stomach, soft mature curves',
@@ -217,7 +217,7 @@ function buildFinalPrompt(prompt: string, triggerWord: string, style: ImageStyle
         ].join(', ')
       : 'portrait selfie composition';
 
-  const promptParts = sceneAnchor
+  const promptParts = sceneAnchor || characterId === 'jaxon'
     ? [triggerWord, characterAnchor, sceneAnchor, posePhrase, promptWithoutTrigger, PHOTOREALISM_PROMPT, composition]
     : [posePhrase, promptWithoutTrigger, triggerWord, characterAnchor, PHOTOREALISM_PROMPT, composition];
 
@@ -318,6 +318,7 @@ export async function POST(req: NextRequest) {
       style: imageStyle,
       seed: resolvedSeed,
       useNsfwLora,
+      loraStrength: effectiveLoraStrength,
       promptPreview: finalPrompt.slice(0, 200),
     });
 
