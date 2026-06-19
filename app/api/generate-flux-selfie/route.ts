@@ -170,6 +170,10 @@ function normalizeStyle(style: unknown): ImageStyle {
   return style === 'fullbody' ? 'fullbody' : 'portrait';
 }
 
+function normalizeComfyUrl(value: string) {
+  return value.replace(/\/+$/, '');
+}
+
 function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
@@ -255,16 +259,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const comfyUrl = process.env.COMFYUI_BASE_URL;
     const endpointId = process.env.RUNPOD_COMFYUI_ENDPOINT_ID;
-    if (!endpointId) {
+    const apiKey = process.env.RUNPOD_API_KEY;
+
+    if (!comfyUrl && !endpointId) {
       return NextResponse.json(
-        { error: 'Missing RUNPOD_COMFYUI_ENDPOINT_ID' },
+        { error: 'Missing COMFYUI_BASE_URL or RUNPOD_COMFYUI_ENDPOINT_ID' },
         { status: 500 }
       );
     }
 
-    const apiKey = process.env.RUNPOD_API_KEY;
-    if (!apiKey) {
+    if (!comfyUrl && !apiKey) {
       return NextResponse.json(
         { error: 'Missing RUNPOD_API_KEY' },
         { status: 500 }
@@ -305,7 +311,8 @@ export async function POST(req: NextRequest) {
     });
 
     console.log('Submitting Flux LoRA selfie:', {
-      endpointId,
+      endpointId: comfyUrl ? null : endpointId,
+      comfyUrl: comfyUrl ? normalizeComfyUrl(comfyUrl) : null,
       loraFile: lora_file,
       triggerWord: trigger_word,
       style: imageStyle,
@@ -313,6 +320,33 @@ export async function POST(req: NextRequest) {
       useNsfwLora,
       promptPreview: finalPrompt.slice(0, 200),
     });
+
+    if (comfyUrl) {
+      const comfyResponse = await fetch(`${normalizeComfyUrl(comfyUrl)}/prompt`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: workflow }),
+      });
+
+      if (!comfyResponse.ok) {
+        const error = await comfyResponse.text();
+        console.error('ComfyUI Flux submit error:', error);
+        return NextResponse.json(
+          { error: 'Flux generation submission failed', detail: error },
+          { status: 500 }
+        );
+      }
+
+      const comfyData = await comfyResponse.json();
+      return NextResponse.json(
+        {
+          jobId: `comfy:${comfyData.prompt_id}`,
+          seed: resolvedSeed,
+          prompt_preview: finalPrompt.slice(0, 500),
+        },
+        { status: 202 }
+      );
+    }
 
     const runpodResponse = await fetch(
       `https://api.runpod.ai/v2/${endpointId}/run`,
