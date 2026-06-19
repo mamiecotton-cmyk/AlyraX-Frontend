@@ -137,17 +137,22 @@ async function updateFactsAfterVoiceCall(userId: string, archetypeId: string, me
 
 export async function POST(req: NextRequest) {
   try {
-    const { companionId, messages, mode } = await req.json();
-
-    if (!companionId || !Array.isArray(messages)) {
-      return NextResponse.json({ error: 'Missing companionId or messages' }, { status: 400 });
-    }
+    const { companionId, messages, mode, archetypeId, facts } = await req.json();
 
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+    }
+
+    if (typeof archetypeId === 'string' && Array.isArray(facts)) {
+      await mergeCompanionFacts(supabase, user.id, archetypeId, facts);
+      return NextResponse.json({ success: true });
+    }
+
+    if (!companionId || !Array.isArray(messages)) {
+      return NextResponse.json({ error: 'Missing companionId or messages' }, { status: 400 });
     }
 
     const { data: companion, error } = await supabase
