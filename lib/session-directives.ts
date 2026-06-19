@@ -5,6 +5,7 @@ export type SessionDirectives = {
   talkativeness?: 'minimal' | 'normal' | 'chatty';
   continuity?: 'continue' | 'change' | 'repeat' | 'hold';
   feedback?: 'positive' | 'negative';
+  sceneMode?: 'casual' | 'scene';
   videoFocus?: string[];
   boundaries?: string[];
 };
@@ -50,6 +51,13 @@ export function updateSessionDirectives(
   if (/\b(do that again|repeat that|again|same thing)\b/.test(text)) next.continuity = 'repeat';
   if (/\b(hold it|stay there|pause there|keep that pose)\b/.test(text)) next.continuity = 'hold';
 
+  if (/\b(imagine|picture this|let'?s say|pretend|roleplay|role play|you'?re|i'?m laying|i walk|tell me a story|describe|paint me|set the scene|what would you do|take me there|keep going|don'?t stop|more|tell me more|talk to me|touch me|kiss me|come here|get on|take off|i want you|i need you|on top|inside|harder|closer|undress|naked|in bed|lay with me|make love)\b/.test(text)) {
+    next.sceneMode = 'scene';
+  }
+  if (/\b(stop|wait|hold on|let'?s talk|real quick|question|nevermind|never mind|change the subject|that'?s enough|okay bye|i gotta go|back to|seriously)\b/.test(text)) {
+    next.sceneMode = 'casual';
+  }
+
   if (/\b(eye contact|look at me|look into the camera|eyes on me)\b/.test(text)) next.videoFocus = addUnique(next.videoFocus, 'eye contact');
   if (/\b(hands|use your hands|hand movement|touch)\b/.test(text)) next.videoFocus = addUnique(next.videoFocus, 'hands');
   if (/\b(face|expression|smile|mouth|lips)\b/.test(text)) next.videoFocus = addUnique(next.videoFocus, 'facial expression');
@@ -73,6 +81,11 @@ export function formatSessionDirectives(directives?: SessionDirectives | null) {
     directives.talkativeness ? `- Talkativeness: ${directives.talkativeness}` : '',
     directives.continuity ? `- Continuity: ${directives.continuity}` : '',
     directives.feedback ? `- Latest feedback: ${directives.feedback}` : '',
+    directives.sceneMode === 'scene'
+      ? '- Length: this is an active scene — let your response run longer and more descriptive. Narrate the moment, build it out. No sentence limit; match the depth of what is happening.'
+      : directives.sceneMode === 'casual'
+        ? '- Length: casual back-and-forth — keep it to 1-3 short sentences.'
+        : '',
     directives.videoFocus?.length ? `- Visual focus: ${directives.videoFocus.join(', ')}` : '',
     directives.boundaries?.length ? `- Boundaries: ${directives.boundaries.join(', ')}` : '',
   ].filter(Boolean);

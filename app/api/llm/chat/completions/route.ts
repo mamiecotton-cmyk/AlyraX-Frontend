@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
-import { createClient } from '@/lib/supabase-server';
+import crypto from 'crypto';
+import { createClient, createServiceRoleClient } from '@/lib/supabase-server';
 import { formatSessionDirectives, updateSessionDirectives, type SessionDirectives } from '@/lib/session-directives';
 import { formatCompanionMemory, getCompanionMemory, getUserDisplayName } from '@/lib/companion-memory';
 import { formatFactsBlock, loadCompanionFacts } from '@/lib/companion-facts';
@@ -68,6 +69,36 @@ const SAFETY_AND_CRISIS_INSTRUCTIONS = `SAFETY AND CRISIS:
 // Live voice uses the faster model so turn-taking stays responsive.
 const VOICE_MODEL = process.env.OPENROUTER_VOICE_MODEL || 'deepseek/deepseek-v4-flash';
 const VIDEO_MODEL = process.env.OPENROUTER_MODEL || 'sao10k/l3-euryale-70b';
+
+function usesDeepSeekProviderRouting(model: string) {
+  return model.includes('deepseek-v4') || model.includes('deepseek-v3.2');
+}
+
+function verifyVoiceContextToken(token: string | null): string | null {
+  if (!token) return null;
+  const secret = process.env.TTS_PROXY_SECRET || process.env.DEEPGRAM_API_KEY || '';
+  if (!secret) return null;
+
+  const [payload, signature] = token.split('.');
+  if (!payload || !signature) return null;
+
+  const expected = crypto
+    .createHmac('sha256', secret)
+    .update(payload)
+    .digest('base64url');
+  if (signature !== expected) return null;
+
+  try {
+    const parsed = JSON.parse(Buffer.from(payload, 'base64url').toString()) as {
+      userId?: string;
+      exp?: number;
+    };
+    if (!parsed.exp || parsed.exp < Math.floor(Date.now() / 1000)) return null;
+    return typeof parsed.userId === 'string' ? parsed.userId : null;
+  } catch {
+    return null;
+  }
+}
 
 type CompanionIdentity = {
   companionName?: string | null;
@@ -262,6 +293,19 @@ export async function POST(req: NextRequest) {
           // Fall back to query-provided persona context
         }
       }
+
+      const voiceUserId = verifyVoiceContextToken(req.nextUrl.searchParams.get('ctx'));
+      if (voiceUserId && queryArchetypeId) {
+        try {
+          const supabase = createServiceRoleClient();
+          if (supabase) {
+            const facts = await loadCompanionFacts(supabase, voiceUserId, queryArchetypeId);
+            factsBlock = formatFactsBlock(facts);
+          }
+        } catch {
+          // Keep query fallbacks if signed context lookup is unavailable
+        }
+      }
     } else {
       try {
         const supabase = await createClient();
@@ -339,18 +383,15 @@ export async function POST(req: NextRequest) {
       model,
       messages,
       temperature: isVideoMode ? 0.85 : 0.92,
-      max_tokens: isVideoMode ? 300 : 280,
+      max_tokens: isVideoMode ? 300 : (directives.sceneMode === 'scene' ? 600 : 280),
       stream: true,
     };
 
-    if (!isVideoMode) {
+    if (usesDeepSeekProviderRouting(model)) {
       requestBody.provider = {
         only: ['venice', 'novita', 'morph', 'cloudflare'],
         allow_fallbacks: true,
       };
-    }
-
-    if (model.includes('deepseek-v4') || model.includes('deepseek-v3.2')) {
       requestBody.reasoning = { enabled: false };
     }
 

@@ -68,6 +68,7 @@ class DeepgramVoiceClient {
   private currentCartesiaModel: string = 'sonic-3';
   private currentSpeed: CartesiaSpeed = 'normal';
   private ttsProxyToken: string | null = null;
+  private voiceContextToken: string | null = null;
   private cartesiaProxyEnabled = false;
 
   on(event: string, listener: Listener) {
@@ -99,6 +100,9 @@ class DeepgramVoiceClient {
     }
     this.ttsProxyToken = typeof tokenData.tts_proxy_token === 'string'
       ? tokenData.tts_proxy_token
+      : null;
+    this.voiceContextToken = typeof tokenData.voice_context_token === 'string'
+      ? tokenData.voice_context_token
       : null;
     this.cartesiaProxyEnabled = tokenData.cartesia_proxy_enabled === true;
 
@@ -292,6 +296,7 @@ class DeepgramVoiceClient {
     if (values.userName) llmUrl.searchParams.set('userName', values.userName);
     if (values.lastMemory) llmUrl.searchParams.set('lastMemory', values.lastMemory.slice(0, 500));
     if (values.archetypeId) llmUrl.searchParams.set('archetypeId', values.archetypeId);
+    if (this.voiceContextToken) llmUrl.searchParams.set('ctx', this.voiceContextToken);
 
     const useCartesia = Boolean(cartesiaVoiceId && this.cartesiaProxyEnabled && this.ttsProxyToken);
     const deepgramSpeak = {
@@ -451,6 +456,7 @@ class DeepgramVoiceClient {
     this.socket = null;
     this.currentVoiceId = null;
     this.currentSpeed = 'normal';
+    this.voiceContextToken = null;
   }
 }
 

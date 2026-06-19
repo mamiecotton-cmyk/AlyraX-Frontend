@@ -14,6 +14,10 @@ const CHAT_TIMEOUT_MS = 24_000;
 const CHAT_RETRY_COUNT = 2;
 const FACT_MODEL = process.env.OPENROUTER_FACT_MODEL || 'deepseek/deepseek-v4-flash';
 
+function usesDeepSeekProviderRouting(model: string) {
+  return model.includes('deepseek-v4') || model.includes('deepseek-v3.2');
+}
+
 type ChatMessage = {
   role: 'system' | 'user' | 'assistant';
   content: string;
@@ -44,6 +48,20 @@ async function fetchOpenRouterChat(messages: ChatMessage[]) {
 
   for (let attempt = 1; attempt <= CHAT_RETRY_COUNT; attempt += 1) {
     try {
+      const requestBody: Record<string, unknown> = {
+        model: CHAT_MODEL,
+        max_tokens: CHAT_MAX_TOKENS,
+        temperature: 0.88,
+        messages,
+      };
+
+      if (usesDeepSeekProviderRouting(CHAT_MODEL)) {
+        requestBody.provider = {
+          only: ['venice', 'novita', 'morph', 'cloudflare'],
+          allow_fallbacks: true,
+        };
+      }
+
       const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -52,12 +70,7 @@ async function fetchOpenRouterChat(messages: ChatMessage[]) {
           'HTTP-Referer': 'https://alyra-x-frontend.vercel.app',
           'X-Title': 'AlyraX',
         },
-        body: JSON.stringify({
-          model: CHAT_MODEL,
-          max_tokens: CHAT_MAX_TOKENS,
-          temperature: 0.88,
-          messages,
-        }),
+        body: JSON.stringify(requestBody),
         signal: AbortSignal.timeout(CHAT_TIMEOUT_MS),
       });
 
@@ -168,6 +181,7 @@ YOUR PERSONALITY IN TEXT:
 - Be flirty, warm, real — this is a private intimate conversation
 - Occasional typos or casual punctuation are fine
 ${userName ? `- You call them: ${userName}` : ''}
+${archetype.voice ? `\n${archetype.voice}` : ''}
 
 RELATIONSHIP PROGRESSION:
 - Follow the user's lead completely — match their tone, their pace, and their energy.
@@ -244,6 +258,29 @@ async function extractFactsFromExchange(
 ) {
   if (!OPENROUTER_API_KEY) return [];
 
+  const requestBody: Record<string, unknown> = {
+    model: FACT_MODEL,
+    max_tokens: 220,
+    temperature: 0.1,
+    messages: [
+      {
+        role: 'system',
+        content: `Extract durable user facts for ${archetype.name}. Return ONLY a JSON array of short strings. Include only facts explicitly stated by the user. Include preferences, boundaries, names, relationship details, and important personal facts. Do not infer facts from ${archetype.name}'s reply, and do not save anything the companion invented or suggested. Do not include facts about ${archetype.name}.`,
+      },
+      {
+        role: 'user',
+        content: `User said: ${userMessage}\n${archetype.name} replied: ${companionMessage}`,
+      },
+    ],
+  };
+
+  if (usesDeepSeekProviderRouting(FACT_MODEL)) {
+    requestBody.provider = {
+      only: ['venice', 'novita', 'morph', 'cloudflare'],
+      allow_fallbacks: true,
+    };
+  }
+
   const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -252,21 +289,7 @@ async function extractFactsFromExchange(
       'HTTP-Referer': 'https://alyra-x-frontend.vercel.app',
       'X-Title': 'AlyraX',
     },
-    body: JSON.stringify({
-      model: FACT_MODEL,
-      max_tokens: 220,
-      temperature: 0.1,
-      messages: [
-        {
-          role: 'system',
-          content: `Extract durable user facts for ${archetype.name}. Return ONLY a JSON array of short strings. Include only facts explicitly stated by the user. Include preferences, boundaries, names, relationship details, and important personal facts. Do not infer facts from ${archetype.name}'s reply, and do not save anything the companion invented or suggested. Do not include facts about ${archetype.name}.`,
-        },
-        {
-          role: 'user',
-          content: `User said: ${userMessage}\n${archetype.name} replied: ${companionMessage}`,
-        },
-      ],
-    }),
+    body: JSON.stringify(requestBody),
     signal: AbortSignal.timeout(10_000),
   });
 

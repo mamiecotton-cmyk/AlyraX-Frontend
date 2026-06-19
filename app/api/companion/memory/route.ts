@@ -11,6 +11,10 @@ type ChatMessage = {
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 const FACT_MODEL = process.env.OPENROUTER_FACT_MODEL || 'deepseek/deepseek-v4-flash';
 
+function usesDeepSeekProviderRouting(model: string) {
+  return model.includes('deepseek-v4') || model.includes('deepseek-v3.2');
+}
+
 function cleanText(value?: string) {
   return (value || '').replace(/\s+/g, ' ').trim();
 }
@@ -80,6 +84,26 @@ async function extractFactsFromVoiceMessages(messages: ChatMessage[]) {
 
   if (!transcript) return [];
 
+  const requestBody: Record<string, unknown> = {
+    model: FACT_MODEL,
+    max_tokens: 260,
+    temperature: 0.1,
+    messages: [
+      {
+        role: 'system',
+        content: 'From this voice call transcript, extract durable personal facts the user shared about themselves. Return ONLY a JSON array of short strings. Include preferences, boundaries, names, relationship details, and important personal facts. Do not include facts about the companion.',
+      },
+      { role: 'user', content: transcript },
+    ],
+  };
+
+  if (usesDeepSeekProviderRouting(FACT_MODEL)) {
+    requestBody.provider = {
+      only: ['venice', 'novita', 'morph', 'cloudflare'],
+      allow_fallbacks: true,
+    };
+  }
+
   const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -88,18 +112,7 @@ async function extractFactsFromVoiceMessages(messages: ChatMessage[]) {
       'HTTP-Referer': 'https://alyra-x-frontend.vercel.app',
       'X-Title': 'AlyraX',
     },
-    body: JSON.stringify({
-      model: FACT_MODEL,
-      max_tokens: 260,
-      temperature: 0.1,
-      messages: [
-        {
-          role: 'system',
-          content: 'From this voice call transcript, extract durable personal facts the user shared about themselves. Return ONLY a JSON array of short strings. Include preferences, boundaries, names, relationship details, and important personal facts. Do not include facts about the companion.',
-        },
-        { role: 'user', content: transcript },
-      ],
-    }),
+    body: JSON.stringify(requestBody),
     signal: AbortSignal.timeout(10_000),
   });
 

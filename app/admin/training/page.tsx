@@ -163,23 +163,23 @@ const CHARACTER_PROMPTS: Record<string, CharacterPrompts> = {
   },
   jaxon: {
     portrait: [
-      'close portrait, shaved head low fade, light beard with goatee, heavy gold cuban chain, clean smooth skin no tattoos, direct confident gaze, strong jawline',
-      'headshot, shaved head low cut, beard goatee, gold cuban link chain, clean skin, medium-dark brown complexion, intense expression, soft light',
-      'close up face, shaved fade, light beard goatee, heavy gold chain, clean smooth skin, medium brown skin, magnetic confident look, warm light',
-      'portrait, shaved head low fade, neat beard goatee, gold cuban chain, clean skin no tattoos, strong features, calm confident expression',
+      'close portrait, direct confident gaze, soft golden hour light, plain high crew-neck top',
+      'headshot, intense expression, soft diffused studio light, plain dark crew-neck',
+      'close up face, magnetic confident look, warm side light, simple collar',
+      'portrait, calm confident expression, even neutral studio light, plain neckline',
     ],
     clothed: [
-      'full body, shaved head low fade, beard goatee, heavy gold cuban chain, clean skin no tattoos, fitted streetwear, confident stance, full figure head to toe visible',
-      'full body standing, low fade shaved head, light beard, gold cuban chain, clean smooth skin, athletic build, casual outfit, natural light, full body in frame',
-      'full body, shaved fade, beard goatee, heavy gold chain, no tattoos clean skin, fitted look, relaxed confident pose, urban setting, head to toe',
-      'full body, low fade shaved head, neat beard goatee, gold cuban link chain, clean skin, athletic muscular build, stylish casual, full figure head to toe',
+      'full body, fitted streetwear with high collar, confident stance, full figure head to toe visible',
+      'full body standing, casual layered outfit, natural daylight, full body in frame',
+      'full body, relaxed confident pose, urban street setting, fitted casual look, head to toe',
+      'full body, stylish casual outfit, neutral background, full figure head to toe',
     ],
     explicit: [
-      'full body nude, shaved head low fade, light beard goatee, heavy gold cuban chain, clean smooth skin no tattoos, athletic muscular figure, anatomically correct, standing',
-      'nude full body, shaved fade, beard goatee, gold chain, clean skin, masculine athletic build, confident natural pose, warm light, head to toe visible',
-      'explicit full body, shaved head low cut, beard goatee, gold cuban chain, no tattoos clean skin, muscular build, standing confident, soft studio light, anatomically correct',
-      'nude standing, low fade shaved head, light beard goatee, heavy gold chain, clean skin, athletic proportions, relaxed pose, warm light, full body in frame',
-      'full body nude, shaved head, beard goatee, gold cuban chain, clean smooth skin, masculine athletic figure, natural stance, diffused light, anatomically correct head to toe',
+      'full body nude, bare unadorned neck, standing natural pose, anatomically correct, even light',
+      'nude full body, confident natural pose, clean bare collarbone, warm light, head to toe visible',
+      'explicit full body, standing confident, soft studio light, bare neck, anatomically correct',
+      'nude standing, relaxed pose, warm light, bare unadorned neck, full body in frame',
+      'full body nude, natural stance, diffused light, clean bare neck, anatomically correct head to toe',
     ],
   },
   roman: {
@@ -292,17 +292,30 @@ function loadStoredTrainingImages(characterId: string, category: PromptCategory)
 
 // ─── Caption builder ────────────────────────────────────────────────────────
 
+const TRIGGERS: Record<string, string> = {
+  soleil: 'solx',
+  zara: 'zrabd',
+  nia: 'niavx',
+  victoria: 'vctrx',
+  jerome: 'jrmwr',
+  jaxon: 'jxnst',
+  roman: 'r0man',
+};
+
+const IDENTITY_ANCHORS: Record<string, string> = {
+  jaxon: 'shaved head low fade, light beard with goatee, sharp jawline and cheekbones, clean smooth unmarked skin, lean muscular athletic build',
+};
+
 function buildCaption(characterId: string, prompt: string): string {
-  const anchors: Record<string, string> = {
-    soleil: 'Soleil, honey golden blonde braided hair, vivid green eyes, deep ebony black skin',
-    zara: 'Zara, biracial African American woman with light honey caramel skin, long sleek honey blonde hair, heavy freckles',
-    nia: 'Nia, long dark wavy locs, rich warm brown skin, warm brown eyes',
-    victoria: 'Victoria, wavy silver-streaked dark hair, warm caramel-brown skin, warm brown eyes, soft smile lines',
-    jerome: 'Jerome, honey-tipped dreadlocs, thin mustache and soul patch, medium brown skin, tribal sleeve tattoo right arm',
-    jaxon: 'Jaxon, shaved head low fade, light beard goatee, heavy gold cuban chain, clean skin',
-    roman: 'Roman, bright vivid blue eyes, heavy freckles, golden brown biracial skin, short tight waves low fade',
-  };
-  return `A photo of ${anchors[characterId] ?? characterId}, ${prompt}, photorealistic, RAW DSLR photo`;
+  return `A photo of ${TRIGGERS[characterId] ?? characterId}, ${prompt}, photorealistic, RAW DSLR photo`;
+}
+
+function buildGenerationPrompt(characterId: string, scenePrompt: string): string {
+  const trigger = TRIGGERS[characterId] ?? characterId;
+  const identityAnchor = IDENTITY_ANCHORS[characterId];
+  return [trigger, identityAnchor, scenePrompt, 'photorealistic', 'RAW DSLR photo']
+    .filter(Boolean)
+    .join(', ');
 }
 
 // ─── Main component ─────────────────────────────────────────────────────────
@@ -400,6 +413,7 @@ export default function AdminTrainingPage() {
     if (!activePrompt) return;
     const character = LORA_CHARACTERS.find(c => c.id === selectedCharacter);
     if (!character) return;
+    const generationPrompt = buildGenerationPrompt(selectedCharacter, activePrompt);
 
     // Look up LoRA config — must match lib/archetype-loras.ts
     const loraMap: Record<string, { loraFile: string; triggerWord: string }> = {
@@ -461,13 +475,13 @@ export default function AdminTrainingPage() {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
-                prompt: activePrompt,
+                prompt: generationPrompt,
                 lora_file: lora.loraFile,
                 trigger_word: lora.triggerWord,
                 style,
                 character_id: selectedCharacter,
                 seed: -1,
-                lora_strength: selectedCharacter === 'victoria' ? 0.7 : undefined,
+                lora_strength: selectedCharacter === 'victoria' || selectedCharacter === 'jaxon' ? 0.7 : undefined,
                 nsfw_lora_strength: 0.5,
                 explicit: category === 'explicit',
               }),

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
+import { createClient } from '@/lib/supabase-server';
 
 function base64Url(input: string | Buffer) {
   return Buffer.from(input).toString('base64url');
@@ -20,6 +21,22 @@ function createTtsProxyToken() {
   return `${payload}.${signature}`;
 }
 
+function createVoiceContextToken(userId: string) {
+  const secret = process.env.TTS_PROXY_SECRET || process.env.DEEPGRAM_API_KEY || '';
+  if (!secret) return null;
+
+  const payload = base64Url(JSON.stringify({
+    userId,
+    exp: Math.floor(Date.now() / 1000) + 60 * 60,
+  }));
+  const signature = crypto
+    .createHmac('sha256', secret)
+    .update(payload)
+    .digest('base64url');
+
+  return `${payload}.${signature}`;
+}
+
 export async function POST() {
   const apiKey = process.env.DEEPGRAM_API_KEY;
 
@@ -28,6 +45,15 @@ export async function POST() {
       { error: 'Missing DEEPGRAM_API_KEY' },
       { status: 500 }
     );
+  }
+
+  let voiceContextToken: string | null = null;
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) voiceContextToken = createVoiceContextToken(user.id);
+  } catch {
+    // Voice still works without durable memory context
   }
 
   const response = await fetch('https://api.deepgram.com/v1/auth/grant', {
@@ -50,5 +76,6 @@ export async function POST() {
     ...data,
     cartesia_proxy_enabled: Boolean(process.env.CARTESIA_API_KEY),
     tts_proxy_token: createTtsProxyToken(),
+    voice_context_token: voiceContextToken,
   });
 }
