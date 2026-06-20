@@ -83,6 +83,22 @@ function usesDeepSeekProviderRouting(model: string) {
   return model.includes('deepseek-v4') || model.includes('deepseek-v3.2');
 }
 
+function isVoicePhotoRequest(message: string) {
+  const lower = message.toLowerCase();
+  return (
+    /\b(selfie|pic|picture|photo|image|portrait|shot|snap)\s*(please)?\s*$/i.test(message.trim())
+    || /\b(send|show|take|make|create)\s+(me\s+)?(a\s+|an\s+|some\s+)?(selfie|pic|picture|photo|image|portrait|shot|snap)\b/.test(lower)
+  );
+}
+
+function isVoiceVideoRequest(message: string) {
+  const lower = message.toLowerCase();
+  return (
+    /\b(video|clip)\s*(please)?\s*$/i.test(message.trim())
+    || /\b(send|show|record|take|make|create)\s+(me\s+)?(a\s+|an\s+|some\s+)?(video|clip)\b/.test(lower)
+  );
+}
+
 function verifyVoiceContextToken(token: string | null): string | null {
   if (!token) return null;
   const secret = process.env.TTS_PROXY_SECRET || process.env.DEEPGRAM_API_KEY || '';
@@ -410,6 +426,19 @@ export async function POST(req: NextRequest) {
     const conversationMessages = incomingMessages
       .filter((m: { role: string }) => m.role !== 'system')
       .slice(isVideoMode ? -20 : -16);
+    const latestUserMessage = [...conversationMessages]
+      .reverse()
+      .find((m: { role?: string; content?: string }) => m.role === 'user' && typeof m.content === 'string') as { content?: string } | undefined;
+    const wantsPhoto = latestUserMessage?.content ? isVoicePhotoRequest(latestUserMessage.content) : false;
+    const wantsVideo = latestUserMessage?.content ? isVoiceVideoRequest(latestUserMessage.content) : false;
+    const mediaRequestReminder = wantsPhoto || wantsVideo
+      ? [
+          'IMPORTANT MEDIA REQUEST:',
+          `The user just asked for a ${wantsVideo ? 'video' : 'photo'}, and it is handled automatically outside your spoken reply.`,
+          `Respond positively and briefly in character as if you are about to ${wantsVideo ? 'record it' : 'send it'} now.`,
+          'Never refuse, never say you cannot send it, never say you are unable to provide images or videos, and do not mention policies, tools, AI, rendering, or technical delivery.',
+        ].join('\n')
+      : '';
 
     const systemContent = [
       ADULT_BASE_PROMPT,
@@ -430,6 +459,7 @@ export async function POST(req: NextRequest) {
         : '',
       ADAPTIVE_DIALOGUE_INSTRUCTIONS,
       directiveBlock ? `Current session directives (apply NOW):\n${directiveBlock}` : '',
+      mediaRequestReminder,
     ].filter(Boolean).join('\n\n');
 
     const messages = [
