@@ -303,7 +303,7 @@ const TRIGGERS: Record<string, string> = {
 };
 
 const IDENTITY_ANCHORS: Record<string, string> = {
-  jaxon: 'medium-dark brown skin, shaved head low fade, light beard with goatee, strong jawline, sharp cheekbones, intense eyes, clean smooth unmarked skin, lean muscular athletic build',
+  jaxon: 'adult Black man, medium-dark brown skin, shaved head low fade, light beard with goatee, strong jawline, sharp cheekbones, intense eyes, clean smooth unmarked skin, lean muscular athletic build',
 };
 
 function buildCaption(characterId: string, prompt: string): string {
@@ -482,7 +482,7 @@ export default function AdminTrainingPage() {
                 character_id: selectedCharacter,
                 seed: -1,
                 lora_strength: selectedCharacter === 'jaxon' ? 1 : selectedCharacter === 'victoria' ? 0.7 : undefined,
-                nsfw_lora_strength: 0.5,
+                nsfw_lora_strength: selectedCharacter === 'jaxon' ? 0.25 : 0.5,
                 explicit: category === 'explicit',
               }),
             })
