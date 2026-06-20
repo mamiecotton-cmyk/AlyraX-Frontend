@@ -221,6 +221,7 @@ export default function CallButton({
     if (!vapi) {
       console.error('Call failed: Deepgram voice client not initialized');
       setCalling(false);
+      setCallError('Voice chat is not available in this browser.');
       return;
     }
     try {
@@ -262,6 +263,8 @@ export default function CallButton({
     } catch (err) {
       console.error("The Mouth failed to open:", err);
       setCalling(false);
+      setConnected(false);
+      setCallError(getCallErrorMessage(err));
     }
   }, [archetypeId, buildVoiceGreeting, companionId, companionName, conversationId, fallbackVoiceId, isVideoMode, lastMemory, personaName, personaTagline, promptUsed, userName, voiceId]);
 
@@ -293,7 +296,7 @@ export default function CallButton({
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', maxWidth: compact ? '92px' : undefined }}>
       <button
         onClick={startSecretCall}
         disabled={calling}

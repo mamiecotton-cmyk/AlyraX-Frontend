@@ -60,6 +60,7 @@ class DeepgramVoiceClient {
   private processor: ScriptProcessorNode | null = null;
   private source: MediaStreamAudioSourceNode | null = null;
   private keepAliveTimer: ReturnType<typeof setInterval> | null = null;
+  private startTimeout: ReturnType<typeof setTimeout> | null = null;
   private playbackTime = 0;
   private activeSources: AudioBufferSourceNode[] = [];
   private stopping = false;
@@ -122,6 +123,12 @@ class DeepgramVoiceClient {
     );
     socket.binaryType = 'arraybuffer';
     this.socket = socket;
+    this.startTimeout = setTimeout(() => {
+      if (this.socket) {
+        this.emit('error', new Error('Voice connection timed out. Please check microphone permission and try again.'));
+        this.stop();
+      }
+    }, 15000);
 
     socket.onmessage = async (event) => {
       if (typeof event.data === 'string') {
@@ -134,7 +141,10 @@ class DeepgramVoiceClient {
       this.playPcm16(buffer);
     };
 
-    socket.onerror = (error) => this.emit('error', error);
+    socket.onerror = () => {
+      this.emit('error', new Error('Voice connection failed. Please check your connection and try again.'));
+      this.stop();
+    };
     socket.onclose = () => {
       this.cleanup();
       if (!this.stopping) this.emit('call-end');
@@ -203,6 +213,7 @@ class DeepgramVoiceClient {
     }
     if (message.type === 'SettingsApplied') {
       try {
+        this.clearStartTimeout();
         await this.startMicrophone();
         this.startKeepAlive();
         this.emit('call-start');
@@ -361,6 +372,10 @@ class DeepgramVoiceClient {
   }
 
   private async startMicrophone() {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      throw new Error('Microphone access is not available in this browser.');
+    }
+
     this.mediaStream = await navigator.mediaDevices.getUserMedia({
       audio: {
         echoCancellation: true,
@@ -441,7 +456,13 @@ class DeepgramVoiceClient {
     }, 5000);
   }
 
+  private clearStartTimeout() {
+    if (this.startTimeout) clearTimeout(this.startTimeout);
+    this.startTimeout = null;
+  }
+
   private cleanup() {
+    this.clearStartTimeout();
     if (this.keepAliveTimer) clearInterval(this.keepAliveTimer);
     this.keepAliveTimer = null;
     this.stopPlayback();

@@ -1094,7 +1094,7 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
               ))}
             </div>
 
-            <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-end' }}>
+            <div className="chat-input-row" style={{ display: 'flex', gap: '10px', alignItems: 'flex-end', width: '100%', minWidth: 0 }}>
               <textarea
                 ref={inputRef}
                 value={input}
@@ -1104,6 +1104,7 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
                 rows={1}
                 style={{
                   flex: 1,
+                  minWidth: 0,
                   padding: '12px 16px',
                   background: '#141414',
                   border: '1px solid #2a2a2a',
@@ -1232,16 +1233,25 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
           body {
             background: #080808;
             height: auto !important;
+            width: 100% !important;
+            max-width: 100% !important;
             overflow: hidden !important;
+            overflow-x: hidden !important;
           }
 
           .chat-shell {
             display: block !important;
-            width: 100vw !important;
+            width: 100% !important;
+            max-width: 100% !important;
             height: 100svh !important;
             min-height: 0 !important;
             overflow: hidden !important;
             background: #080808 !important;
+          }
+
+          .chat-shell,
+          .chat-shell * {
+            box-sizing: border-box;
           }
 
           .chat-shell .app-sidebar {
@@ -1249,7 +1259,8 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
           }
 
           .chat-layout {
-            width: 100vw !important;
+            width: 100% !important;
+            max-width: 100% !important;
             height: 100svh !important;
             min-width: 0 !important;
             display: block !important;
@@ -1261,7 +1272,8 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
           }
 
           .chat-area {
-            width: 100vw !important;
+            width: 100% !important;
+            max-width: 100% !important;
             height: 100svh !important;
             min-width: 0 !important;
             display: flex !important;
@@ -1272,6 +1284,9 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
           .chat-header {
             padding: calc(env(safe-area-inset-top) + 10px) 14px 12px !important;
             min-height: 68px !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            min-width: 0 !important;
           }
 
           .chat-header button {
@@ -1292,6 +1307,29 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
           .chat-input-panel {
             padding: 10px 12px calc(env(safe-area-inset-bottom) + 12px) !important;
             background: rgba(10,10,10,0.98) !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            min-width: 0 !important;
+            overflow-x: hidden !important;
+          }
+
+          .chat-input-row {
+            width: 100% !important;
+            max-width: 100% !important;
+            min-width: 0 !important;
+            gap: 8px !important;
+          }
+
+          .chat-input-row textarea {
+            flex: 1 1 auto !important;
+            min-width: 0 !important;
+            max-width: 100% !important;
+          }
+
+          .chat-input-row button {
+            flex: 0 0 44px !important;
+            width: 44px !important;
+            min-width: 44px !important;
           }
 
           .chat-suggestions {
