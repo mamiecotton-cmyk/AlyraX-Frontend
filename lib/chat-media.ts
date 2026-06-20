@@ -81,7 +81,8 @@ function buildFluxSelfiePrompt(message: string): string {
   const lower = message.toLowerCase();
   const mirrorSelfie = isMirrorSelfieRequest(message);
   const explicitSelfie = isExplicitSelfieRequest(message);
-  const isFullBody = /\b(full body|full-body|head to toe|whole body|laying|lying|on (the )?(bed|floor|couch)|on (all fours|hands and knees)|spreading|legs? (spread|open|apart))\b/.test(lower);
+  const isWardrobeRequest = /\b(what('re| are| is|’re) (you|u|he|she|they) wear(?:ing)?|what (you|u|he|she|they) got on|wearing right now|outfit|fit check|clothes|clothing|wardrobe)\b/.test(lower);
+  const isFullBody = isWardrobeRequest || /\b(full body|full-body|head to toe|whole body|laying|lying|on (the )?(bed|floor|couch)|on (all fours|hands and knees)|spreading|legs? (spread|open|apart))\b/.test(lower);
   const isReclining = /\b(laying|lying|reclining|laid (down|back)|on (her|his|their) back)\b/.test(lower);
   const isSpread = /\b(legs? (spread|open|apart)|spread (her|his|your|my) legs?|open (her|his|your|my) legs?|thighs? (open|apart|spread))\b/.test(lower);
 
@@ -94,7 +95,9 @@ function buildFluxSelfiePrompt(message: string): string {
         : isSpread
           ? 'legs spread apart, thighs open, full body in frame'
           : isFullBody
-            ? 'full body in frame, entire body visible head to toe'
+          ? isWardrobeRequest
+            ? 'full body outfit photo, head to toe visible, clothing fully visible, not a portrait headshot'
+            : 'full body in frame, entire body visible head to toe'
             : explicitSelfie
               ? 'phone selfie perspective, casual handheld photo'
               : 'natural candid photo';
