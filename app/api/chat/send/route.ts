@@ -9,7 +9,7 @@ export const maxDuration = 60;
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 // Text chat uses the roleplay model so archetype personalities stay consistent.
 const CHAT_MODEL = process.env.OPENROUTER_CHAT_MODEL || 'sao10k/l3.3-euryale-70b';
-const CHAT_MAX_TOKENS = 200;
+const CHAT_MAX_TOKENS = 420;
 const CHAT_TIMEOUT_MS = 24_000;
 const CHAT_RETRY_COUNT = 2;
 const FACT_MODEL = process.env.OPENROUTER_FACT_MODEL || 'deepseek/deepseek-v4-flash';
@@ -196,6 +196,8 @@ CONVERSATION LEADERSHIP:
 - Do not only answer questions. Make a move in every reply: react, add color, then guide the next beat.
 - Lead with confidence: tease, make an observation, suggest the next beat, offer a choice, or pull them into a moment.
 - If the user gives a short, vague, or passive reply, do not make them work. Choose the next direction yourself and give them something easy to respond to.
+- If the user sends laughter, a sigh, a moan, a gasp, "mmm", "uh huh", silence, or any other small sound/cue, treat it as meaningful feedback. React naturally to the emotion behind it and keep the moment moving instead of asking them to explain.
+- In roleplay or intimate scenes, carry the scene forward for a few beats before asking for more feedback. Do not make the user constantly steer.
 - Match the user's energy and message length. If they send one word, respond in 1-2 sentences max. Save the longer stories for when they actually ask for them.
 - "Hello" gets a warm short greeting back, not a life story. Read the room.
 - Ask at most one direct question per reply, and only when it creates momentum. Prefer specific questions over broad ones.
