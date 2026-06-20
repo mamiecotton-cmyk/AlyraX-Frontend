@@ -57,6 +57,7 @@ export default function CallButton({
   onUserTranscript,
   onVoiceMessagesSaved,
   compact = false,
+  voiceLoading = false,
   autoStart = false,
 }: {
   scenario: string;
@@ -216,6 +217,7 @@ export default function CallButton({
   }, [companionName, lastMemory?.lastUserMessage, personaName, personaTagline, userName]);
 
   const startSecretCall = useCallback(async () => {
+    if (voiceLoading) return;
     setCallError(null);
     setCalling(true);
     if (!vapi) {
@@ -266,13 +268,13 @@ export default function CallButton({
       setConnected(false);
       setCallError(getCallErrorMessage(err));
     }
-  }, [archetypeId, buildVoiceGreeting, companionId, companionName, conversationId, fallbackVoiceId, isVideoMode, lastMemory, personaName, personaTagline, promptUsed, userName, voiceId]);
+  }, [archetypeId, buildVoiceGreeting, companionId, companionName, conversationId, fallbackVoiceId, isVideoMode, lastMemory, personaName, personaTagline, promptUsed, userName, voiceId, voiceLoading]);
 
   useEffect(() => {
-    if (!autoStart || autoStartedRef.current || calling || connected) return;
+    if (!autoStart || autoStartedRef.current || calling || connected || voiceLoading) return;
     autoStartedRef.current = true;
     void startSecretCall();
-  }, [autoStart, calling, connected, startSecretCall]);
+  }, [autoStart, calling, connected, startSecretCall, voiceLoading]);
 
   const endCall = () => {
     vapi?.stop();
@@ -299,7 +301,7 @@ export default function CallButton({
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', maxWidth: compact ? '92px' : undefined }}>
       <button
         onClick={startSecretCall}
-        disabled={calling}
+        disabled={calling || voiceLoading}
         className="bg-red-600 text-white rounded-full font-bold hover:bg-red-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
         style={{
           padding: compact ? '9px 12px' : '16px 32px',
@@ -308,7 +310,7 @@ export default function CallButton({
           whiteSpace: 'nowrap',
         }}
       >
-        {calling ? (compact ? 'Calling...' : 'Connecting to AlyraX...') : callError ? (compact ? 'Try Call' : 'Try Voice Call Again') : isVideoMode ? (compact ? 'Video' : 'Start Video Call') : (compact ? 'Call' : 'Start Secret Call')}
+        {voiceLoading ? (compact ? '...' : 'Loading Voice...') : calling ? (compact ? 'Calling...' : 'Connecting to AlyraX...') : callError ? (compact ? 'Try Call' : 'Try Voice Call Again') : isVideoMode ? (compact ? 'Video' : 'Start Video Call') : (compact ? 'Call' : 'Start Secret Call')}
       </button>
       {callError && (
         <div style={{ maxWidth: '240px', color: '#ef4444', fontSize: '11px', lineHeight: 1.35, textAlign: 'center' }}>
