@@ -93,63 +93,72 @@ class DeepgramVoiceClient {
 
   async start(_assistantId?: string, options?: StartOptions) {
     if (this.socket) this.stop();
+    this.stopping = false;
     this.activeMode = options?.variableValues?.mode || 'solo';
     this.currentSpeed = 'normal';
 
-    const tokenResponse = await fetch('/api/deepgram/token', { method: 'POST' });
-    const tokenData = await tokenResponse.json();
-    if (!tokenResponse.ok || !tokenData.access_token) {
-      throw new Error(tokenData.error || 'Unable to create Deepgram token');
-    }
-    this.ttsProxyToken = typeof tokenData.tts_proxy_token === 'string'
-      ? tokenData.tts_proxy_token
-      : null;
-    this.voiceContextToken = typeof tokenData.voice_context_token === 'string'
-      ? tokenData.voice_context_token
-      : null;
-    this.cartesiaProxyEnabled = tokenData.cartesia_proxy_enabled === true;
+    try {
+      await this.requestMicrophone();
 
-    this.outputContext = new AudioContext({ sampleRate: OUTPUT_SAMPLE_RATE });
-    this.inputContext = new AudioContext({ sampleRate: INPUT_SAMPLE_RATE });
-    this.outputGain = this.outputContext.createGain();
-    this.outputGain.gain.value = 1.18;
-    this.outputGain.connect(this.outputContext.destination);
-    await this.outputContext.resume();
-    await this.inputContext.resume();
+      const tokenResponse = await fetch('/api/deepgram/token', { method: 'POST' });
+      const tokenData = await tokenResponse.json();
+      if (!tokenResponse.ok || !tokenData.access_token) {
+        throw new Error(tokenData.error || 'Unable to create Deepgram token');
+      }
+      this.ttsProxyToken = typeof tokenData.tts_proxy_token === 'string'
+        ? tokenData.tts_proxy_token
+        : null;
+      this.voiceContextToken = typeof tokenData.voice_context_token === 'string'
+        ? tokenData.voice_context_token
+        : null;
+      this.cartesiaProxyEnabled = tokenData.cartesia_proxy_enabled === true;
 
-    const socket = new WebSocket(
-      'wss://agent.deepgram.com/v1/agent/converse',
-      ['bearer', tokenData.access_token]
-    );
-    socket.binaryType = 'arraybuffer';
-    this.socket = socket;
-    this.startTimeout = setTimeout(() => {
-      if (this.socket) {
-        this.emit('error', new Error('Voice connection timed out. Please check microphone permission and try again.'));
+      this.outputContext = new AudioContext({ sampleRate: OUTPUT_SAMPLE_RATE });
+      this.inputContext = new AudioContext({ sampleRate: INPUT_SAMPLE_RATE });
+      this.outputGain = this.outputContext.createGain();
+      this.outputGain.gain.value = 1.18;
+      this.outputGain.connect(this.outputContext.destination);
+      await this.outputContext.resume();
+      await this.inputContext.resume();
+
+      const socket = new WebSocket(
+        'wss://agent.deepgram.com/v1/agent/converse',
+        ['bearer', tokenData.access_token]
+      );
+      socket.binaryType = 'arraybuffer';
+      this.socket = socket;
+      this.startTimeout = setTimeout(() => {
+        if (this.socket) {
+          this.emit('error', new Error('Voice connection timed out. Please check microphone permission and try again.'));
+          this.stop();
+        }
+      }, 15000);
+
+      socket.onmessage = async (event) => {
+        if (typeof event.data === 'string') {
+          this.handleServerMessage(JSON.parse(event.data), options);
+          return;
+        }
+        const buffer = event.data instanceof Blob
+          ? await event.data.arrayBuffer()
+          : event.data as ArrayBuffer;
+        this.playPcm16(buffer);
+      };
+
+      socket.onerror = () => {
+        this.emit('error', new Error('Voice connection failed. Please check your connection and try again.'));
         this.stop();
-      }
-    }, 15000);
-
-    socket.onmessage = async (event) => {
-      if (typeof event.data === 'string') {
-        this.handleServerMessage(JSON.parse(event.data), options);
-        return;
-      }
-      const buffer = event.data instanceof Blob
-        ? await event.data.arrayBuffer()
-        : event.data as ArrayBuffer;
-      this.playPcm16(buffer);
-    };
-
-    socket.onerror = () => {
-      this.emit('error', new Error('Voice connection failed. Please check your connection and try again.'));
-      this.stop();
-    };
-    socket.onclose = () => {
+      };
+      socket.onclose = () => {
+        this.cleanup();
+        if (!this.stopping) this.emit('call-end');
+        this.stopping = false;
+      };
+    } catch (error) {
       this.cleanup();
-      if (!this.stopping) this.emit('call-end');
       this.stopping = false;
-    };
+      throw error;
+    }
   }
 
   stop() {
@@ -372,6 +381,22 @@ class DeepgramVoiceClient {
   }
 
   private async startMicrophone() {
+    await this.requestMicrophone();
+    if (!this.inputContext || !this.socket || !this.mediaStream) return;
+    this.source = this.inputContext.createMediaStreamSource(this.mediaStream);
+    this.processor = this.inputContext.createScriptProcessor(2048, 1, 1);
+    this.processor.onaudioprocess = (event) => {
+      if (this.socket?.readyState !== WebSocket.OPEN) return;
+      const input = event.inputBuffer.getChannelData(0);
+      this.trackInputLevel(input);
+      this.socket.send(this.floatToPcm16(input));
+    };
+    this.source.connect(this.processor);
+    this.processor.connect(this.inputContext.destination);
+  }
+
+  private async requestMicrophone() {
+    if (this.mediaStream) return;
     if (!navigator.mediaDevices?.getUserMedia) {
       throw new Error('Microphone access is not available in this browser.');
     }
@@ -385,17 +410,6 @@ class DeepgramVoiceClient {
         sampleRate: INPUT_SAMPLE_RATE,
       },
     });
-    if (!this.inputContext || !this.socket) return;
-    this.source = this.inputContext.createMediaStreamSource(this.mediaStream);
-    this.processor = this.inputContext.createScriptProcessor(2048, 1, 1);
-    this.processor.onaudioprocess = (event) => {
-      if (this.socket?.readyState !== WebSocket.OPEN) return;
-      const input = event.inputBuffer.getChannelData(0);
-      this.trackInputLevel(input);
-      this.socket.send(this.floatToPcm16(input));
-    };
-    this.source.connect(this.processor);
-    this.processor.connect(this.inputContext.destination);
   }
 
   private trackInputLevel(input: Float32Array) {
