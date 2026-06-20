@@ -123,6 +123,24 @@ function summarizeChatFailure(attempts: ChatAttempt[]) {
   return 'The chat model is temporarily unavailable. Please try again.';
 }
 
+function buildMediaContextPrompt(message: string, recentHistory: ChatMessage[]) {
+  const context = recentHistory
+    .slice(-12)
+    .filter((entry) => entry.content.trim())
+    .map((entry) => `${entry.role === 'assistant' ? 'companion' : 'user'}: ${entry.content.trim()}`)
+    .join(' | ');
+
+  if (!context) return message;
+
+  return [
+    `user media request: ${message}`,
+    `recent chat context: ${context}`,
+    'create the media from the current conversation state, not a generic default',
+    'if the recent chat states what the companion is wearing or doing, use that exact outfit, activity, setting, and mood',
+    'for wearing/right-now requests, preserve the most recent outfit description exactly',
+  ].join(', ');
+}
+
 // Build companion system prompt
 function buildSystemPrompt(
   archetype: Archetype,
@@ -453,7 +471,7 @@ export async function POST(req: NextRequest) {
     // If selfie requested — create a generating placeholder message
     let mediaMsg = null;
     if (wantsSelfie) {
-      const selfiePrompt = buildSelfiePrompt(message, archetype);
+      const selfiePrompt = buildSelfiePrompt(buildMediaContextPrompt(message, recentHistory), archetype);
       const { data: mediaMsgData } = await supabase
         .from('chat_messages')
         .insert({
@@ -478,7 +496,7 @@ export async function POST(req: NextRequest) {
           content: null,
           media_type: 'video',
           media_status: 'generating',
-          media_prompt: message,
+          media_prompt: buildMediaContextPrompt(message, recentHistory),
         })
         .select('*')
         .single();
