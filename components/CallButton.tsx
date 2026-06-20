@@ -8,6 +8,18 @@ type VoiceTranscript = {
   content: string;
 };
 
+type SavedVoiceMessage = {
+  id: string;
+  conversation_id: string;
+  role: 'user' | 'companion';
+  content: string | null;
+  media_type: string | null;
+  media_url: string | null;
+  media_status: string | null;
+  media_prompt: string | null;
+  created_at: string;
+};
+
 function isVoiceTranscriptRole(role?: string): role is VoiceTranscript['role'] {
   return role === 'user' || role === 'assistant';
 }
@@ -33,6 +45,7 @@ function getCallErrorMessage(error: unknown) {
 export default function CallButton({
   scenario,
   companionId,
+  conversationId,
   voiceId,
   companionName,
   personaName,
@@ -42,10 +55,12 @@ export default function CallButton({
   userName,
   lastMemory,
   onUserTranscript,
+  onVoiceMessagesSaved,
   autoStart = false,
 }: {
   scenario: string;
   companionId?: string;
+  conversationId?: string | null;
   voiceId?: string | null;
   companionName?: string | null;
   personaName?: string | null;
@@ -55,6 +70,7 @@ export default function CallButton({
   userName?: string | null;
   lastMemory?: CompanionMemory | null;
   onUserTranscript?: (transcript: string) => void;
+  onVoiceMessagesSaved?: (messages: SavedVoiceMessage[]) => void;
   voiceLoading?: boolean;
   autoStart?: boolean;
 }) {
@@ -68,13 +84,15 @@ export default function CallButton({
 
   useEffect(() => {
     if (!vapi) return;
-    const saveMemory = async () => {
+    const saveCallState = async () => {
       const messages = messagesRef.current;
       messagesRef.current = [];
-      if (!companionId || messages.length < 2) return;
+      if (!messages.length) return;
 
-      try {
-        await fetch('/api/companion/memory', {
+      const saves: Promise<void>[] = [];
+
+      if (companionId && messages.length >= 2) {
+        saves.push(fetch('/api/companion/memory', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -83,10 +101,27 @@ export default function CallButton({
             mode: isVideoMode ? 'solo_video' : 'solo',
           }),
           keepalive: true,
-        });
-      } catch (error) {
-        console.error('Voice memory save failed:', error);
+        }).then(() => undefined));
       }
+
+      if (conversationId) {
+        saves.push(fetch('/api/chat/voice-transcript', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ conversation_id: conversationId, messages }),
+          keepalive: true,
+        }).then(async (res) => {
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(data.error || 'Voice transcript save failed');
+          if (Array.isArray(data.messages)) onVoiceMessagesSaved?.(data.messages as SavedVoiceMessage[]);
+        }));
+      }
+
+      await Promise.allSettled(saves).then((results) => {
+        results.forEach((result) => {
+          if (result.status === 'rejected') console.error('Voice call save failed:', result.reason);
+        });
+      });
     };
 
     const onStart = () => {
@@ -98,7 +133,7 @@ export default function CallButton({
     const onEnd = () => {
       setCalling(false);
       setConnected(false);
-      void saveMemory();
+      void saveCallState();
     };
     const onError = (error: unknown) => {
       console.error('Voice call error:', error);
@@ -125,7 +160,7 @@ export default function CallButton({
       vapi?.off('error', onError);
       vapi?.off('message', onMessage);
     };
-  }, [companionId, isVideoMode, onUserTranscript]);
+  }, [companionId, conversationId, isVideoMode, onUserTranscript, onVoiceMessagesSaved]);
 
   const buildVoiceGreeting = useCallback(() => {
     const persona = `${personaName || ''} ${personaTagline || ''}`.toLowerCase();
@@ -194,6 +229,7 @@ export default function CallButton({
         personaName: personaName || undefined,
         personaTagline: personaTagline || undefined,
         archetypeId: archetypeId || undefined,
+        conversationId: conversationId || undefined,
         promptUsed: promptUsed || undefined,
         userName: userName || undefined,
         lastMemory: lastMemory?.summary || lastMemory?.lastUserMessage || undefined,
@@ -225,7 +261,7 @@ export default function CallButton({
       console.error("The Mouth failed to open:", err);
       setCalling(false);
     }
-  }, [archetypeId, buildVoiceGreeting, companionId, companionName, fallbackVoiceId, isVideoMode, lastMemory, personaName, personaTagline, promptUsed, userName, voiceId]);
+  }, [archetypeId, buildVoiceGreeting, companionId, companionName, conversationId, fallbackVoiceId, isVideoMode, lastMemory, personaName, personaTagline, promptUsed, userName, voiceId]);
 
   useEffect(() => {
     if (!autoStart || autoStartedRef.current || calling || connected) return;

@@ -812,20 +812,28 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
             {/* Actions */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: 'auto' }}>
               {/* Voice call */}
-              <CallButton
-                scenario="Mode: solo"
-                companionId={chatCompanion?.id}
-                voiceId={companionVoiceId}
-                companionName={companionDisplayName}
-                personaName={archetype.archetype}
+                <CallButton
+                  scenario="Mode: solo"
+                  companionId={chatCompanion?.id}
+                  conversationId={conversationId}
+                  voiceId={companionVoiceId}
+                  companionName={companionDisplayName}
+                  personaName={archetype.archetype}
                 personaTagline={archetype.tagline}
                 archetypeId={id}
                 userName={userName}
-                lastMemory={factsMemory}
-                onUserTranscript={handleVoiceTranscript}
-                voiceLoading={loading}
-                autoStart={searchParams.get('call') === '1'}
-              />
+                  lastMemory={factsMemory}
+                  onUserTranscript={handleVoiceTranscript}
+                  onVoiceMessagesSaved={(savedMessages) => {
+                    setMessages(prev => {
+                      const existingIds = new Set(prev.map(m => m.id));
+                      const newMessages = savedMessages.filter(m => !existingIds.has(m.id)) as Message[];
+                      return [...prev, ...newMessages];
+                    });
+                  }}
+                  voiceLoading={loading}
+                  autoStart={searchParams.get('call') === '1'}
+                />
 
               <button
                 onClick={() => router.push(`/dossier/${id}`)}

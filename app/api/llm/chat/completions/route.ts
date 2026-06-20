@@ -120,6 +120,11 @@ type CompanionIdentity = {
   ageRange?: string | null;
 };
 
+type OpenRouterMessage = {
+  role: 'system' | 'user' | 'assistant';
+  content: string;
+};
+
 const LEGACY_BODY_TYPES = ['Petite', 'Slim', 'Athletic', 'Curvy', 'Plus size'];
 const LEGACY_ETHNICITIES = ['Black', 'White', 'Latina', 'Asian', 'Middle Eastern', 'Mixed', 'Other'];
 const LEGACY_HAIR_COLORS = ['Black', 'Brown', 'Blonde', 'Red', 'Silver', 'Auburn'];
@@ -242,6 +247,43 @@ function buildQueryIdentity(req: NextRequest): CompanionIdentity {
   };
 }
 
+async function loadRecentChatContext(userId: string, conversationId: string, archetypeId?: string | null): Promise<OpenRouterMessage[]> {
+  try {
+    const supabase = createServiceRoleClient();
+    if (!supabase) return [];
+
+    let conversationQuery = supabase
+      .from('conversations')
+      .select('id')
+      .eq('id', conversationId)
+      .eq('user_id', userId);
+
+    if (archetypeId) conversationQuery = conversationQuery.eq('archetype_id', archetypeId);
+
+    const { data: conversation, error: conversationError } = await conversationQuery.maybeSingle();
+    if (conversationError || !conversation) return [];
+
+    const { data: messages, error: messagesError } = await supabase
+      .from('chat_messages')
+      .select('role, content')
+      .eq('conversation_id', conversation.id)
+      .not('content', 'is', null)
+      .order('created_at', { ascending: false })
+      .limit(18);
+
+    if (messagesError || !messages?.length) return [];
+
+    return [...messages].reverse().flatMap<OpenRouterMessage>((message) => {
+      if (typeof message.content !== 'string' || !message.content.trim()) return [];
+      if (message.role === 'user') return [{ role: 'user', content: message.content.trim() }];
+      if (message.role === 'companion') return [{ role: 'assistant', content: message.content.trim() }];
+      return [];
+    });
+  } catch {
+    return [];
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const vapiBody = await req.json();
@@ -256,6 +298,7 @@ export async function POST(req: NextRequest) {
     const queryUserName = req.nextUrl.searchParams.get('userName') || '';
     const queryMemory = req.nextUrl.searchParams.get('lastMemory') || '';
     const queryArchetypeId = req.nextUrl.searchParams.get('archetypeId');
+    const queryConversationId = req.nextUrl.searchParams.get('conversationId');
     const hasQueryVoiceContext = Boolean(
       req.nextUrl.searchParams.get('personaName')
       || req.nextUrl.searchParams.get('companionName')
@@ -270,6 +313,7 @@ export async function POST(req: NextRequest) {
     let userName = queryUserName;
     let memoryBlock = queryMemory ? formatCompanionMemory({ summary: queryMemory }, queryUserName) : '';
     let factsBlock = '';
+    let recentTextContext: OpenRouterMessage[] = [];
 
     const directives = incomingMessages
       .filter((m: { role?: string; content?: string }) => m.role === 'user' && typeof m.content === 'string')
@@ -314,6 +358,10 @@ export async function POST(req: NextRequest) {
         } catch {
           // Keep query fallbacks if signed context lookup is unavailable
         }
+      }
+
+      if (voiceUserId && queryConversationId) {
+        recentTextContext = await loadRecentChatContext(voiceUserId, queryConversationId, queryArchetypeId);
       }
     } else {
       try {
@@ -377,12 +425,16 @@ export async function POST(req: NextRequest) {
       userName ? `User's first name: ${userName}` : '',
       memoryBlock ? `Continuity context:\n${memoryBlock}` : '',
       factsBlock,
+      recentTextContext.length
+        ? 'The recent text chat below is the same relationship continuing into this phone call. Treat the call and text thread as one seamless conversation.'
+        : '',
       ADAPTIVE_DIALOGUE_INSTRUCTIONS,
       directiveBlock ? `Current session directives (apply NOW):\n${directiveBlock}` : '',
     ].filter(Boolean).join('\n\n');
 
     const messages = [
       { role: 'system', content: systemContent },
+      ...recentTextContext,
       ...conversationMessages,
     ];
 

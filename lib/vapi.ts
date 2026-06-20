@@ -15,6 +15,7 @@ type StartOptions = {
     userName?: string;
     lastMemory?: string;
     archetypeId?: string;
+    conversationId?: string;
   };
 };
 type DeepgramMessage = {
@@ -296,6 +297,7 @@ class DeepgramVoiceClient {
     if (values.userName) llmUrl.searchParams.set('userName', values.userName);
     if (values.lastMemory) llmUrl.searchParams.set('lastMemory', values.lastMemory.slice(0, 500));
     if (values.archetypeId) llmUrl.searchParams.set('archetypeId', values.archetypeId);
+    if (values.conversationId) llmUrl.searchParams.set('conversationId', values.conversationId);
     if (this.voiceContextToken) llmUrl.searchParams.set('ctx', this.voiceContextToken);
 
     const useCartesia = Boolean(cartesiaVoiceId && this.cartesiaProxyEnabled && this.ttsProxyToken);
