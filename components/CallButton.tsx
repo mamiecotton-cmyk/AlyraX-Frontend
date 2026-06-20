@@ -69,7 +69,7 @@ export default function CallButton({
   promptUsed?: string | null;
   userName?: string | null;
   lastMemory?: CompanionMemory | null;
-  onUserTranscript?: (transcript: string) => void;
+  onUserTranscript?: (transcript: string, recentMessages?: VoiceTranscript[]) => void;
   onVoiceMessagesSaved?: (messages: SavedVoiceMessage[]) => void;
   voiceLoading?: boolean;
   autoStart?: boolean;
@@ -148,7 +148,7 @@ export default function CallButton({
         ...messagesRef.current,
         { role: message.role, content: message.transcript },
       ].slice(-24);
-      if (message.role === 'user') onUserTranscript?.(message.transcript);
+      if (message.role === 'user') onUserTranscript?.(message.transcript, messagesRef.current);
     };
     vapi.on('call-start', onStart);
     vapi.on('call-end', onEnd);

@@ -3,9 +3,35 @@ import { createClient } from '@/lib/supabase-server';
 import { archetypes } from '@/lib/archetypes';
 import { buildSelfiePrompt, isSelfieRequest, isVideoRequest } from '@/lib/chat-media';
 
+type VoiceContextMessage = {
+  role?: string;
+  content?: string;
+};
+
+function buildVoiceContextPrompt(message: string, voiceContext: unknown) {
+  if (!Array.isArray(voiceContext)) return message;
+
+  const context = voiceContext
+    .map((entry) => entry as VoiceContextMessage)
+    .filter((entry) => (entry.role === 'user' || entry.role === 'assistant') && typeof entry.content === 'string' && entry.content.trim())
+    .slice(-8)
+    .map((entry) => `${entry.role === 'assistant' ? 'companion' : 'user'}: ${entry.content?.trim()}`)
+    .join(' | ');
+
+  if (!context) return message;
+
+  return [
+    `user photo request: ${message}`,
+    `current live voice-call context: ${context}`,
+    'create the photo as a candid snapshot of what the companion is doing right now in that live call scene',
+    'match the current activity, mood, setting, clothing or nudity level, body position, and camera angle from the call context',
+    'do not default to a neutral studio portrait unless the current call context specifically says studio',
+  ].join(', ');
+}
+
 export async function POST(req: NextRequest) {
   try {
-    const { conversation_id, archetype_id, message } = await req.json();
+    const { conversation_id, archetype_id, message, voice_context } = await req.json();
 
     if (!conversation_id || !archetype_id || !message) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
@@ -55,7 +81,8 @@ export async function POST(req: NextRequest) {
     if (userMsgError) throw userMsgError;
 
     const mediaType = wantsVideo ? 'video' : 'image';
-    const mediaPrompt = wantsVideo ? message : buildSelfiePrompt(message, archetype);
+    const contextualMessage = buildVoiceContextPrompt(message, voice_context);
+    const mediaPrompt = wantsVideo ? contextualMessage : buildSelfiePrompt(contextualMessage, archetype);
 
     const { data: mediaMsg, error: mediaMsgError } = await supabase
       .from('chat_messages')

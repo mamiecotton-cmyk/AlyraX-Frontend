@@ -44,6 +44,11 @@ type PersonaVoice = {
   voice_id: string | null;
 };
 
+type VoiceTranscriptMessage = {
+  role: 'user' | 'assistant';
+  content: string;
+};
+
 type ViewerState = {
   url: string;
   type: 'image' | 'video';
@@ -544,7 +549,7 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
     }
   }, [id, pollMediaJob]);
 
-  const handleVoiceTranscript = useCallback(async (transcript: string) => {
+  const handleVoiceTranscript = useCallback(async (transcript: string, recentVoiceMessages: VoiceTranscriptMessage[] = []) => {
     if (!conversationId || !archetype) return;
 
     const normalized = transcript.toLowerCase().replace(/\s+/g, ' ').trim();
@@ -563,6 +568,7 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
           conversation_id: conversationId,
           archetype_id: id,
           message: transcript,
+          voice_context: recentVoiceMessages.slice(-10),
         }),
       });
 
