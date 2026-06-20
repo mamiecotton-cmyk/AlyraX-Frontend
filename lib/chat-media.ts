@@ -6,10 +6,8 @@ import { getArchetypeLora } from '@/lib/archetype-loras';
 export function isSelfieRequest(message: string): boolean {
   const lower = message.toLowerCase();
   return (
-    /\b(selfie|pic|picture|photo|image|portrait|shot|snap)\b/.test(lower)
+    /\b(selfie|pic|picture|photo|image|portrait|shot|snap)\s*(please)?\s*$/i.test(message.trim())
     || /\b(send|show|take|make|create)\s+(me\s+)?(a\s+|an\s+|some\s+)?(selfie|pic|picture|photo|image|portrait|shot|snap)\b/.test(lower)
-    || /\bwhat (are|do) you look(ing)?\b/.test(lower)
-    || /\bwhat('re| are) you wearing\b/.test(lower)
   );
 }
 
