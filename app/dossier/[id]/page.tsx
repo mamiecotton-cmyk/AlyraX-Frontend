@@ -91,7 +91,7 @@ export default function DossierPage({ params }: Props) {
     setAddingToCollection(true);
     try {
       await ensureCompanion();
-      setTimeout(() => router.push(`/chat/${id}`), 800);
+      setTimeout(() => router.push(`/chat/${id}?returnTo=${encodeURIComponent(`/dossier/${id}`)}`), 800);
     } catch (err) {
       console.error('Failed to add companion:', err);
     } finally {
@@ -103,7 +103,7 @@ export default function DossierPage({ params }: Props) {
     setAddingToCollection(true);
     try {
       await ensureCompanion();
-      router.push(`/chat/${id}`);
+      router.push(`/chat/${id}?returnTo=${encodeURIComponent(`/dossier/${id}`)}`);
     } catch (err) {
       console.error('Failed to start chat:', err);
     } finally {
@@ -115,7 +115,7 @@ export default function DossierPage({ params }: Props) {
     setAddingToCollection(true);
     try {
       await ensureCompanion();
-      router.push(`/chat/${id}?call=1`);
+      router.push(`/chat/${id}?call=1&returnTo=${encodeURIComponent(`/dossier/${id}`)}`);
     } catch (err) {
       console.error('Failed to start call:', err);
     } finally {

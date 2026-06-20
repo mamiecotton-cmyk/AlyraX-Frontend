@@ -195,7 +195,7 @@ export default function ArchetypeCard({
             <button
               onClick={e => {
                 e.stopPropagation();
-                router.push(`/chat/${archetype.id}`);
+                router.push(`/chat/${archetype.id}?returnTo=${encodeURIComponent('/archive')}`);
               }}
               style={{
                 width: '100%',

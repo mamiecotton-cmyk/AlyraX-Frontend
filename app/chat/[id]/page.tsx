@@ -280,6 +280,7 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
   const [chatCompanion, setChatCompanion] = useState<ChatCompanion | null>(null);
   const [personaVoice, setPersonaVoice] = useState<PersonaVoice | null>(null);
   const [factsMemory, setFactsMemory] = useState<{ summary: string } | null>(null);
+  const [isMobileViewport, setIsMobileViewport] = useState<boolean | null>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -288,6 +289,44 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
   const voiceMediaRequestsRef = useRef<Map<string, number>>(new Map());
   const shouldStickToBottomRef = useRef(true);
   const previousMessageCountRef = useRef(0);
+
+  useEffect(() => {
+    const media = window.matchMedia('(max-width: 760px)');
+    const updateViewport = () => setIsMobileViewport(media.matches);
+    updateViewport();
+    media.addEventListener('change', updateViewport);
+    return () => media.removeEventListener('change', updateViewport);
+  }, []);
+
+  const handleCloseChat = useCallback(() => {
+    const returnTo = searchParams.get('returnTo');
+    if (returnTo?.startsWith('/')) {
+      router.push(returnTo);
+      return;
+    }
+
+    if (typeof document !== 'undefined' && document.referrer) {
+      try {
+        const referrer = new URL(document.referrer);
+        if (referrer.origin === window.location.origin && !referrer.pathname.startsWith('/chat/')) {
+          router.back();
+          return;
+        }
+      } catch {
+        // Fall through to dashboard.
+      }
+    }
+
+    router.push('/dashboard');
+  }, [router, searchParams]);
+
+  const handleVoiceMessagesSaved = useCallback((savedMessages: unknown[]) => {
+    setMessages(prev => {
+      const existingIds = new Set(prev.map(m => m.id));
+      const newMessages = (savedMessages as Message[]).filter(m => !existingIds.has(m.id));
+      return [...prev, ...newMessages];
+    });
+  }, []);
 
   // ── Load ──────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -816,6 +855,7 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
             {/* Actions */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: 'auto' }}>
               {/* Voice call */}
+              {isMobileViewport === false && (
                 <CallButton
                   scenario="Mode: solo"
                   companionId={chatCompanion?.id}
@@ -823,21 +863,16 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
                   voiceId={companionVoiceId}
                   companionName={companionDisplayName}
                   personaName={archetype.archetype}
-                personaTagline={archetype.tagline}
-                archetypeId={id}
-                userName={userName}
+                  personaTagline={archetype.tagline}
+                  archetypeId={id}
+                  userName={userName}
                   lastMemory={factsMemory}
                   onUserTranscript={handleVoiceTranscript}
-                  onVoiceMessagesSaved={(savedMessages) => {
-                    setMessages(prev => {
-                      const existingIds = new Set(prev.map(m => m.id));
-                      const newMessages = savedMessages.filter(m => !existingIds.has(m.id)) as Message[];
-                      return [...prev, ...newMessages];
-                    });
-                  }}
+                  onVoiceMessagesSaved={handleVoiceMessagesSaved}
                   voiceLoading={loading}
                   autoStart={searchParams.get('call') === '1'}
                 />
+              )}
 
               <button
                 onClick={() => router.push(`/dossier/${id}`)}
@@ -879,12 +914,35 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
                 </div>
               </div>
             </div>
-            <button
-              onClick={() => router.push('/dashboard')}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.3)', fontSize: '20px' }}
-            >
-              ✕
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              {isMobileViewport === true && (
+                <div className="mobile-header-call">
+                  <CallButton
+                    scenario="Mode: solo"
+                    companionId={chatCompanion?.id}
+                    conversationId={conversationId}
+                    voiceId={companionVoiceId}
+                    companionName={companionDisplayName}
+                    personaName={archetype.archetype}
+                    personaTagline={archetype.tagline}
+                    archetypeId={id}
+                    userName={userName}
+                    lastMemory={factsMemory}
+                    onUserTranscript={handleVoiceTranscript}
+                    onVoiceMessagesSaved={handleVoiceMessagesSaved}
+                    voiceLoading={loading}
+                    autoStart={searchParams.get('call') === '1'}
+                    compact
+                  />
+                </div>
+              )}
+              <button
+                onClick={handleCloseChat}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.3)', fontSize: '20px' }}
+              >
+                ✕
+              </button>
+            </div>
           </div>
 
           {/* Messages */}

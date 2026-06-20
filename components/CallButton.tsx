@@ -56,6 +56,7 @@ export default function CallButton({
   lastMemory,
   onUserTranscript,
   onVoiceMessagesSaved,
+  compact = false,
   autoStart = false,
 }: {
   scenario: string;
@@ -71,6 +72,7 @@ export default function CallButton({
   lastMemory?: CompanionMemory | null;
   onUserTranscript?: (transcript: string, recentMessages?: VoiceTranscript[]) => void;
   onVoiceMessagesSaved?: (messages: SavedVoiceMessage[]) => void;
+  compact?: boolean;
   voiceLoading?: boolean;
   autoStart?: boolean;
 }) {
@@ -277,9 +279,15 @@ export default function CallButton({
     return (
       <button
         onClick={endCall}
-        className="bg-zinc-800 border border-red-600 text-red-500 px-8 py-4 rounded-full font-bold hover:bg-red-600 hover:text-white transition"
+        className="bg-zinc-800 border border-red-600 text-red-500 rounded-full font-bold hover:bg-red-600 hover:text-white transition"
+        style={{
+          padding: compact ? '9px 12px' : '16px 32px',
+          fontSize: compact ? '11px' : undefined,
+          lineHeight: compact ? 1 : undefined,
+          whiteSpace: 'nowrap',
+        }}
       >
-        End Chat
+        {compact ? 'End' : 'End Chat'}
       </button>
     );
   }
@@ -289,9 +297,15 @@ export default function CallButton({
       <button
         onClick={startSecretCall}
         disabled={calling}
-        className="bg-red-600 text-white px-8 py-4 rounded-full font-bold hover:bg-red-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+        className="bg-red-600 text-white rounded-full font-bold hover:bg-red-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+        style={{
+          padding: compact ? '9px 12px' : '16px 32px',
+          fontSize: compact ? '11px' : undefined,
+          lineHeight: compact ? 1 : undefined,
+          whiteSpace: 'nowrap',
+        }}
       >
-        {calling ? "Connecting to AlyraX..." : callError ? "Try Voice Call Again" : isVideoMode ? "Start Video Call" : "Start Secret Call"}
+        {calling ? (compact ? 'Calling...' : 'Connecting to AlyraX...') : callError ? (compact ? 'Try Call' : 'Try Voice Call Again') : isVideoMode ? (compact ? 'Video' : 'Start Video Call') : (compact ? 'Call' : 'Start Secret Call')}
       </button>
       {callError && (
         <div style={{ maxWidth: '240px', color: '#ef4444', fontSize: '11px', lineHeight: 1.35, textAlign: 'center' }}>

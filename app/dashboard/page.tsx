@@ -153,7 +153,7 @@ export default function DashboardPage() {
             {companion && (
               <>
                 <button
-                  onClick={() => router.push(`/chat/${companion.id}`)}
+                  onClick={() => router.push(`/chat/${companion.id}?returnTo=${encodeURIComponent('/dashboard')}`)}
                   style={{
                     padding: '8px 18px',
                     background: 'transparent',
