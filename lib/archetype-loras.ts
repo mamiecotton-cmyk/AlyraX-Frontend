@@ -2,6 +2,8 @@
 export type ArchetypeLoraConfig = {
   loraFile: string;
   triggerWord: string;
+  explicitLoraFile?: string;
+  explicitTriggerWord?: string;
   refinementLoraFile?: string;
   refinementStrength?: number;
 };
@@ -12,8 +14,10 @@ export const archetypeLoras: Record<string, ArchetypeLoraConfig> = {
     triggerWord: 'jrmwr',
   },
   jaxon: {
-    loraFile: 'jaxon_v2.safetensors',
-    triggerWord: 'jax0n2',
+    loraFile: 'jaxon_v1.safetensors',
+    triggerWord: 'jxnst',
+    explicitLoraFile: 'jaxon_explicit.safetensors',
+    explicitTriggerWord: 'jaxx0n',
   },
   roman: {
     loraFile: 'roman_v1.safetensors',

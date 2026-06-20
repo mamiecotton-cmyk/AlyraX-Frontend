@@ -298,20 +298,30 @@ const TRIGGERS: Record<string, string> = {
   nia: 'niavx',
   victoria: 'vctrx',
   jerome: 'jrmwr',
-  jaxon: 'jax0n2',
+  jaxon: 'jxnst',
   roman: 'r0man',
+};
+
+const EXPLICIT_TRIGGERS: Record<string, string> = {
+  jaxon: 'jaxx0n',
 };
 
 const IDENTITY_ANCHORS: Record<string, string> = {
   jaxon: 'adult Black man, medium-dark brown skin, shaved head low fade, light beard with goatee, strong jawline, sharp cheekbones, intense eyes, clean smooth unmarked skin, lean muscular athletic build',
 };
 
-function buildCaption(characterId: string, prompt: string): string {
-  return `A photo of ${TRIGGERS[characterId] ?? characterId}, ${prompt}, photorealistic, RAW DSLR photo`;
+function getTrainingTrigger(characterId: string, category: PromptCategory) {
+  return category === 'explicit'
+    ? EXPLICIT_TRIGGERS[characterId] ?? TRIGGERS[characterId] ?? characterId
+    : TRIGGERS[characterId] ?? characterId;
 }
 
-function buildGenerationPrompt(characterId: string, scenePrompt: string): string {
-  const trigger = TRIGGERS[characterId] ?? characterId;
+function buildCaption(characterId: string, category: PromptCategory, prompt: string): string {
+  return `A photo of ${getTrainingTrigger(characterId, category)}, ${prompt}, photorealistic, RAW DSLR photo`;
+}
+
+function buildGenerationPrompt(characterId: string, category: PromptCategory, scenePrompt: string): string {
+  const trigger = getTrainingTrigger(characterId, category);
   const identityAnchor = IDENTITY_ANCHORS[characterId];
   return [trigger, identityAnchor, scenePrompt, 'photorealistic', 'RAW DSLR photo']
     .filter(Boolean)
@@ -413,7 +423,7 @@ export default function AdminTrainingPage() {
     if (!activePrompt) return;
     const character = LORA_CHARACTERS.find(c => c.id === selectedCharacter);
     if (!character) return;
-    const generationPrompt = buildGenerationPrompt(selectedCharacter, activePrompt);
+    const generationPrompt = buildGenerationPrompt(selectedCharacter, category, activePrompt);
 
     // Look up LoRA config — must match lib/archetype-loras.ts
     const loraMap: Record<string, { loraFile: string; triggerWord: string }> = {
@@ -421,7 +431,7 @@ export default function AdminTrainingPage() {
       zara:   { loraFile: 'zara_v1.safetensors',   triggerWord: 'zrabd' },
       nia:    { loraFile: 'nia_v1.safetensors',     triggerWord: 'niavx' },
       jerome: { loraFile: 'jerome_v1_flux.safetensors', triggerWord: 'jrmwr' },
-      jaxon:  { loraFile: 'jaxon_v2.safetensors',  triggerWord: 'jax0n2' },
+      jaxon:  { loraFile: 'jaxon_v1.safetensors',  triggerWord: 'jxnst' },
       roman:  { loraFile: 'roman_v1.safetensors',  triggerWord: 'r0man' },
       victoria: { loraFile: 'victoria_v1.safetensors', triggerWord: 'vctrx' },
     };
@@ -572,7 +582,7 @@ export default function AdminTrainingPage() {
       const folder = zip.folder(folderName)!;
 
       // Add captions file
-      const captions = selected.map((img, idx) => `${String(idx + 1).padStart(3, '0')}.jpg: ${buildCaption(selectedCharacter, img.prompt)}`).join('\n');
+      const captions = selected.map((img, idx) => `${String(idx + 1).padStart(3, '0')}.jpg: ${buildCaption(selectedCharacter, category, img.prompt)}`).join('\n');
       folder.file('captions.txt', captions);
 
       // Fetch and add each image
@@ -915,7 +925,7 @@ export default function AdminTrainingPage() {
                 <div style={{ marginTop: '14px', padding: '10px 12px', background: 'var(--charcoal-mid)', borderRadius: '3px', border: '1px solid var(--border-dark)' }}>
                   <div style={{ ...LABEL, marginBottom: '4px' }}>Caption format (included in zip)</div>
                   <div style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--ivory-ghost)', lineHeight: 1.6 }}>
-                    {buildCaption(selectedCharacter, activePrompt)}
+                    {buildCaption(selectedCharacter, category, activePrompt)}
                   </div>
                 </div>
 

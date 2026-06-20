@@ -273,8 +273,16 @@ export async function POST(req: NextRequest) {
         ? 0.65
         : 0.85;
     const effectiveLoraStrength = lora_strength ?? defaultLoraStrength;
-    const finalPrompt = buildFinalPrompt(prompt, trigger_word, imageStyle, character_id);
     const useNsfwLora = typeof explicit === 'boolean' ? explicit : isExplicitContentPrompt(prompt);
+    const archetypeLoraConfig = typeof character_id === 'string' ? getArchetypeLora(character_id) : null;
+    const useExplicitCharacterLora = Boolean(useNsfwLora && archetypeLoraConfig?.explicitLoraFile);
+    const charLoraFile = useExplicitCharacterLora
+      ? archetypeLoraConfig?.explicitLoraFile ?? lora_file
+      : lora_file;
+    const charTrigger = useExplicitCharacterLora
+      ? archetypeLoraConfig?.explicitTriggerWord ?? trigger_word
+      : trigger_word;
+    const finalPrompt = buildFinalPrompt(prompt, charTrigger, imageStyle, character_id);
 
     const { width, height } = styleToDimensions(imageStyle);
     const resolvedSeed =
@@ -282,10 +290,9 @@ export async function POST(req: NextRequest) {
         ? seed
         : Math.floor(Math.random() * 2 ** 31);
 
-    const archetypeLoraConfig = typeof character_id === 'string' ? getArchetypeLora(character_id) : null;
     const workflow = buildFluxWorkflow({
       prompt: finalPrompt,
-      loraFile: lora_file,
+      loraFile: charLoraFile,
       loraStrength: effectiveLoraStrength,
       refinementLoraFile: archetypeLoraConfig?.refinementLoraFile,
       refinementStrength: archetypeLoraConfig?.refinementStrength,
@@ -302,8 +309,9 @@ export async function POST(req: NextRequest) {
     console.log('Submitting Flux LoRA selfie:', {
       endpointId: comfyUrl ? null : endpointId,
       comfyUrl: comfyUrl ? normalizeComfyUrl(comfyUrl) : null,
-      loraFile: lora_file,
-      triggerWord: trigger_word,
+      loraFile: charLoraFile,
+      triggerWord: charTrigger,
+      useExplicitCharacterLora,
       style: imageStyle,
       seed: resolvedSeed,
       useNsfwLora,
