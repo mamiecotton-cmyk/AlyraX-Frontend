@@ -426,16 +426,28 @@ export default function AdminTrainingPage() {
     const generationPrompt = buildGenerationPrompt(selectedCharacter, category, activePrompt);
 
     // Look up LoRA config — must match lib/archetype-loras.ts
-    const loraMap: Record<string, { loraFile: string; triggerWord: string }> = {
+    const loraMap: Record<string, {
+      loraFile: string;
+      triggerWord: string;
+      explicitLoraFile?: string;
+      explicitTriggerWord?: string;
+    }> = {
       soleil: { loraFile: 'soleil_v2.safetensors', triggerWord: 'solx' },
       zara:   { loraFile: 'zara_v1.safetensors',   triggerWord: 'zrabd' },
       nia:    { loraFile: 'nia_v1.safetensors',     triggerWord: 'niavx' },
       jerome: { loraFile: 'jerome_v1_flux.safetensors', triggerWord: 'jrmwr' },
-      jaxon:  { loraFile: 'jaxon_v1.safetensors',  triggerWord: 'jxnst' },
+      jaxon:  {
+        loraFile: 'jaxon_v1.safetensors',
+        triggerWord: 'jxnst',
+        explicitLoraFile: 'jaxon_explicit.safetensors',
+        explicitTriggerWord: 'jaxx0n',
+      },
       roman:  { loraFile: 'roman_v1.safetensors',  triggerWord: 'r0man' },
       victoria: { loraFile: 'victoria_v1.safetensors', triggerWord: 'vctrx' },
     };
     const lora = loraMap[selectedCharacter];
+    const requestLoraFile = category === 'explicit' && lora?.explicitLoraFile ? lora.explicitLoraFile : lora?.loraFile;
+    const requestTriggerWord = category === 'explicit' && lora?.explicitTriggerWord ? lora.explicitTriggerWord : lora?.triggerWord;
     const structuredPromptMap: Record<string, {
       race: string;
       gender: string;
@@ -486,8 +498,8 @@ export default function AdminTrainingPage() {
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 prompt: generationPrompt,
-                lora_file: lora.loraFile,
-                trigger_word: lora.triggerWord,
+                lora_file: requestLoraFile,
+                trigger_word: requestTriggerWord,
                 style,
                 character_id: selectedCharacter,
                 seed: -1,
