@@ -50,7 +50,7 @@ function subjectNegativeForArchetype(
 }
 
 function styleForMediaPrompt(prompt: string) {
-  return /\b(full body|full-body|fullbody|full length|full-length|head to toe|head-to-toe|entire body|whole body|body shot|outfit|fit check|legs?|standing|spread)\b/i.test(prompt)
+  return /\b(current live voice-call context|doing right now|full body|full-body|fullbody|full length|full-length|head to toe|head-to-toe|entire body|whole body|body shot|outfit|fit check|legs?|standing|spread)\b/i.test(prompt)
     ? 'fullbody'
     : 'portrait';
 }

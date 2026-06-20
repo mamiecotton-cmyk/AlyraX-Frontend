@@ -25,6 +25,7 @@ function buildVoiceContextPrompt(message: string, voiceContext: unknown) {
     `current live voice-call context: ${context}`,
     'create the photo as a candid snapshot of what the companion is doing right now in that live call scene',
     'match the current activity, mood, setting, clothing or nudity level, body position, and camera angle from the call context',
+    'full body candid framing, body visible in the scene, not a tight portrait headshot',
     'do not default to a neutral studio portrait unless the current call context specifically says studio',
   ].join(', ');
 }
