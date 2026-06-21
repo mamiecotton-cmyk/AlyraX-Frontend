@@ -319,6 +319,14 @@ export default function OnboardingPage() {
       }
 
       if (archetypeId) await seedRelationshipFacts(archetypeId);
+      if (avGender) {
+        await supabase.auth.updateUser({
+          data: {
+            alyrax_user_gender: avGender,
+            avatar_gender: avGender,
+          },
+        });
+      }
       router.push('/dashboard');
     } catch (error) {
       console.error('Onboarding finish failed:', error);

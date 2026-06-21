@@ -5,6 +5,7 @@ import { formatSessionDirectives, updateSessionDirectives, type SessionDirective
 import { formatCompanionMemory, getCompanionMemory, getUserDisplayName } from '@/lib/companion-memory';
 import { formatFactsBlock, loadCompanionFacts } from '@/lib/companion-facts';
 import { archetypes } from '@/lib/archetypes';
+import { getUserGenderContext } from '@/lib/user-context';
 
 export const maxDuration = 60;
 
@@ -330,6 +331,7 @@ export async function POST(req: NextRequest) {
     let memoryBlock = queryMemory ? formatCompanionMemory({ summary: queryMemory }, queryUserName) : '';
     let factsBlock = '';
     let recentTextContext: OpenRouterMessage[] = [];
+    let userContextBlock = '';
 
     const directives = incomingMessages
       .filter((m: { role?: string; content?: string }) => m.role === 'user' && typeof m.content === 'string')
@@ -368,6 +370,8 @@ export async function POST(req: NextRequest) {
         try {
           const supabase = createServiceRoleClient();
           if (supabase) {
+            const { data: voiceUser } = await supabase.auth.admin.getUserById(voiceUserId);
+            userContextBlock = getUserGenderContext(voiceUser.user?.user_metadata as Record<string, unknown> | null);
             const facts = await loadCompanionFacts(supabase, voiceUserId, queryArchetypeId);
             factsBlock = formatFactsBlock(facts);
           }
@@ -387,6 +391,7 @@ export async function POST(req: NextRequest) {
         if (user) {
           const activeCompanionId = requestedCompanionId || user.user_metadata?.active_companion_id;
           userName = getUserDisplayName(user.user_metadata, user.email);
+          userContextBlock = getUserGenderContext(user.user_metadata as Record<string, unknown> | null);
 
           let companionQuery = supabase
             .from('companions')
@@ -452,6 +457,7 @@ export async function POST(req: NextRequest) {
       NAME_RULES,
       SAFETY_AND_CRISIS_INSTRUCTIONS,
       userName ? `User's first name: ${userName}` : '',
+      userContextBlock ? `User context:\n${userContextBlock}` : '',
       memoryBlock ? `Continuity context:\n${memoryBlock}` : '',
       factsBlock,
       recentTextContext.length

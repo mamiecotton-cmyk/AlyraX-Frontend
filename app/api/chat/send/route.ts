@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase-server';
 import { archetypes, type Archetype } from '@/lib/archetypes';
 import { buildSelfiePrompt, isSelfieRequest, isVideoRequest } from '@/lib/chat-media';
 import { formatFactsBlock, loadCompanionFacts, mergeCompanionFacts, normalizeFacts } from '@/lib/companion-facts';
+import { getUserGenderContext } from '@/lib/user-context';
 
 export const maxDuration = 60;
 
@@ -146,6 +147,7 @@ function buildSystemPrompt(
   archetype: Archetype,
   relationship: { nickname?: string; companion_nickname?: string; last_talked_at?: string | null } | null,
   factsBlock = '',
+  userContextBlock = '',
   clientTime?: string,
   clientDay?: string,
 ): string {
@@ -200,6 +202,7 @@ YOUR PERSONALITY IN TEXT:
 - Occasional typos or casual punctuation are fine
 ${userName ? `- You call them: ${userName}` : ''}
 ${archetype.voice ? `\n${archetype.voice}` : ''}
+${userContextBlock ? `\nUSER CONTEXT:\n${userContextBlock}` : ''}
 
 RELATIONSHIP PROGRESSION:
 - Follow the user's lead completely — match their tone, their pace, and their energy.
@@ -416,10 +419,12 @@ export async function POST(req: NextRequest) {
     })) as ChatMessage[];
 
     const facts = await loadCompanionFacts(supabase, user.id, archetype_id);
+    const userContextBlock = getUserGenderContext(user.user_metadata as Record<string, unknown> | null);
     const systemPrompt = buildSystemPrompt(
       archetype,
       relationship,
       formatFactsBlock(facts),
+      userContextBlock,
       typeof client_time === 'string' ? client_time : undefined,
       typeof client_day === 'string' ? client_day : undefined,
     );
