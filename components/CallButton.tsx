@@ -176,6 +176,14 @@ export default function CallButton({
       ? ` I was thinking about what you said last time.`
       : '';
 
+    if (persona.includes('bff') || persona.includes('platonic')) {
+      return pickGreeting([
+        `Hey ${userName || 'you'}.${memory} I was hoping you'd check in.`,
+        `${userName || 'Hey'}, I'm here. Tell me what's going on in your world today.`,
+        `There you are.${memoryWarmth} Come sit with me for a minute.`,
+      ], `${name}-${address}-bff`);
+    }
+
     if (persona.includes('dominant')) {
       return pickGreeting([
         `There you are, ${address}.${memory} I was wondering when you'd come back to me.`,

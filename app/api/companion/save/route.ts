@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase-server';
+import { BFF_PERSONA_NAME, BFF_SYSTEM_PROMPT } from '@/lib/persona-modes';
 
 export async function POST(req: NextRequest) {
   try {
@@ -8,6 +9,7 @@ export async function POST(req: NextRequest) {
       imageUrl,
       promptUsed,
       personaIndex,
+      personaName,
       bodyType,
       ethnicity,
       hairColor,
@@ -37,11 +39,17 @@ export async function POST(req: NextRequest) {
 
     if (personasError) throw personasError;
 
-    const selectedPersona = personas?.[personaIndex];
+    const requestedPersonaName = typeof personaName === 'string' ? personaName : '';
+    const selectedPersonaByName = requestedPersonaName
+      ? personas?.find((persona) => persona.name.toLowerCase() === requestedPersonaName.toLowerCase())
+      : null;
+    const selectedPersona = selectedPersonaByName || personas?.[personaIndex] || personas?.[0];
 
     if (!selectedPersona?.id) {
       return NextResponse.json({ error: 'Persona not found' }, { status: 404 });
     }
+
+    const effectivePersonaName = requestedPersonaName || selectedPersona.name;
 
     const { data: companion, error: companionError } = await supabase
       .from('companions')
@@ -61,6 +69,9 @@ export async function POST(req: NextRequest) {
           ageRange,
           inspirationImageUrl,
           generation_seed: typeof generationSeed === 'number' ? generationSeed : null,
+          personaName: effectivePersonaName,
+          personaMode: effectivePersonaName === BFF_PERSONA_NAME ? 'bff' : null,
+          personaSystemPrompt: effectivePersonaName === BFF_PERSONA_NAME ? BFF_SYSTEM_PROMPT : null,
         }),
       })
       .select('id')

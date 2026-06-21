@@ -55,6 +55,13 @@ const PERSONAS = [
     premium: true,
     price: '$9.99',
   },
+  {
+    id: null as string | null,
+    name: 'The BFF',
+    tagline: 'Ride-or-die. Strictly platonic.',
+    description: 'A loyal best friend for advice, comfort, laughs, check-ins, and emotional support. No romance or sexual energy.',
+    premium: false,
+  },
 ];
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
@@ -254,6 +261,7 @@ export default function OnboardingPage() {
         imageUrl,
         promptUsed: buildPrompt(),
         personaIndex: selectedPersonaIndex,
+        personaName: PERSONAS[selectedPersonaIndex]?.name,
         bodyType,
         ethnicity,
         hairColor,

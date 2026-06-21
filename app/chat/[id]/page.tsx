@@ -37,7 +37,17 @@ type Relationship = {
 type ChatCompanion = {
   id: string;
   image_url: string | null;
-  personas: { voice_id: string | null } | { voice_id: string | null }[] | null;
+  personas: {
+    name: string | null;
+    tagline: string | null;
+    system_prompt: string | null;
+    voice_id: string | null;
+  } | {
+    name: string | null;
+    tagline: string | null;
+    system_prompt: string | null;
+    voice_id: string | null;
+  }[] | null;
 };
 
 type PersonaVoice = {
@@ -351,7 +361,7 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
 
       const { data: companionData } = await supabase
         .from('companions')
-        .select('id, image_url, personas(voice_id)')
+        .select('id, image_url, personas(name, tagline, system_prompt, voice_id)')
         .eq('user_id', user.id)
         .eq('archetype_id', id)
         .maybeSingle();
@@ -765,6 +775,9 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
   const linkedCompanionVoiceId = Array.isArray(chatCompanion?.personas)
     ? chatCompanion.personas[0]?.voice_id
     : chatCompanion?.personas?.voice_id;
+  const linkedCompanionPersona = Array.isArray(chatCompanion?.personas)
+    ? chatCompanion.personas[0]
+    : chatCompanion?.personas;
   const companionVoiceId = linkedCompanionVoiceId || personaVoice?.voice_id;
   const profileImageUrl = archetypeImage || chatCompanion?.image_url || null;
   const mediaUrl = profileImageUrl;
@@ -862,8 +875,8 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
                   conversationId={conversationId}
                   voiceId={companionVoiceId}
                   companionName={companionDisplayName}
-                  personaName={archetype.archetype}
-                  personaTagline={archetype.tagline}
+                  personaName={linkedCompanionPersona?.name || archetype.archetype}
+                  personaTagline={linkedCompanionPersona?.tagline || archetype.tagline}
                   archetypeId={id}
                   userName={userName}
                   lastMemory={factsMemory}
@@ -923,8 +936,8 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
                     conversationId={conversationId}
                     voiceId={companionVoiceId}
                     companionName={companionDisplayName}
-                    personaName={archetype.archetype}
-                    personaTagline={archetype.tagline}
+                    personaName={linkedCompanionPersona?.name || archetype.archetype}
+                    personaTagline={linkedCompanionPersona?.tagline || archetype.tagline}
                     archetypeId={id}
                     userName={userName}
                     lastMemory={factsMemory}

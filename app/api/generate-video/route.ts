@@ -487,6 +487,7 @@ async function submitAtlasVideo(
 
 function getPersonaVoice(personaName?: string | null) {
   const n = personaName?.toLowerCase() || '';
+  if (/\b(bff|best friend|platonic)\b/.test(n)) return 'Voice: strictly platonic best friend, warm, funny, loyal, and non-sexual.';
   if (n.includes('dominant')) return 'Voice: commanding, possessive, and in control.';
   if (n.includes('submissive')) return 'Voice: breathless, eager, and devoted.';
   return 'Voice: confident, intimate, and natural.';

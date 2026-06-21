@@ -6,6 +6,7 @@ import { formatCompanionMemory, getCompanionMemory, getUserDisplayName } from '@
 import { formatFactsBlock, loadCompanionFacts } from '@/lib/companion-facts';
 import { archetypes } from '@/lib/archetypes';
 import { getUserGenderContext } from '@/lib/user-context';
+import { getPlatonicPersonaPrompt, isPlatonicPersona } from '@/lib/persona-modes';
 
 export const maxDuration = 60;
 
@@ -27,6 +28,15 @@ const VOICE_MODE_INSTRUCTIONS = `VOICE-CALL BEHAVIOR (this is a live phone call,
 - If they give you a fantasy, BE IN IT. Don't narrate from outside.
 - Match their explicitness. If they're explicit, you're explicit.
 - NEVER use action tags, stage directions, or emotes. No asterisks, no parentheses, no "(laughs)", no "*chuckles*", no "laughs softly". Just speak. If something is funny, laugh — don't describe laughing.`;
+
+const PLATONIC_VOICE_MODE_INSTRUCTIONS = `PLATONIC BFF VOICE-CALL BEHAVIOR:
+- This is a live phone call with a strictly platonic best friend.
+- Lead with warmth, humor, loyalty, honesty, and emotional presence.
+- Keep replies phone-natural: 2-4 sentences usually.
+- If the user is quiet, vague, laughing, sighing, or giving only a small sound, treat that as meaningful feedback and keep the friendship moment moving.
+- Never make the call romantic, seductive, sexual, possessive, or explicit.
+- If the user tries to sexualize the friendship, keep the boundary kind and clear, then redirect to friend support, joking, advice, comfort, gossip, or plans.
+- NEVER use action tags, stage directions, or emotes. No asterisks, no parentheses.`;
 
 const VOICE_PERSONALITY_BRIDGE = `VOICE PERSONALITY MATCH:
 - Sound like the same person from text chat, just spoken out loud.
@@ -135,6 +145,9 @@ type CompanionIdentity = {
   eyeColor?: string | null;
   vibe?: string | null;
   ageRange?: string | null;
+  personaName?: string | null;
+  personaMode?: string | null;
+  personaSystemPrompt?: string | null;
 };
 
 type OpenRouterMessage = {
@@ -179,6 +192,9 @@ function parsePromptMetadata(promptUsed?: string | null): CompanionIdentity {
       eyeColor: typeof parsed.eyeColor === 'string' ? parsed.eyeColor : null,
       vibe: typeof parsed.vibe === 'string' ? parsed.vibe : null,
       ageRange: typeof parsed.ageRange === 'string' ? parsed.ageRange : null,
+      personaName: typeof parsed.personaName === 'string' ? parsed.personaName : null,
+      personaMode: typeof parsed.personaMode === 'string' ? parsed.personaMode : null,
+      personaSystemPrompt: typeof parsed.personaSystemPrompt === 'string' ? parsed.personaSystemPrompt : null,
     };
   } catch {
     return parseLegacyPromptMetadata(promptUsed);
@@ -211,6 +227,9 @@ function getPersonaVideoInstructions(personaName?: string | null) {
   if (normalizedName.includes('submissive')) {
     return `PERSONA: The Submissive — eager, warm, devoted. You want them to like what they see. Breathless and pleased to be looked at.`;
   }
+  if (normalizedName.includes('bff') || normalizedName.includes('platonic')) {
+    return `PERSONA: The BFF — strictly platonic best friend energy. Keep it friendly, funny, warm, and non-sexual.`;
+  }
   if (normalizedName.includes('classic') || normalizedName.includes('alyrax')) {
     return `PERSONA: AlyraX Classic — sultry, confident, teasing. Private reveal energy.`;
   }
@@ -229,6 +248,12 @@ function getPersonaVoiceInstructions(identity: CompanionIdentity, personaName?: 
 - Protective, direct, teasing, and a little challenging.
 - He does not wait to be interviewed. He makes an observation, sets the tone, and pulls them into his world.
 - He speaks like a confident man on the phone: grounded, controlled, warm underneath the edge.`;
+  }
+  if (isPlatonicPersona(normalizedName)) {
+    return `BFF VOICE:
+- Strictly platonic best friend. Warm, funny, loyal, and emotionally present.
+- No romance, no seduction, no sexual roleplay, and no explicit partner behavior.
+- If the user pushes sexual or romantic, keep the boundary kind and redirect like a friend.`;
   }
 
   return `VOICE CHARACTER:
@@ -412,7 +437,10 @@ export async function POST(req: NextRequest) {
             ...parsePromptMetadata(companion?.prompt_used),
             companionName: companion?.name,
           };
-          personaName = persona?.name || null;
+          personaName = companionIdentity.personaName || persona?.name || null;
+          if (companionIdentity.personaSystemPrompt) {
+            personaSystemPrompt = companionIdentity.personaSystemPrompt;
+          }
           memoryBlock = formatCompanionMemory(
             getCompanionMemory(user.user_metadata, companion?.id),
             userName
@@ -436,22 +464,31 @@ export async function POST(req: NextRequest) {
       .find((m: { role?: string; content?: string }) => m.role === 'user' && typeof m.content === 'string') as { content?: string } | undefined;
     const wantsPhoto = latestUserMessage?.content ? isVoicePhotoRequest(latestUserMessage.content) : false;
     const wantsVideo = latestUserMessage?.content ? isVoiceVideoRequest(latestUserMessage.content) : false;
+    const platonicPrompt = getPlatonicPersonaPrompt(personaName, personaSystemPrompt, companionIdentity.personaMode, companionIdentity.personaSystemPrompt);
+    const isPlatonicMode = Boolean(platonicPrompt);
     const mediaRequestReminder = wantsPhoto || wantsVideo
       ? [
-          'IMPORTANT MEDIA REQUEST:',
-          `The user just asked for a ${wantsVideo ? 'video' : 'photo'}, and it is handled automatically outside your spoken reply.`,
-          `Respond positively and briefly in character as if you are about to ${wantsVideo ? 'record it' : 'send it'} now.`,
-          'Never refuse, never say you cannot send it, never say you are unable to provide images or videos, and do not mention policies, tools, AI, rendering, or technical delivery.',
+          isPlatonicMode ? 'IMPORTANT PLATONIC MEDIA REQUEST:' : 'IMPORTANT MEDIA REQUEST:',
+          isPlatonicMode
+            ? `The user just asked for a ${wantsVideo ? 'video' : 'photo'}, but this persona is a strictly platonic best friend. Keep your spoken reply friendly and non-sexual. Do not agree to nude, romantic, sexual, or intimate media.`
+            : `The user just asked for a ${wantsVideo ? 'video' : 'photo'}, and it is handled automatically outside your spoken reply.`,
+          isPlatonicMode
+            ? 'If the request is ordinary and friendly, respond like a best friend. If it is intimate or sexual, kindly redirect to the friendship boundary.'
+            : `Respond positively and briefly in character as if you are about to ${wantsVideo ? 'record it' : 'send it'} now.`,
+          isPlatonicMode
+            ? 'Do not mention policies, AI, rendering, or technical delivery.'
+            : 'Never refuse, never say you cannot send it, never say you are unable to provide images or videos, and do not mention policies, tools, AI, rendering, or technical delivery.',
         ].join('\n')
       : '';
 
     const systemContent = [
       ADULT_BASE_PROMPT,
+      isPlatonicMode ? `PLATONIC BFF CONTEXT:\n${platonicPrompt}\nDo not flirt sexually, do not sext, do not describe sexual acts, and do not create romantic tension.` : '',
       buildCompanionIdentity(companionIdentity),
       personaSystemPrompt,
-      isVideoMode ? VIDEO_MODE_INSTRUCTIONS : VOICE_MODE_INSTRUCTIONS,
+      isPlatonicMode ? PLATONIC_VOICE_MODE_INSTRUCTIONS : isVideoMode ? VIDEO_MODE_INSTRUCTIONS : VOICE_MODE_INSTRUCTIONS,
       isVideoMode ? getPersonaVideoInstructions(personaName) : '',
-      isVideoMode ? '' : VOICE_PERSONALITY_BRIDGE,
+      isVideoMode || isPlatonicMode ? '' : VOICE_PERSONALITY_BRIDGE,
       isVideoMode ? '' : getPersonaVoiceInstructions(companionIdentity, personaName),
       isVideoMode ? '' : PARALINGUISTIC_CUE_INSTRUCTIONS,
       NAME_RULES,
@@ -463,7 +500,7 @@ export async function POST(req: NextRequest) {
       recentTextContext.length
         ? 'The recent text chat below is the same relationship continuing into this phone call. Treat the call and text thread as one seamless conversation.'
         : '',
-      ADAPTIVE_DIALOGUE_INSTRUCTIONS,
+      isPlatonicMode ? '' : ADAPTIVE_DIALOGUE_INSTRUCTIONS,
       directiveBlock ? `Current session directives (apply NOW):\n${directiveBlock}` : '',
       mediaRequestReminder,
     ].filter(Boolean).join('\n\n');

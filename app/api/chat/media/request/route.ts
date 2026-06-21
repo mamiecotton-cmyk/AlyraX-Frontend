@@ -2,11 +2,35 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase-server';
 import { archetypes } from '@/lib/archetypes';
 import { buildSelfiePrompt, isSelfieRequest, isVideoRequest } from '@/lib/chat-media';
+import { isPlatonicPersona } from '@/lib/persona-modes';
 
 type VoiceContextMessage = {
   role?: string;
   content?: string;
 };
+
+type CompanionPersona = {
+  name?: string | null;
+  system_prompt?: string | null;
+};
+
+function getPersonaFromRelation(personas: CompanionPersona | CompanionPersona[] | null | undefined) {
+  return Array.isArray(personas) ? personas[0] : personas;
+}
+
+function parsePersonaMetadata(promptUsed?: string | null) {
+  if (!promptUsed) return {};
+  try {
+    const parsed = JSON.parse(promptUsed) as Record<string, unknown>;
+    return {
+      personaName: typeof parsed.personaName === 'string' ? parsed.personaName : '',
+      personaMode: typeof parsed.personaMode === 'string' ? parsed.personaMode : '',
+      personaSystemPrompt: typeof parsed.personaSystemPrompt === 'string' ? parsed.personaSystemPrompt : '',
+    };
+  } catch {
+    return {};
+  }
+}
 
 function buildVoiceContextPrompt(message: string, voiceContext: unknown) {
   if (!Array.isArray(voiceContext)) return message;
@@ -28,6 +52,10 @@ function buildVoiceContextPrompt(message: string, voiceContext: unknown) {
     'full body candid framing, body visible in the scene, not a tight portrait headshot',
     'do not default to a neutral studio portrait unless the current call context specifically says studio',
   ].join(', ');
+}
+
+function isIntimateMediaRequest(message: string) {
+  return /\b(nude|naked|nsfw|explicit|sexual|sexy|seductive|erotic|intimate|topless|shirtless|bare|horny|turn me on|show me your body|bedroom|lingerie|underwear|boxers|panties|thong|cum|hard|wet)\b/i.test(message);
 }
 
 export async function POST(req: NextRequest) {
@@ -60,6 +88,26 @@ export async function POST(req: NextRequest) {
 
     if (!conversation) {
       return NextResponse.json({ error: 'Conversation not found' }, { status: 404 });
+    }
+
+    const { data: companionForPersona } = await supabase
+      .from('companions')
+      .select('prompt_used, personas(name, system_prompt)')
+      .eq('user_id', user.id)
+      .eq('archetype_id', archetype_id)
+      .maybeSingle();
+
+    const companionPersona = getPersonaFromRelation(companionForPersona?.personas);
+    const personaMetadata = parsePersonaMetadata(companionForPersona?.prompt_used);
+    const isPlatonicMode = isPlatonicPersona(
+      personaMetadata.personaMode,
+      personaMetadata.personaName,
+      personaMetadata.personaSystemPrompt,
+      companionPersona?.name,
+      companionPersona?.system_prompt,
+    );
+    if (isPlatonicMode && isIntimateMediaRequest(message)) {
+      return NextResponse.json({ ignored: true, mediaMessage: null, platonic: true });
     }
 
     const wantsVideo = isVideoRequest(message);
