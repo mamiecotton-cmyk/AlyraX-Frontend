@@ -9,3 +9,14 @@ RUN cd /workspace/runpod-slim/ComfyUI/custom_nodes && \
     git clone https://github.com/cubiq/ComfyUI_InstantID.git && \
     cd ComfyUI_InstantID && \
     pip install -r requirements.txt
+
+# --- PuLID-Flux (face lock for Flux generations) ---
+RUN cd /workspace/runpod-slim/ComfyUI/custom_nodes && \
+    git clone https://github.com/lldacing/ComfyUI_PuLID_Flux_ll.git && \
+    cd ComfyUI_PuLID_Flux_ll && \
+    pip install -r requirements.txt && \
+    pip install facenet-pytorch --no-deps
+
+# Patch PuLID for ComfyUI's timestep_zero_index arg (matches the test-pod fix)
+RUN sed -i 's/    attn_mask: Tensor = None,/    attn_mask: Tensor = None,\n    timestep_zero_index=None,/' \
+    /workspace/runpod-slim/ComfyUI/custom_nodes/ComfyUI_PuLID_Flux_ll/PulidFluxHook.py || true
