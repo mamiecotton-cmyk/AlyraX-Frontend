@@ -6,6 +6,7 @@ export type ArchetypeLoraConfig = {
   explicitTriggerWord?: string;
   refinementLoraFile?: string;
   refinementStrength?: number;
+  pulidReference?: string;   // filename in /comfyui/input for PuLID face-lock
 };
 
 export const archetypeLoras: Record<string, ArchetypeLoraConfig> = {
@@ -18,6 +19,7 @@ export const archetypeLoras: Record<string, ArchetypeLoraConfig> = {
     triggerWord: 'jxnst',
     explicitLoraFile: 'jaxon_explicit.safetensors',
     explicitTriggerWord: 'jaxx0n',
+    pulidReference: 'jaxon_ref.jpg',
   },
   roman: {
     loraFile: 'roman_v1.safetensors',

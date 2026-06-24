@@ -18,6 +18,7 @@ type FluxWorkflowParams = {
   useNsfwLora: boolean;
   nsfwLoraStrength: number;
   characterId?: string;
+  pulidReference?: string;   // filename in /comfyui/input for PuLID face-lock
 };
 
 type ImageStyle = 'portrait' | 'fullbody' | 'fullscreen';
@@ -64,6 +65,7 @@ function buildFluxWorkflow({
   useNsfwLora,
   nsfwLoraStrength,
   characterId,
+  pulidReference,
 }: FluxWorkflowParams) {
   const loraNodes: Record<string, { class_type: string; inputs: Record<string, unknown> }> = {};
   let currentModel: [string, number] = ['1', 0];
@@ -95,6 +97,30 @@ function buildFluxWorkflow({
 
   const modelOutput = currentModel;
 
+  // --- PuLID face-lock: inserted after the LoRA chain ---
+  const pulidNodes: Record<string, { class_type: string; inputs: Record<string, unknown> }> = {};
+  let guiderModel: [string, number] = modelOutput;
+  if (pulidReference) {
+    pulidNodes['P1'] = { class_type: 'PulidFluxModelLoader', inputs: { pulid_file: 'pulid_flux_v0.9.1.safetensors' } };
+    pulidNodes['P2'] = { class_type: 'PulidFluxEvaClipLoader', inputs: {} };
+    pulidNodes['P3'] = { class_type: 'PulidFluxInsightFaceLoader', inputs: { provider: 'CUDA' } };
+    pulidNodes['P4'] = { class_type: 'LoadImage', inputs: { image: pulidReference } };
+    pulidNodes['P5'] = {
+      class_type: 'ApplyPulidFlux',
+      inputs: {
+        model: modelOutput,
+        pulid_flux: ['P1', 0],
+        eva_clip: ['P2', 0],
+        face_analysis: ['P3', 0],
+        image: ['P4', 0],
+        weight: 0.7,
+        start_at: 0.15,
+        end_at: 1.0,
+      },
+    };
+    guiderModel = ['P5', 0];
+  }
+
   return {
     '1': {
       class_type: 'UNETLoader',
@@ -116,6 +142,7 @@ function buildFluxWorkflow({
       inputs: { vae_name: 'ae.safetensors' },
     },
     ...loraNodes,
+    ...pulidNodes,
     '5': {
       class_type: 'CLIPTextEncode',
       inputs: { text: prompt, clip: ['2', 0] },
@@ -130,11 +157,11 @@ function buildFluxWorkflow({
     },
     '8': {
       class_type: 'BasicGuider',
-      inputs: { model: modelOutput, conditioning: ['6', 0] },
+      inputs: { model: guiderModel, conditioning: ['6', 0] },
     },
     '9': {
       class_type: 'BasicScheduler',
-      inputs: { model: modelOutput, scheduler: 'simple', steps, denoise: 1.0 },
+      inputs: { model: guiderModel, scheduler: 'simple', steps, denoise: 1.0 },
     },
     '10': {
       class_type: 'KSamplerSelect',
@@ -304,6 +331,7 @@ export async function POST(req: NextRequest) {
       useNsfwLora,
       nsfwLoraStrength: nsfw_lora_strength,
       characterId: typeof character_id === 'string' ? character_id : undefined,
+      pulidReference: archetypeLoraConfig?.pulidReference,
     });
 
     console.log('Submitting Flux LoRA selfie:', {
