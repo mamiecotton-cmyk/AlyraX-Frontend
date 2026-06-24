@@ -10,8 +10,18 @@ export const BFF_SYSTEM_PROMPT = [
 ].join(' ');
 
 export function isPlatonicPersona(...values: Array<string | null | undefined>) {
-  const text = values.filter(Boolean).join(' ').toLowerCase();
-  return /\b(bff|best friend|platonic|strictly platonic|friendship)\b/.test(text);
+  return values.some((value) => {
+    const text = value?.trim().toLowerCase();
+    if (!text) return false;
+    return [
+      'bff',
+      'the bff',
+      'best friend',
+      'platonic',
+      'strictly platonic',
+      'friendship',
+    ].includes(text);
+  });
 }
 
 export function getPlatonicPersonaPrompt(...values: Array<string | null | undefined>) {
