@@ -3,7 +3,7 @@ import crypto from 'crypto';
 import { createClient, createServiceRoleClient } from '@/lib/supabase-server';
 import { formatSessionDirectives, updateSessionDirectives, type SessionDirectives } from '@/lib/session-directives';
 import { formatCompanionMemory, getCompanionMemory, getUserDisplayName } from '@/lib/companion-memory';
-import { formatFactsBlock, hasUserNamePronunciationFact, loadCompanionFacts } from '@/lib/companion-facts';
+import { formatFactsBlock, loadCompanionFacts, shouldAskUserNamePronunciation } from '@/lib/companion-facts';
 import { archetypes } from '@/lib/archetypes';
 import { getUserGenderContext } from '@/lib/user-context';
 import { getPlatonicPersonaPrompt, isPlatonicPersona } from '@/lib/persona-modes';
@@ -80,6 +80,7 @@ const NAME_RULES = `NAME USAGE:
 - Don't overuse it — once at the start of a call, occasionally for emphasis, that's it.
 - Never correct the user for how they pronounce, spell, or refer to your name unless they directly ask how your name is pronounced.
 - If they ask how to pronounce your name, answer briefly and naturally, then move on.
+- If the user corrects how you say their name, accept it warmly, adapt immediately, and do not debate it.
 - "Baby," "babe," and similar are fine unless they've asked you to stop.`;
 
 const SAFETY_AND_CRISIS_INSTRUCTIONS = `SAFETY AND CRISIS:
@@ -498,8 +499,8 @@ export async function POST(req: NextRequest) {
       isVideoMode ? '' : getPersonaVoiceInstructions(companionIdentity, personaName),
       isVideoMode ? '' : PARALINGUISTIC_CUE_INSTRUCTIONS,
       NAME_RULES,
-      userName && !hasUserNamePronunciationFact(companionFacts)
-        ? 'Name pronunciation: You do not yet know how the user pronounces their first name. Ask once, casually and early, how they say it so you can get it right. Do not ask again if they already answered in this call.'
+      shouldAskUserNamePronunciation(userName, companionFacts)
+        ? 'Name pronunciation: The user has an uncommon first name and you do not yet know how they pronounce it. Ask once, casually and early, how they say it so you can get it right. Do not ask again if they already answered in this call.'
         : '',
       SAFETY_AND_CRISIS_INSTRUCTIONS,
       userName ? `User's first name: ${userName}` : '',

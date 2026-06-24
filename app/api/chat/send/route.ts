@@ -4,10 +4,10 @@ import { archetypes, type Archetype } from '@/lib/archetypes';
 import { buildSelfiePrompt, isSelfieRequest, isVideoRequest } from '@/lib/chat-media';
 import {
   formatFactsBlock,
-  hasUserNamePronunciationFact,
   loadCompanionFacts,
   mergeCompanionFacts,
   normalizeFacts,
+  shouldAskUserNamePronunciation,
 } from '@/lib/companion-facts';
 import { getUserDisplayName } from '@/lib/companion-memory';
 import { getUserGenderContext } from '@/lib/user-context';
@@ -257,7 +257,8 @@ NAME AND PRONUNCIATION:
 - Use ONLY the user's first name. Never their last name or full name.
 - Never correct the user for how they pronounce, spell, or refer to your name unless they directly ask how your name is pronounced.
 - If they ask how to pronounce your name, answer briefly and naturally, then move on.
-${shouldAskNamePronunciation ? '- You do not yet know how the user pronounces their first name. Ask once, casually and early, how they say it so you can get it right. Do not ask again if they already answered in recent chat.' : '- If saved facts include how the user pronounces their name, use that pronunciation silently. Do not ask again.'}
+- If the user corrects how you say their name, accept it warmly, adapt immediately, and do not debate it.
+${shouldAskNamePronunciation ? '- The user has an uncommon first name and you do not yet know how they pronounce it. Ask once, casually and early, how they say it so you can get it right. Do not ask again if they already answered in recent chat.' : '- If the user has a common first name, pronounce it naturally without asking. If saved facts include how the user pronounces their name, use that pronunciation silently. Do not ask again.'}
 
 ${isPlatonic ? `FRIENDSHIP PROGRESSION:
 - Follow the user's lead while keeping the relationship strictly platonic.
@@ -358,7 +359,7 @@ async function extractFactsFromExchange(
     messages: [
       {
         role: 'system',
-        content: `Extract durable user facts for ${archetype.name}. Return ONLY a JSON array of short strings. Include only facts explicitly stated by the user. Include preferences, boundaries, names, relationship details, how the user pronounces their name, and important personal facts. If the user explains how to say or pronounce their name, save it as "The user's name is pronounced ...". Do not infer facts from ${archetype.name}'s reply, and do not save anything the companion invented or suggested. Do not include facts about ${archetype.name}.`,
+        content: `Extract durable user facts for ${archetype.name}. Return ONLY a JSON array of short strings. Include only facts explicitly stated by the user. Include preferences, boundaries, names, relationship details, how the user pronounces their name, and important personal facts. If the user explains or corrects how to say or pronounce their name, save it as "The user's name is pronounced ...". Do not infer facts from ${archetype.name}'s reply, and do not save anything the companion invented or suggested. Do not include facts about ${archetype.name}.`,
       },
       {
         role: 'user',
@@ -509,9 +510,9 @@ export async function POST(req: NextRequest) {
 
     const facts = await loadCompanionFacts(supabase, user.id, archetype_id);
     const userDisplayName = getUserDisplayName(user.user_metadata, user.email);
-    const shouldAskNamePronunciation = Boolean(
-      (relationship?.companion_nickname || userDisplayName).trim()
-      && !hasUserNamePronunciationFact(facts)
+    const shouldAskNamePronunciation = shouldAskUserNamePronunciation(
+      relationship?.companion_nickname || userDisplayName,
+      facts
     );
     const userContextBlock = getUserGenderContext(user.user_metadata as Record<string, unknown> | null);
     const systemPrompt = buildSystemPrompt(

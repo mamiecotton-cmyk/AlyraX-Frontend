@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase-server';
 import { archetypes } from '@/lib/archetypes';
-import { hasUserNamePronunciationFact, loadCompanionFacts } from '@/lib/companion-facts';
+import { loadCompanionFacts, shouldAskUserNamePronunciation } from '@/lib/companion-facts';
 import { getUserDisplayName } from '@/lib/companion-memory';
 
 function buildInitialGreeting(archetypeId: string, userName: string, shouldAskNamePronunciation: boolean) {
@@ -80,7 +80,7 @@ export async function GET(req: NextRequest) {
       const now = new Date().toISOString();
       const userName = getUserDisplayName(user.user_metadata, user.email);
       const facts = await loadCompanionFacts(supabase, user.id, archetypeId);
-      const shouldAskNamePronunciation = Boolean(userName && !hasUserNamePronunciationFact(facts));
+      const shouldAskNamePronunciation = shouldAskUserNamePronunciation(userName, facts);
       const { data: greetingMessage, error: greetingError } = await supabase
         .from('chat_messages')
         .insert({

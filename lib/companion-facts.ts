@@ -69,6 +69,36 @@ export function hasUserNamePronunciationFact(facts: string[]) {
   });
 }
 
+const COMMON_FIRST_NAMES = new Set([
+  'aaron', 'adam', 'alex', 'alexander', 'alexis', 'alicia', 'allison', 'alyssa', 'amanda', 'amber',
+  'amy', 'andrea', 'andrew', 'angela', 'anna', 'anthony', 'ashley', 'austin', 'barbara', 'benjamin',
+  'brandon', 'brian', 'brittany', 'carol', 'carolyn', 'catherine', 'charles', 'chelsea', 'chris',
+  'christian', 'christina', 'christine', 'christopher', 'cynthia', 'daniel', 'danielle', 'david',
+  'deborah', 'denise', 'diana', 'donald', 'donna', 'dylan', 'edward', 'elizabeth', 'emily', 'emma',
+  'eric', 'ethan', 'evelyn', 'frank', 'gabriel', 'george', 'grace', 'hannah', 'heather', 'isabella',
+  'jacob', 'james', 'jason', 'jennifer', 'jeremy', 'jessica', 'john', 'jonathan', 'jordan', 'joseph',
+  'joshua', 'julie', 'justin', 'karen', 'katherine', 'kayla', 'kevin', 'kimberly', 'kyle', 'laura',
+  'lauren', 'linda', 'lisa', 'madison', 'margaret', 'maria', 'mark', 'mary', 'matthew', 'megan',
+  'melissa', 'michael', 'michelle', 'nancy', 'natalie', 'nicholas', 'nicole', 'olivia', 'patricia',
+  'paul', 'rachel', 'rebecca', 'richard', 'robert', 'samantha', 'sandra', 'sarah', 'scott', 'sharon',
+  'stephanie', 'stephen', 'steven', 'susan', 'taylor', 'thomas', 'tiffany', 'timothy', 'victoria',
+  'william', 'zachary',
+]);
+
+function normalizeFirstName(name: string) {
+  return name
+    .trim()
+    .split(/\s+/)[0]
+    ?.replace(/[^a-z'-]/gi, '')
+    .toLowerCase() || '';
+}
+
+export function shouldAskUserNamePronunciation(userName: string, facts: string[]) {
+  const firstName = normalizeFirstName(userName);
+  if (!firstName || hasUserNamePronunciationFact(facts)) return false;
+  return !COMMON_FIRST_NAMES.has(firstName);
+}
+
 export async function loadCompanionFacts(
   supabase: FactsClient,
   userId: string,
