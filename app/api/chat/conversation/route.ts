@@ -1,18 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase-server';
 import { archetypes } from '@/lib/archetypes';
+import { hasUserNamePronunciationFact, loadCompanionFacts } from '@/lib/companion-facts';
 import { getUserDisplayName } from '@/lib/companion-memory';
 
-function buildInitialGreeting(archetypeId: string, userName: string) {
+function buildInitialGreeting(archetypeId: string, userName: string, shouldAskNamePronunciation: boolean) {
   const archetype = archetypes.find(a => a.id === archetypeId);
   const companionName = archetype?.name || 'me';
   const address = userName ? ` ${userName}` : '';
+  const pronunciationAsk = shouldAskNamePronunciation
+    ? ' And tell me how you pronounce your name, so I say it right.'
+    : '';
 
   if (archetypeId === 'jaxon') {
-    return `There you are${address}. I was wondering when you were going to come talk to me.`;
+    return `There you are${address}. I was wondering when you were going to come talk to me.${pronunciationAsk}`;
   }
 
-  return `Hey${address}, it's ${companionName}. I was hoping you'd come find me.`;
+  return `Hey${address}, it's ${companionName}. I was hoping you'd come find me.${pronunciationAsk}`;
 }
 
 export async function GET(req: NextRequest) {
@@ -74,12 +78,15 @@ export async function GET(req: NextRequest) {
 
     if (!messages?.length) {
       const now = new Date().toISOString();
+      const userName = getUserDisplayName(user.user_metadata, user.email);
+      const facts = await loadCompanionFacts(supabase, user.id, archetypeId);
+      const shouldAskNamePronunciation = Boolean(userName && !hasUserNamePronunciationFact(facts));
       const { data: greetingMessage, error: greetingError } = await supabase
         .from('chat_messages')
         .insert({
           conversation_id: finalConversation.id,
           role: 'companion',
-          content: buildInitialGreeting(archetypeId, getUserDisplayName(user.user_metadata, user.email)),
+          content: buildInitialGreeting(archetypeId, userName, shouldAskNamePronunciation),
         })
         .select('*')
         .single();

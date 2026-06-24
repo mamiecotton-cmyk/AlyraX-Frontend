@@ -91,7 +91,7 @@ async function extractFactsFromVoiceMessages(messages: ChatMessage[]) {
     messages: [
       {
         role: 'system',
-        content: 'From this voice call transcript, extract durable personal facts the user shared about themselves. Return ONLY a JSON array of short strings. Include preferences, boundaries, names, relationship details, and important personal facts. Do not include facts about the companion.',
+        content: 'From this voice call transcript, extract durable personal facts the user shared about themselves. Return ONLY a JSON array of short strings. Include preferences, boundaries, names, relationship details, how the user pronounces their name, and important personal facts. If the user explains how to say or pronounce their name, save it as "The user\'s name is pronounced ...". Do not include facts about the companion.',
       },
       { role: 'user', content: transcript },
     ],

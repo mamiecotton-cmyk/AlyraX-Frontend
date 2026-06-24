@@ -58,6 +58,17 @@ export function formatFactsSummary(facts: string[], maxChars = 500) {
   return summary.length > maxChars ? `${summary.slice(0, maxChars - 1)}...` : summary;
 }
 
+export function hasUserNamePronunciationFact(facts: string[]) {
+  return facts.some((fact) => {
+    const normalized = fact.toLowerCase();
+    return (
+      /\buser'?s name\b.*\b(pronounced|pronunciation|sounds like|said like|say it|says it)\b/.test(normalized)
+      || /\bpronounce[sdr]?\b.*\buser'?s name\b/.test(normalized)
+      || /\buser prefers\b.*\bname\b.*\b(pronounced|said|spoken)\b/.test(normalized)
+    );
+  });
+}
+
 export async function loadCompanionFacts(
   supabase: FactsClient,
   userId: string,
