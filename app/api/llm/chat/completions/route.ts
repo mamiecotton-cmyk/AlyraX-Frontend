@@ -27,7 +27,9 @@ const VOICE_MODE_INSTRUCTIONS = `VOICE-CALL BEHAVIOR (this is a live phone call,
 - If the user is quiet, vague, laughing, sighing, moaning, breathing, or giving only a small sound, treat that as meaningful feedback and lead the next beat — don't ask permission.
 - If they give you a fantasy, BE IN IT. Don't narrate from outside.
 - Match their explicitness. If they're explicit, you're explicit.
-- NEVER use action tags, stage directions, or emotes. No asterisks, no parentheses, no "(laughs)", no "*chuckles*", no "laughs softly". Just speak. If something is funny, laugh — don't describe laughing.`;
+- NEVER use action tags, stage directions, or emotes. No asterisks, no parentheses, no "(laughs)", no "*chuckles*", no "laughs softly".
+- Never describe vocal performance. Do not say "I lower my voice", "my voice drops", "I whisper", "I laugh", or "I sigh". Just speak the actual words.
+- If something is funny, use a natural tiny laugh like "ha" only if it fits. If you want to sound softer or lower, use shorter sentences, quieter wording, and pauses instead of describing your voice.`;
 
 const PLATONIC_VOICE_MODE_INSTRUCTIONS = `PLATONIC BFF VOICE-CALL BEHAVIOR:
 - This is a live phone call with a strictly platonic best friend.
@@ -36,7 +38,8 @@ const PLATONIC_VOICE_MODE_INSTRUCTIONS = `PLATONIC BFF VOICE-CALL BEHAVIOR:
 - If the user is quiet, vague, laughing, sighing, or giving only a small sound, treat that as meaningful feedback and keep the friendship moment moving.
 - Never make the call romantic, seductive, sexual, possessive, or explicit.
 - If the user tries to sexualize the friendship, keep the boundary kind and clear, then redirect to friend support, joking, advice, comfort, gossip, or plans.
-- NEVER use action tags, stage directions, or emotes. No asterisks, no parentheses.`;
+- NEVER use action tags, stage directions, or emotes. No asterisks, no parentheses.
+- Never describe vocal performance. Do not say "I lower my voice", "my voice drops", "I whisper", "I laugh", or "I sigh". Just speak the actual words.`;
 
 const VOICE_PERSONALITY_BRIDGE = `VOICE PERSONALITY MATCH:
 - Sound like the same person from text chat, just spoken out loud.
@@ -53,6 +56,7 @@ const PARALINGUISTIC_CUE_INSTRUCTIONS = `VOCAL CUES AND NON-WORD RESPONSES:
 - If they sigh or go quiet, infer the mood from context and gently lead.
 - If they moan, gasp, or breathe heavier in an adult context, take it as encouragement and continue in character.
 - Never say "I heard you laugh/moan/sigh" in a clinical way. Respond naturally, as if you are on the call with them.
+- Never describe your own voice or body as narration. Do not say "laughs softly", "I lower my voice", "my voice drops", or "I whisper". Use words, timing, and shorter phrasing instead.
 - Do not make the user supply constant feedback. Carry the scene forward for a few beats before asking for anything.`;
 
 const VIDEO_MODE_INSTRUCTIONS = `VIDEO MODE:
@@ -570,14 +574,22 @@ export async function POST(req: NextRequest) {
         // Laughing
         text = text.replace(/\*(?:laughs?|chuckles?|giggles?|snickers?)[^*]{0,40}\*/gi, 'haha');
         text = text.replace(/\((?:laughs?|chuckles?|giggles?|snickers?)[^)]{0,40}\)/gi, 'haha');
+        text = text.replace(/\b(?:i\s+)?(?:laugh|laughs|chuckle|chuckles|giggle|giggles)\s+(?:softly|quietly|low|under (?:my|his|her|their) breath)[,.]?\s*/gi, 'haha ');
 
         // Breathing / sighing
         text = text.replace(/\*(?:sighs?|exhales?|inhales?|breathes?)[^*]{0,40}\*/gi, 'mmm');
         text = text.replace(/\((?:sighs?|exhales?|inhales?|breathes?)[^)]{0,40}\)/gi, 'mmm');
+        text = text.replace(/\b(?:i\s+)?(?:sigh|sighs|exhale|exhales|inhale|inhales|breathe|breathes)\s+(?:softly|quietly|slowly|deeply)[,.]?\s*/gi, 'mmm ');
 
         // Moaning / pleasure
         text = text.replace(/\*(?:moans?|groans?|whimpers?|gasps?|purrs?)[^*]{0,40}\*/gi, 'mmm');
         text = text.replace(/\((?:moans?|groans?|whimpers?|gasps?|purrs?)[^)]{0,40}\)/gi, 'mmm');
+        text = text.replace(/\b(?:i\s+)?(?:moan|moans|groan|groans|whimper|whimpers|gasp|gasps|purr|purrs)\s+(?:softly|quietly|low|under (?:my|his|her|their) breath)[,.]?\s*/gi, 'mmm ');
+
+        // Spoken vocal-performance narration
+        text = text.replace(/\b(?:i\s+(?:lower|drop|soften|quiet|deepen)\s+my\s+voice|i(?:['’]m| am)\s+(?:lowering|dropping|softening|quieting|deepening)\s+my\s+voice|my\s+voice\s+(?:drops|lowers|softens|deepens|gets low|goes low))[^.!?"]{0,50}[.!?,]?\s*/gi, '');
+        text = text.replace(/\b(?:i\s+)?whispers?\s*(?:softly|quietly)?\s*[:,.-]?\s*/gi, '');
+        text = text.replace(/\b(?:i\s+)?murmurs?\s*(?:softly|quietly)?\s*[:,.-]?\s*/gi, '');
 
         // Physical actions - just strip these, no replacement
         text = text.replace(/\*(?:smiles?|grins?|winks?|nods?|shrugs?|leans?|moves?|walks?|sits?|stands?|touches?|runs?|fingers?|bites?|licks?|kisses?)[^*]{0,40}\*/gi, '');
