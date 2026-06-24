@@ -81,31 +81,22 @@ export default function CallButton({
   const [connected, setConnected] = useState(false);
   const [callError, setCallError] = useState<string | null>(null);
   const messagesRef = useRef<VoiceTranscript[]>([]);
+  const unsavedMessagesRef = useRef<VoiceTranscript[]>([]);
+  const saveInFlightRef = useRef(false);
   const autoStartedRef = useRef(false);
   const isVideoMode = scenario.toLowerCase().includes('video');
   const fallbackVoiceId = process.env.NEXT_PUBLIC_CARTESIA_VOICE_ID || '';
 
   useEffect(() => {
     if (!vapi) return;
-    const saveCallState = async () => {
-      const messages = messagesRef.current;
-      messagesRef.current = [];
+    const flushUnsavedVoiceMessages = async () => {
+      if (saveInFlightRef.current) return;
+      const messages = unsavedMessagesRef.current;
+      unsavedMessagesRef.current = [];
       if (!messages.length) return;
+      saveInFlightRef.current = true;
 
       const saves: Promise<void>[] = [];
-
-      if (companionId && messages.length >= 2) {
-        saves.push(fetch('/api/companion/memory', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            companionId,
-            messages,
-            mode: isVideoMode ? 'solo_video' : 'solo',
-          }),
-          keepalive: true,
-        }).then(() => undefined));
-      }
 
       if (conversationId) {
         saves.push(fetch('/api/chat/voice-transcript', {
@@ -125,10 +116,33 @@ export default function CallButton({
           if (result.status === 'rejected') console.error('Voice call save failed:', result.reason);
         });
       });
+      saveInFlightRef.current = false;
+    };
+
+    const saveCallState = async () => {
+      const messages = messagesRef.current;
+      messagesRef.current = [];
+
+      await flushUnsavedVoiceMessages();
+      if (!messages.length) return;
+
+      if (companionId && messages.length >= 2) {
+        await fetch('/api/companion/memory', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            companionId,
+            messages,
+            mode: isVideoMode ? 'solo_video' : 'solo',
+          }),
+          keepalive: true,
+        }).catch((error) => console.error('Voice memory save failed:', error));
+      }
     };
 
     const onStart = () => {
       messagesRef.current = [];
+      unsavedMessagesRef.current = [];
       setCallError(null);
       setCalling(false);
       setConnected(true);
@@ -143,16 +157,23 @@ export default function CallButton({
       setCalling(false);
       setConnected(false);
       setCallError(getCallErrorMessage(error));
+      void saveCallState();
     };
     const onMessage = (message: { type?: string; role?: string; transcript?: string }) => {
       if (message.type !== 'transcript' || !message.transcript) return;
       if (!isVoiceTranscriptRole(message.role)) return;
+      const transcriptMessage = { role: message.role, content: message.transcript };
       messagesRef.current = [
         ...messagesRef.current,
-        { role: message.role, content: message.transcript },
+        transcriptMessage,
       ].slice(-24);
+      unsavedMessagesRef.current = [...unsavedMessagesRef.current, transcriptMessage];
       if (message.role === 'user') onUserTranscript?.(message.transcript, messagesRef.current);
+      if (unsavedMessagesRef.current.length >= 4) void flushUnsavedVoiceMessages();
     };
+    const autosaveTimer = window.setInterval(() => {
+      void flushUnsavedVoiceMessages();
+    }, 12000);
     vapi.on('call-start', onStart);
     vapi.on('call-end', onEnd);
     vapi.on('error', onError);
@@ -162,6 +183,8 @@ export default function CallButton({
       vapi?.off('call-end', onEnd);
       vapi?.off('error', onError);
       vapi?.off('message', onMessage);
+      window.clearInterval(autosaveTimer);
+      void saveCallState();
     };
   }, [companionId, conversationId, isVideoMode, onUserTranscript, onVoiceMessagesSaved]);
 

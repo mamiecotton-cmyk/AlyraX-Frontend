@@ -317,7 +317,7 @@ async function loadRecentChatContext(userId: string, conversationId: string, arc
       .eq('conversation_id', conversation.id)
       .not('content', 'is', null)
       .order('created_at', { ascending: false })
-      .limit(18);
+      .limit(30);
 
     if (messagesError || !messages?.length) return [];
 
@@ -508,7 +508,7 @@ export async function POST(req: NextRequest) {
       memoryBlock ? `Continuity context:\n${memoryBlock}` : '',
       factsBlock,
       recentTextContext.length
-        ? 'The recent text chat below is the same relationship continuing into this phone call. Treat the call and text thread as one seamless conversation.'
+        ? 'The recent text chat below is the same relationship continuing into this phone call. Treat the call and text thread as one seamless conversation. Preserve current-state details from it, including what either person is wearing, doing, feeling, or discussing right now.'
         : '',
       isPlatonicMode ? '' : ADAPTIVE_DIALOGUE_INSTRUCTIONS,
       directiveBlock ? `Current session directives (apply NOW):\n${directiveBlock}` : '',

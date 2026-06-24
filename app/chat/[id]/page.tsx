@@ -781,6 +781,24 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
   const companionVoiceId = linkedCompanionVoiceId || personaVoice?.voice_id;
   const profileImageUrl = archetypeImage || chatCompanion?.image_url || null;
   const mediaUrl = profileImageUrl;
+  const recentVoiceMemory = (() => {
+    const textMessages = messages
+      .filter(msg => msg.content?.trim())
+      .slice(-10);
+    const recentSummary = textMessages
+      .map(msg => `${msg.role === 'user' ? 'User' : companionDisplayName}: ${msg.content?.trim()}`)
+      .join(' ');
+    const lastUserMessage = [...textMessages].reverse().find(msg => msg.role === 'user')?.content?.trim() || '';
+    const lastAssistantMessage = [...textMessages].reverse().find(msg => msg.role === 'companion')?.content?.trim() || '';
+    const summary = [
+      factsMemory?.summary ? `Saved facts:\n${factsMemory.summary}` : '',
+      recentSummary ? `Recent conversation:\n${recentSummary}` : '',
+    ].filter(Boolean).join('\n');
+
+    return summary || lastUserMessage || lastAssistantMessage
+      ? { summary, lastUserMessage, lastAssistantMessage }
+      : factsMemory;
+  })();
 
   // Group messages by date for dividers
   const groupedMessages: { date: string; messages: Message[] }[] = [];
@@ -879,7 +897,7 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
                   personaTagline={linkedCompanionPersona?.tagline || archetype.tagline}
                   archetypeId={id}
                   userName={userName}
-                  lastMemory={factsMemory}
+                  lastMemory={recentVoiceMemory}
                   onUserTranscript={handleVoiceTranscript}
                   onVoiceMessagesSaved={handleVoiceMessagesSaved}
                   voiceLoading={loading}
@@ -940,7 +958,7 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
                     personaTagline={linkedCompanionPersona?.tagline || archetype.tagline}
                     archetypeId={id}
                     userName={userName}
-                    lastMemory={factsMemory}
+                    lastMemory={recentVoiceMemory}
                     onUserTranscript={handleVoiceTranscript}
                     onVoiceMessagesSaved={handleVoiceMessagesSaved}
                     voiceLoading={loading}

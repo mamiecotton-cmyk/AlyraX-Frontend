@@ -61,6 +61,7 @@ class DeepgramVoiceClient {
   private source: MediaStreamAudioSourceNode | null = null;
   private keepAliveTimer: ReturnType<typeof setInterval> | null = null;
   private startTimeout: ReturnType<typeof setTimeout> | null = null;
+  private greetingFallbackTimer: ReturnType<typeof setTimeout> | null = null;
   private playbackTime = 0;
   private activeSources: AudioBufferSourceNode[] = [];
   private stopping = false;
@@ -178,6 +179,15 @@ class DeepgramVoiceClient {
     }));
   }
 
+  private queueGreetingFallback(message: string) {
+    if (!message.trim()) return;
+    if (this.greetingFallbackTimer) clearTimeout(this.greetingFallbackTimer);
+    this.greetingFallbackTimer = setTimeout(() => {
+      this.greetingFallbackTimer = null;
+      this.say(message);
+    }, 1800);
+  }
+
   /**
    * Append additional instructions to the agent's prompt mid-call.
    * UpdatePrompt APPENDS — does not replace.
@@ -226,7 +236,7 @@ class DeepgramVoiceClient {
         await this.startMicrophone();
         this.startKeepAlive();
         this.emit('call-start');
-        if (options?.firstMessage) this.say(options.firstMessage);
+        if (options?.firstMessage) this.queueGreetingFallback(options.firstMessage);
       } catch (error) {
         this.emit('error', error);
         this.stop();
@@ -244,6 +254,10 @@ class DeepgramVoiceClient {
       return;
     }
     if (message.type === 'AgentStartedSpeaking') {
+      if (this.greetingFallbackTimer) {
+        clearTimeout(this.greetingFallbackTimer);
+        this.greetingFallbackTimer = null;
+      }
       this.emit('speech-start');
       return;
     }
@@ -266,6 +280,7 @@ class DeepgramVoiceClient {
     }
     if (message.type === 'Error') {
       this.emit('error', message);
+      this.stop();
       return;
     }
     if (message.type === 'Warning') {
@@ -316,7 +331,7 @@ class DeepgramVoiceClient {
     if (values.personaTagline) llmUrl.searchParams.set('personaTagline', values.personaTagline);
     if (values.promptUsed) llmUrl.searchParams.set('promptUsed', values.promptUsed.slice(0, 1000));
     if (values.userName) llmUrl.searchParams.set('userName', values.userName);
-    if (values.lastMemory) llmUrl.searchParams.set('lastMemory', values.lastMemory.slice(0, 500));
+    if (values.lastMemory) llmUrl.searchParams.set('lastMemory', values.lastMemory.slice(0, 900));
     if (values.archetypeId) llmUrl.searchParams.set('archetypeId', values.archetypeId);
     if (values.conversationId) llmUrl.searchParams.set('conversationId', values.conversationId);
     if (this.voiceContextToken) llmUrl.searchParams.set('ctx', this.voiceContextToken);
@@ -373,8 +388,9 @@ class DeepgramVoiceClient {
           },
           endpoint: { url: llmUrl.toString() },
           prompt: mode === 'solo_video' ? VIDEO_AGENT_PROMPT : VOICE_AGENT_PROMPT,
-          context_length: mode === 'solo_video' ? 1200 : 900,
+          context_length: mode === 'solo_video' ? 1600 : 1800,
         },
+        greeting: options?.firstMessage || undefined,
         speak,
       },
     }));
@@ -477,6 +493,8 @@ class DeepgramVoiceClient {
 
   private cleanup() {
     this.clearStartTimeout();
+    if (this.greetingFallbackTimer) clearTimeout(this.greetingFallbackTimer);
+    this.greetingFallbackTimer = null;
     if (this.keepAliveTimer) clearInterval(this.keepAliveTimer);
     this.keepAliveTimer = null;
     this.stopPlayback();
