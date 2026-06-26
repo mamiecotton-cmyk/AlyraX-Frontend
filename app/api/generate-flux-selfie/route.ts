@@ -19,6 +19,8 @@ type FluxWorkflowParams = {
   nsfwLoraStrength: number;
   characterId?: string;
   pulidReference?: string;   // filename in /comfyui/input for PuLID face-lock
+  pulidWeight?: number;
+  pulidStartAt?: number;
 };
 
 type ImageStyle = 'portrait' | 'fullbody' | 'fullscreen';
@@ -66,6 +68,8 @@ function buildFluxWorkflow({
   nsfwLoraStrength,
   characterId,
   pulidReference,
+  pulidWeight,
+  pulidStartAt,
 }: FluxWorkflowParams) {
   const loraNodes: Record<string, { class_type: string; inputs: Record<string, unknown> }> = {};
   let currentModel: [string, number] = ['1', 0];
@@ -113,8 +117,8 @@ function buildFluxWorkflow({
         eva_clip: ['P2', 0],
         face_analysis: ['P3', 0],
         image: ['P4', 0],
-        weight: 0.7,
-        start_at: 0.15,
+        weight: pulidWeight ?? 0.7,
+        start_at: pulidStartAt ?? 0.3,
         end_at: 1.0,
       },
     };
@@ -266,6 +270,8 @@ export async function POST(req: NextRequest) {
       guidance = 3.5,
       character_id,
       explicit,
+      pulid_weight,
+      pulid_start_at,
     } = await req.json();
 
     if (!prompt || !lora_file || !trigger_word) {
@@ -332,6 +338,8 @@ export async function POST(req: NextRequest) {
       nsfwLoraStrength: nsfw_lora_strength,
       characterId: typeof character_id === 'string' ? character_id : undefined,
       pulidReference: archetypeLoraConfig?.pulidReference,
+      pulidWeight: pulid_weight,
+      pulidStartAt: pulid_start_at,
     });
 
     console.log('Submitting Flux LoRA selfie:', {
