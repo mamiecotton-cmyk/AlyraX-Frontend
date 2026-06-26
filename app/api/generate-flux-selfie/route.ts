@@ -90,14 +90,14 @@ function buildFluxWorkflow({
   if (useNsfwLora) {
     if (isMale) {
       addLora('male_anatomy_flux.safetensors', Math.min(nsfwLoraStrength, 0.35));
-      addLora('male_explicit_v2.safetensors', Math.min(nsfwLoraStrength, 0.25));
+      addLora('male_explicit_v2.safetensors', Math.min(nsfwLoraStrength, 0.12));
     } else {
       addLora('nsfw_flux_v2.safetensors', nsfwLoraStrength);
     }
   }
   addLora(loraFile, loraStrength);
   if (useNsfwLora && refinementLoraFile && refinementStrength) addLora(refinementLoraFile, refinementStrength);
-  addLora('Show_Feet_-.safetensors', useNsfwLora && isMale ? 0.12 : 0.25);
+  if (!(useNsfwLora && isMale)) addLora('Show_Feet_-.safetensors', 0.25);
 
   const modelOutput = currentModel;
 
@@ -219,9 +219,12 @@ function isExplicitContentPrompt(prompt: string) {
   return /\b(nude|naked|unclothed|not clothed|no clothes|no clothing|without clothes|clothes off|uncensored|nsfw|explicit|topless|shirtless|bare|intimate|penis)\b/i.test(prompt);
 }
 
-function buildFinalPrompt(prompt: string, triggerWord: string, style: ImageStyle, characterId?: string) {
+function buildFinalPrompt(prompt: string, triggerWord: string, style: ImageStyle, characterId?: string, useNsfwLora = false) {
   const promptWithoutTrigger = removeLeadingTriggerWord(prompt.trim(), triggerWord);
   const characterAnchor = characterId ? (CHARACTER_ANCHORS[characterId] ?? '') : '';
+  const maleExplicitAnatomyGuard = useNsfwLora && ['jerome', 'jaxon', 'roman'].includes(characterId ?? '')
+    ? 'masculine male body, broad shoulders, flat chest, narrow hips, male pelvis, male genitals only at the groin, hands are normal hands, feet are normal feet, toes are only toes'
+    : '';
   const posePhrase = style === 'fullbody' || style === 'fullscreen'
     ? 'full body, full figure head to toe, feet visible in frame'
     : '';
@@ -241,7 +244,7 @@ function buildFinalPrompt(prompt: string, triggerWord: string, style: ImageStyle
         ].join(', ')
       : 'portrait selfie composition';
 
-  return [triggerWord, characterAnchor, posePhrase, promptWithoutTrigger, PHOTOREALISM_PROMPT, composition]
+  return [triggerWord, characterAnchor, maleExplicitAnatomyGuard, posePhrase, promptWithoutTrigger, PHOTOREALISM_PROMPT, composition]
     .filter(Boolean)
     .join(', ');
 }
@@ -315,7 +318,7 @@ export async function POST(req: NextRequest) {
     const charTrigger = useExplicitCharacterLora
       ? archetypeLoraConfig?.explicitTriggerWord ?? trigger_word
       : trigger_word;
-    const finalPrompt = buildFinalPrompt(prompt, charTrigger, imageStyle, character_id);
+    const finalPrompt = buildFinalPrompt(prompt, charTrigger, imageStyle, character_id, useNsfwLora);
     const shouldStrengthenJaxonPulid = character_id === 'jaxon' && useNsfwLora;
     const effectivePulidWeight = pulid_weight ?? (shouldStrengthenJaxonPulid ? 0.9 : undefined);
     const effectivePulidStartAt = pulid_start_at ?? (shouldStrengthenJaxonPulid ? 0.08 : undefined);
