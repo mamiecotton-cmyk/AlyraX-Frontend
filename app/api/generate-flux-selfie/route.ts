@@ -316,6 +316,9 @@ export async function POST(req: NextRequest) {
       ? archetypeLoraConfig?.explicitTriggerWord ?? trigger_word
       : trigger_word;
     const finalPrompt = buildFinalPrompt(prompt, charTrigger, imageStyle, character_id);
+    const shouldStrengthenJaxonPulid = character_id === 'jaxon' && useNsfwLora;
+    const effectivePulidWeight = pulid_weight ?? (shouldStrengthenJaxonPulid ? 0.9 : undefined);
+    const effectivePulidStartAt = pulid_start_at ?? (shouldStrengthenJaxonPulid ? 0.08 : undefined);
 
     const { width, height } = styleToDimensions(imageStyle);
     const resolvedSeed =
@@ -338,8 +341,8 @@ export async function POST(req: NextRequest) {
       nsfwLoraStrength: nsfw_lora_strength,
       characterId: typeof character_id === 'string' ? character_id : undefined,
       pulidReference: archetypeLoraConfig?.pulidReference,
-      pulidWeight: pulid_weight,
-      pulidStartAt: pulid_start_at,
+      pulidWeight: effectivePulidWeight,
+      pulidStartAt: effectivePulidStartAt,
     });
 
     console.log('Submitting Flux LoRA selfie:', {
