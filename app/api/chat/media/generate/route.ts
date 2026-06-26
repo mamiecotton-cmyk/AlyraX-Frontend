@@ -55,6 +55,21 @@ function styleForMediaPrompt(prompt: string) {
     : 'portrait';
 }
 
+function deriveExpressionCue(text: string): string {
+  const t = (text || '').toLowerCase();
+  if (/\b(flirt|tease|seductive|sultry|desire|want you|crave)\b/.test(t))
+    return 'soft seductive smile, half-lidded inviting eyes';
+  if (/\b(laugh|joke|playful|fun|silly|haha|lol|smile|happy)\b/.test(t))
+    return 'bright genuine smile, teeth showing, eyes crinkled, cheeks raised';
+  if (/\b(serious|intense|passion|deep|focused|stare)\b/.test(t))
+    return 'intense focused gaze, serious confident expression';
+  if (/\b(love|tender|sweet|miss you|adore|care|gentle)\b/.test(t))
+    return 'soft warm smile, tender affectionate eyes';
+  if (/\b(angry|mad|upset|frustrat)\b/.test(t))
+    return 'intense expression, furrowed brow, serious';
+  return 'relaxed natural expression, warm and engaged, slight smile';
+}
+
 export async function POST(req: NextRequest) {
   try {
     const { message_id, archetype_id, media_type, media_prompt } = await req.json();
@@ -85,12 +100,13 @@ export async function POST(req: NextRequest) {
       const loraConfig = getArchetypeLora(archetype_id);
       if (loraConfig) {
         console.log('Routing to Flux LoRA pipeline for', archetype_id, loraConfig.loraFile);
+        const expressionCue = deriveExpressionCue(media_prompt);
 
         const fluxRes = await fetch(`${APP_URL}/api/generate-flux-selfie`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            prompt: media_prompt,
+            prompt: `${expressionCue}, ${media_prompt}`,
             lora_file: loraConfig.loraFile,
             trigger_word: loraConfig.triggerWord,
             style: imageStyle,
