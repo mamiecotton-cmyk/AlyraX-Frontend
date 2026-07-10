@@ -156,6 +156,19 @@ function summarizeChatFailure(attempts: ChatAttempt[]) {
   return 'The chat model is temporarily unavailable. Please try again.';
 }
 
+function companionClearlyPromisesSelfie(text: string) {
+  const normalized = text.toLowerCase().replace(/\s+/g, ' ').trim();
+  const mediaWord = '(?:photo|picture|pic|selfie|shot|snap|image)';
+  const sendAction = '(?:send|sending|sent|snap|snapping|take|taking|show|showing)';
+
+  return [
+    new RegExp(`\\b(?:i(?:'m| am|'ll| will)|let me|lemme|gimme|give me)\\b[^.?!]{0,90}\\b${sendAction}\\b[^.?!]{0,60}\\b${mediaWord}\\b`),
+    new RegExp(`\\b${sendAction}\\b[^.?!]{0,60}\\b(?:you|it|one|that|this|a|the)?\\b[^.?!]{0,30}\\b${mediaWord}\\b`),
+    /\b(?:here'?s|here is) (?:a|the|that|your)? ?(?:photo|picture|pic|selfie|shot|snap|image)\b/,
+    /\b(?:check|watch) (?:your|the) chat\b[^.?!]{0,80}\b(?:photo|picture|pic|selfie|shot|snap|image)\b/,
+  ].some((pattern) => pattern.test(normalized));
+}
+
 function buildMediaContextPrompt(message: string, recentHistory: ChatMessage[]) {
   const context = recentHistory
     .slice(-12)
@@ -566,6 +579,7 @@ export async function POST(req: NextRequest) {
     const selfieOfferMatch = companionText.match(/\[SEND_SELFIE:\s*([^\]]+)\]/i);
     const companionOffersSelfie = Boolean(selfieOfferMatch);
     const cleanedText = companionText.replace(/\[SEND_SELFIE:[^\]]*\]/i, '').trim();
+    const companionPromisesSelfie = !blocksPlatonicMedia && companionClearlyPromisesSelfie(cleanedText);
 
     // Save companion text message
     const { data: companionMsg, error: companionMsgError } = await supabase
@@ -584,10 +598,10 @@ export async function POST(req: NextRequest) {
 
     // If selfie requested — create a generating placeholder message
     let mediaMsg = null;
-    if (wantsSelfie || companionOffersSelfie) {
+    if (wantsSelfie || companionOffersSelfie || companionPromisesSelfie) {
       const selfiePrompt = companionOffersSelfie && selfieOfferMatch
         ? buildSelfiePrompt(selfieOfferMatch[1], archetype)
-        : buildSelfiePrompt(buildMediaContextPrompt(message, recentHistory), archetype);
+        : buildSelfiePrompt(buildMediaContextPrompt(`${message}\ncompanion reply: ${cleanedText}`, recentHistory), archetype);
       const { data: mediaMsgData } = await supabase
         .from('chat_messages')
         .insert({
@@ -648,9 +662,10 @@ export async function POST(req: NextRequest) {
       userMessage: userMsg,
       companionMessage: companionMsg,
       mediaMessage: mediaMsg,
-      wantsSelfie: wantsSelfie || companionOffersSelfie,
+      wantsSelfie: wantsSelfie || companionOffersSelfie || companionPromisesSelfie,
       wantsVideo,
       companionOffersSelfie,
+      companionPromisesSelfie,
     });
   } catch (error) {
     console.error('Chat send error:', error);
