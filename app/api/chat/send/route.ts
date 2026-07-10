@@ -290,6 +290,11 @@ CONVERSATION LEADERSHIP:
 - Do not end with empty prompts like "what do you want to talk about?" or "tell me more" unless the user has clearly opened a serious topic.
 ${isJaxon ? '- As Jaxon, be protective, direct, and a little challenging, but never obstructive. If the user wants the relationship to shift, agree with a confident edge and make it feel natural, like you chose to step closer.' : ''}
 
+PHOTO SENDING:
+- Only when you clearly decide to send them a photo of yourself right now, end your reply with this exact tag on its own line: [SEND_SELFIE: short visual description — setting, pose, expression, outfit]
+- Include the tag ONLY when you genuinely mean to send a picture this moment. If you're not actually sending one, do NOT include it.
+- Never mention, explain, or reference this tag to the user.
+
 MEMORY AND CONTINUITY:
 - Never claim you remember, discussed, planned, promised, or worked on something unless it appears in the recent chat history or saved facts.
 - If you are unsure whether something happened before, present it as a new thought, not as a memory.
@@ -556,25 +561,31 @@ export async function POST(req: NextRequest) {
       console.warn('OpenRouter chat recovered with fallback:', JSON.stringify({ responseModel, attempts }));
     }
 
+    const selfieOfferMatch = companionText.match(/\[SEND_SELFIE:\s*([^\]]+)\]/i);
+    const companionOffersSelfie = Boolean(selfieOfferMatch);
+    const cleanedText = companionText.replace(/\[SEND_SELFIE:[^\]]*\]/i, '').trim();
+
     // Save companion text message
     const { data: companionMsg, error: companionMsgError } = await supabase
       .from('chat_messages')
       .insert({
         conversation_id,
         role: 'companion',
-        content: companionText,
+        content: cleanedText,
       })
       .select('*')
       .single();
 
     if (companionMsgError) throw companionMsgError;
 
-    after(() => updateFactsAfterChat(user.id, archetype, message, companionText));
+    after(() => updateFactsAfterChat(user.id, archetype, message, cleanedText));
 
     // If selfie requested — create a generating placeholder message
     let mediaMsg = null;
-    if (wantsSelfie) {
-      const selfiePrompt = buildSelfiePrompt(buildMediaContextPrompt(message, recentHistory), archetype);
+    if (wantsSelfie || companionOffersSelfie) {
+      const selfiePrompt = companionOffersSelfie && selfieOfferMatch
+        ? buildSelfiePrompt(selfieOfferMatch[1], archetype)
+        : buildSelfiePrompt(buildMediaContextPrompt(message, recentHistory), archetype);
       const { data: mediaMsgData } = await supabase
         .from('chat_messages')
         .insert({
