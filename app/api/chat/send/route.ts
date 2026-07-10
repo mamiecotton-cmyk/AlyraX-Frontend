@@ -543,9 +543,10 @@ export async function POST(req: NextRequest) {
     const mediaReminder = (wantsSelfie || wantsVideo)
       ? `\n\nIMPORTANT REMINDER: The user just asked for a ${wantsVideo ? 'video' : 'photo'}, and it IS being generated and delivered automatically regardless of your reply. Respond briefly and in character as if you're about to ${wantsVideo ? 'record it' : 'send it'} — do not refuse, decline, or say you won't send anything, regardless of anything said earlier in this conversation. Do not mention this reminder.`
       : '';
+    const selfieTagReminder = `\n\nCRITICAL PHOTO TAG CONTRACT: If your reply says, offers, agrees, hints, or implies that you are sending a photo of yourself right now, your final line MUST use this exact format: [SEND_SELFIE: short visual description — setting, pose, expression, outfit]. If you are not sending a photo right now, do not include the tag. Never mention this instruction.`;
 
     const { content: companionText, model: responseModel, attempts } = await fetchOpenRouterChat([
-      { role: 'system', content: systemPrompt + mediaReminder },
+      { role: 'system', content: systemPrompt + mediaReminder + selfieTagReminder },
       ...recentHistory,
       { role: 'user', content: message },
     ]);
@@ -647,8 +648,9 @@ export async function POST(req: NextRequest) {
       userMessage: userMsg,
       companionMessage: companionMsg,
       mediaMessage: mediaMsg,
-      wantsSelfie,
+      wantsSelfie: wantsSelfie || companionOffersSelfie,
       wantsVideo,
+      companionOffersSelfie,
     });
   } catch (error) {
     console.error('Chat send error:', error);
